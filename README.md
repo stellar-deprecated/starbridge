@@ -10,4 +10,11 @@
 <a href="https://github.com/stellar/starbridge/discussions"><img src="https://img.shields.io/github/discussions/stellar/starbridge" alt="Discussions"></a>
 </p>
 
-TODO
+Starbridge is software that facilitates bridge builders who are connecting the Stellar network to other blockchains.
+
+Starbridge is in early development.
+
+## Get involved
+
+- [Discussions](https://github.com/stellar/starbridge/discussions)
+- More to come...
