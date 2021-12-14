@@ -1,0 +1,50 @@
+name: Go
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@5c56cd6c9dc07901af25baab6f2b0d9f3b7c3018
+        with:
+          version: v1.43.0
+          skip-go-installation: true
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1
+    - name: Build
+      run: go build ./...
+    - name: Build Tests
+      run: go test -exec=echo ./...
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1
+    - name: Run Unit Tests
+      run: go test -v -race ./...
