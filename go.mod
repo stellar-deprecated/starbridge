@@ -2,7 +2,10 @@ module github.com/stellar/starbridge
 
 go 1.17
 
-require github.com/ethereum/go-ethereum v1.10.14
+require (
+	github.com/ethereum/go-ethereum v1.10.14
+	github.com/stellar/go v0.0.0-20220104232657-97c628efea95
+)
 
 require (
 	github.com/btcsuite/btcd v0.22.0-beta // indirect
@@ -10,7 +13,9 @@ require (
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
+	github.com/stellar/go-xdr v0.0.0-20211103144802-8017fc4bdfee // indirect
 	github.com/tklauser/go-sysconf v0.3.9 // indirect
 	github.com/tklauser/numcpus v0.3.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
