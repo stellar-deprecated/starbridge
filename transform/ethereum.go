@@ -37,9 +37,16 @@ func FetchEthTxByHash(txHash string) (*model.Transaction, error) {
 
 // Ethereum2Transaction makes a model.Transaction from an Ethereum Transaction
 func Ethereum2Transaction(txReceipt *types.Receipt, tx *types.Transaction, isPending bool) (*model.Transaction, error) {
-	fromAddress, e := getEthFromAddress(tx)
+	fromAddress, e := getFromAddress(tx)
 	if e != nil {
 		return nil, fmt.Errorf("unable to get From address: %s", e)
+	}
+
+	var assetInfo *model.AssetInfo
+	if txReceipt.ContractAddress.Hex() == model.AssetETH.ContractAddress {
+		assetInfo = model.AssetETH
+	} else {
+		return nil, fmt.Errorf("unsupported contract address '%s' on Ethereum", txReceipt.ContractAddress.Hex())
 	}
 
 	return &model.Transaction{
@@ -48,11 +55,10 @@ func Ethereum2Transaction(txReceipt *types.Receipt, tx *types.Transaction, isPen
 		Block:                txReceipt.BlockNumber.Uint64(),
 		SeqNum:               tx.Nonce(),
 		IsPending:            isPending,
-		ContractAddress:      txReceipt.ContractAddress.Hex(),
 		From:                 fromAddress,
 		To:                   tx.To().Hex(),
+		AssetInfo:            assetInfo,
 		Amount:               tx.Value().Uint64(),
-		Decimals:             18, // ?? for ethereum? or take from contract address
 		OriginalTx:           tx,
 		AdditionalOriginalTx: []interface{}{txReceipt},
 	}, nil
@@ -75,7 +81,8 @@ func Ethereum2Transaction(txReceipt *types.Receipt, tx *types.Transaction, isPen
 	// sb.WriteString("\nData: " + string(tx.Data()))
 }
 
-func getEthFromAddress(tx *types.Transaction) (string, error) {
+// getFromAddress gets the From address for an Ethereum transaction
+func getFromAddress(tx *types.Transaction) (string, error) {
 	msg, e := tx.AsMessage(types.NewEIP155Signer(tx.ChainId()), big.NewInt(0))
 	if e != nil {
 		return "", fmt.Errorf("could not get tx as message: %s", e)

@@ -8,41 +8,31 @@ import (
 	"github.com/stellar/starbridge/model"
 )
 
-const (
-	stellarDecimals               = 7
-	ethereumNativeContractAddress = "0x0000000000000000000000000000000000000000"
-)
+// TODO need to set the contract account, source account
+var sourceAccount = "GDXLLPH23EHIFOQLO46X2WQQPBBRJ6YPV7JOXEWS7V3AU74Z4EY7PGCS" // var sourceSecretKey = "SAJOMEU6AAHWIUSF43Z7BGFEEB4VUCZVTG56U4DU6RR3UGAZRFSHEYEQ"
 
-// TODO need to set the contract account, source account, and seq numbers properly
-var assetCode_WETH = "WETH"
-var contractAccount = "GB42JR56FDOVUR75LN2J2F6DARS7SDUYMYPETQ24TDGRBCCQCHS2M2Y7"
-var sourceAccount = contractAccount
-var sourceLastSeqNum int64 = 0
-
-// var contractSecretKey = "SAZGAQANN6UB3SM3GM7SF4PDF5EMC67LOHOYACK4O7VECYI2WTDI4F4P"
-// var sourceSecretKey = contractSecretKey
-// var destinationSecretKey = "SALR2RNJG55BBWTML2MKO5CXG5QDI4ZTSVDIA53XDWOU7QPOAEQNYUE2"
-
-// TODO this destination needs to be input from the input transaction on the remote chain from the memo or similar
-var destinationAccount = "GCBAA5476KARHPDSU6WFQTPXQOWX3QMXU4LF7JVZ2ZMWJ4OQEL7ZMV6G"
 var baseFee int64 = 100
 
-func getStellarAsset(tx *model.Transaction) txnbuild.CreditAsset {
-	if tx.ContractAddress == ethereumNativeContractAddress {
-		return txnbuild.CreditAsset{
-			Code:   assetCode_WETH,
-			Issuer: contractAccount,
-		}
+func getStellarAsset(assetInfo *model.AssetInfo) txnbuild.Asset {
+	if assetInfo.ContractAddress == "native" {
+		return txnbuild.NativeAsset{}
 	}
-	panic(fmt.Sprintf("unsupported contract address '%s' on tx", tx.ContractAddress))
+	return txnbuild.CreditAsset{
+		Code:   assetInfo.Code,
+		Issuer: assetInfo.ContractAddress,
+	}
 }
 
 func Transaction2Stellar(tx *model.Transaction) (*txnbuild.Transaction, error) {
+	if tx.Chain != model.ChainStellar {
+		return nil, fmt.Errorf("cannot convert transaction from a different chain ('%s') to Stellar, need to convert the transaction to the Stellar chain first", tx.Chain.Name)
+	}
+
 	ops := []txnbuild.Operation{}
 	ops = append(ops, &txnbuild.Payment{
-		Destination: destinationAccount,
-		Amount:      fmt.Sprintf("%d", tx.AmountUsingDecimals(stellarDecimals)),
-		Asset:       getStellarAsset(tx),
+		Destination: tx.To,
+		Asset:       getStellarAsset(tx.AssetInfo),
+		Amount:      fmt.Sprintf("%d", tx.Amount),
 		// SourceAccount: nil,
 	})
 
@@ -50,7 +40,7 @@ func Transaction2Stellar(tx *model.Transaction) (*txnbuild.Transaction, error) {
 		txnbuild.TransactionParams{
 			SourceAccount: &txnbuild.SimpleAccount{
 				AccountID: sourceAccount,
-				Sequence:  sourceLastSeqNum,
+				Sequence:  int64(tx.SeqNum),
 			},
 			BaseFee:              baseFee,
 			IncrementSequenceNum: true,
