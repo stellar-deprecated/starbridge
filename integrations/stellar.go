@@ -29,10 +29,12 @@ func Transaction2Stellar(tx *model.Transaction) (*txnbuild.Transaction, error) {
 	}
 
 	ops := []txnbuild.Operation{}
-	ops = append(ops, &txnbuild.Payment{
-		Destination: tx.To,
-		Asset:       getStellarAsset(tx.AssetInfo),
-		Amount:      fmt.Sprintf("%d", tx.Amount),
+	ops = append(ops, &txnbuild.CreateClaimableBalance{
+		Destinations: []txnbuild.Claimant{
+			txnbuild.NewClaimant(tx.To, &txnbuild.UnconditionalPredicate),
+		},
+		Asset:  getStellarAsset(tx.AssetInfo),
+		Amount: fmt.Sprintf("%d", tx.Amount),
 		// SourceAccount: nil,
 	})
 
@@ -91,11 +93,11 @@ func stellarOps2String(ops []txnbuild.Operation) string {
 func stellarOp2String(op txnbuild.Operation) string {
 	sb := strings.Builder{}
 	switch o := op.(type) {
-	case *txnbuild.Payment:
+	case *txnbuild.CreateClaimableBalance:
 		sb.WriteString("Operation[")
 		sb.WriteString(fmt.Sprintf("SourceAccount=%s", op.GetSourceAccount()))
-		sb.WriteString(fmt.Sprintf(", Type=%s", "Payment"))
-		sb.WriteString(fmt.Sprintf(", Destination=%s", o.Destination))
+		sb.WriteString(fmt.Sprintf(", Type=%s", "CreateClaimableBalance"))
+		sb.WriteString(fmt.Sprintf(", Destinations=%s", getDestinationsString(o.Destinations)))
 		sb.WriteString(fmt.Sprintf(", Amount=%s", o.Amount))
 
 		asset := ""
@@ -107,7 +109,23 @@ func stellarOp2String(op txnbuild.Operation) string {
 		sb.WriteString(fmt.Sprintf(", Asset=%s", asset))
 		sb.WriteString("]")
 	default:
-		sb.WriteString("unrecognized_operation")
+		sb.WriteString(fmt.Sprintf("unrecognized_operation_type__%T", o))
 	}
+	return sb.String()
+}
+
+func getDestinationsString(destinations []txnbuild.Claimant) string {
+	sb := strings.Builder{}
+	sb.WriteString("[")
+	for i, d := range destinations {
+		if i != 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString("Claimant[")
+		sb.WriteString(fmt.Sprintf("Desination=%s", d.Destination))
+		sb.WriteString(fmt.Sprintf(", Predicate=%s", d.Predicate.Type.String()))
+		sb.WriteString("]")
+	}
+	sb.WriteString("]")
 	return sb.String()
 }
