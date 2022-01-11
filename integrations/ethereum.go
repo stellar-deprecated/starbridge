@@ -1,4 +1,4 @@
-package transform
+package integrations
 
 import (
 	"context"
@@ -43,8 +43,9 @@ func Ethereum2Transaction(txReceipt *types.Receipt, tx *types.Transaction, isPen
 	}
 
 	var assetInfo *model.AssetInfo
-	if txReceipt.ContractAddress.Hex() == model.AssetETH.ContractAddress {
-		assetInfo = model.AssetETH
+	// TODO for now I'm only testing conversions of regular ETH payments to any other address, need this to check the address of the Smart-Contract that we deploy
+	if txReceipt.ContractAddress.Hex() == model.AssetEthereum_ETH.ContractAddress {
+		assetInfo = model.AssetEthereum_ETH
 	} else {
 		return nil, fmt.Errorf("unsupported contract address '%s' on Ethereum", txReceipt.ContractAddress.Hex())
 	}

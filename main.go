@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/stellar/starbridge/integrations"
 	"github.com/stellar/starbridge/model"
 	"github.com/stellar/starbridge/transform"
 )
@@ -11,7 +12,7 @@ import (
 func main() {
 	txHash := "0x13070f64d40f22cd10c5bf9972767b67406ed3d818a50f82b1409289dcaa1aec"
 
-	modelTxEth, e := transform.FetchEthTxByHash(txHash)
+	modelTxEth, e := integrations.FetchEthTxByHash(txHash)
 	if e != nil {
 		log.Fatal(fmt.Errorf("error doing FetchEthTxByHash: %s", e))
 	}
@@ -27,9 +28,9 @@ func main() {
 	fmt.Println(modelTxStellar.String())
 	fmt.Printf("\n\n")
 
-	stellarTx, e := transform.Transaction2Stellar(modelTxStellar)
+	stellarTx, e := integrations.Transaction2Stellar(modelTxStellar)
 	if e != nil {
 		log.Fatal(fmt.Errorf("error doing Transaction2Stellar: %s", e))
 	}
-	fmt.Println(transform.Stellar2String(stellarTx))
+	fmt.Println(integrations.Stellar2String(stellarTx))
 }
