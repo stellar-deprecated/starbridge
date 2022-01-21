@@ -1,10 +1,12 @@
 package integrations
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strings"
 
 	"github.com/stellar/go/txnbuild"
+	"github.com/stellar/go/xdr"
 
 	"github.com/stellar/starbridge/cmd/starbridge/model"
 )
@@ -78,6 +80,7 @@ func Stellar2String(tx *txnbuild.Transaction) string {
 	sb.WriteString(fmt.Sprintf(", TimeBounds.MaxTime=%d", tx.Timebounds().MaxTime))
 	sb.WriteString(fmt.Sprintf(", Memo=%s", memoString))
 	sb.WriteString(fmt.Sprintf(", Operations=%s", stellarOps2String(tx.Operations())))
+	sb.WriteString(fmt.Sprintf(", Signatures=%s", stellarSigs(tx.Signatures())))
 	sb.WriteString("]")
 	return sb.String()
 }
@@ -91,6 +94,22 @@ func stellarOps2String(ops []txnbuild.Operation) string {
 			sb.WriteString(", ")
 		}
 		sb.WriteString(stellarOp2String(ops[i]))
+	}
+
+	sb.WriteString("]")
+	return sb.String()
+}
+
+func stellarSigs(sigs []xdr.DecoratedSignature) string {
+	sb := strings.Builder{}
+	sb.WriteString("Array[")
+
+	for i := 0; i < len(sigs); i++ {
+		if i != 0 {
+			sb.WriteString(", ")
+		}
+		sigOut := base64.StdEncoding.EncodeToString(sigs[i].Signature)
+		sb.WriteString(sigOut)
 	}
 
 	sb.WriteString("]")
