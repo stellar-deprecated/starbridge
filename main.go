@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	txHash := "0x13070f64d40f22cd10c5bf9972767b67406ed3d818a50f82b1409289dcaa1aec"
+	txHash := "0x9a5ed1a2f961cbe3ddbf9ec083f662f0948924368bb8ea232b8abc5e1bfa70da"
 
 	modelTxEth, e := integrations.FetchEthTxByHash(txHash)
 	if e != nil {

@@ -16,7 +16,7 @@ func MapTxToChain(tx *model.Transaction, destinationChain *model.Chain) (*model.
 		panic("can only convert to Stellar chain for now")
 	}
 
-	mappedAssetInfo, ok := destinationChain.AddressMappings[tx.AssetInfo]
+	mappedAssetInfo, ok := destinationChain.AddressMappings[tx.AssetInfo.MapKey()]
 	if !ok {
 		return nil, fmt.Errorf("entry for input asset ('%s') did not exist, could not convert to mappedAssetInfo on destination chain", tx.AssetInfo.String())
 	}

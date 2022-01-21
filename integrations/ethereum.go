@@ -3,20 +3,26 @@ package integrations
 import (
 	"context"
 	"fmt"
-	"math/big"
+	"log"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stellar/starbridge/model"
+
+	"github.com/stellar/starbridge/contracts/gen/Counter"
 )
 
 // FetchEthTxByHash returns a model.Transaction
 func FetchEthTxByHash(txHash string) (*model.Transaction, error) {
-	conn, e := ethclient.Dial("https://ropsten.infura.io/v3/a42ad89bbcec4ddca5c9abb60eb4a300")
+	infuraURL := "https://ropsten.infura.io/v3/a42ad89bbcec4ddca5c9abb60eb4a300"
+	conn, e := ethclient.Dial(infuraURL)
 	if e != nil {
-		return nil, fmt.Errorf("could not connect to infura testnet: %s", e)
+		return nil, fmt.Errorf("could not connect to infura (%s): %s", infuraURL, e)
 	}
+	defer conn.Close()
 
 	ctx := context.Background()
 	ethTxReceipt, e := conn.TransactionReceipt(ctx, common.HexToHash(txHash))
@@ -28,7 +34,7 @@ func FetchEthTxByHash(txHash string) (*model.Transaction, error) {
 		return nil, fmt.Errorf("could not fetch transaction '%s' by hash from network: %s", txHash, e)
 	}
 
-	tx, e := Ethereum2Transaction(ethTxReceipt, ethTx, isPending)
+	tx, e := Ethereum2Transaction(conn, ethTxReceipt, ethTx, isPending)
 	if e != nil {
 		return nil, fmt.Errorf("could not convert txToString: %s", e)
 	}
@@ -36,19 +42,46 @@ func FetchEthTxByHash(txHash string) (*model.Transaction, error) {
 }
 
 // Ethereum2Transaction makes a model.Transaction from an Ethereum Transaction
-func Ethereum2Transaction(txReceipt *types.Receipt, tx *types.Transaction, isPending bool) (*model.Transaction, error) {
+func Ethereum2Transaction(conn *ethclient.Client, txReceipt *types.Receipt, tx *types.Transaction, isPending bool) (*model.Transaction, error) {
+	// we only allow funds sent to our contract for any asset
+	if !IsMyContractAddress(tx.To().Hex()) {
+		return nil, fmt.Errorf("unsupported receiver address '%s'", tx.To().Hex())
+	}
+
 	fromAddress, e := getFromAddress(tx)
 	if e != nil {
 		return nil, fmt.Errorf("unable to get From address: %s", e)
 	}
 
-	var assetInfo *model.AssetInfo
-	// TODO for now I'm only testing conversions of regular ETH payments to any other address, need this to check the address of the Smart-Contract that we deploy
-	if txReceipt.ContractAddress.Hex() == model.AssetEthereum_ETH.ContractAddress {
-		assetInfo = model.AssetEthereum_ETH
-	} else {
-		return nil, fmt.Errorf("unsupported contract address '%s' on Ethereum", txReceipt.ContractAddress.Hex())
+	counter, e := Counter.NewCounter(common.HexToAddress(MY_ETHEREUM_CONTRACT_ADDRESS), conn)
+	if e != nil {
+		return nil, fmt.Errorf("unable to construct counter: %s", e)
 	}
+	cValue, e := counter.GetCount(nil)
+	if e != nil {
+		return nil, fmt.Errorf("unable to invoke GetCall(): %s", e)
+	}
+	log.Printf("value of counter is %d", cValue.Int64())
+
+	myAbi, e := abi.JSON(strings.NewReader(Counter.CounterABI))
+	if e != nil {
+		return nil, fmt.Errorf("unable to read ABI: %s", e)
+	}
+	// TODO trying to get SHA3, see new code added in my_ethereum_contract to map fuinction names to sha hash values (4 bytes) so we can select correctly using fn sigs
+	methodParams, e := myAbi.Unpack("incrementCounter", tx.Data()[4:])
+	if e != nil {
+		return nil, fmt.Errorf("unable to unpack ABI to get method params: %s", e)
+	}
+	log.Printf("method params sent in: %v", methodParams)
+
+	// TODO convert the contract address to the correct token info - in this example it should give us AssetEthereum_USDC
+	// ensure the contract exists in the list that we support
+	// assetInfo, ok := model.ChainEthereum.AddressMappings[txReceipt.ContractAddress.Hex()]
+	// if !ok {
+	// 	return nil, fmt.Errorf("unsupported contract address '%s' on Ethereum", txReceipt.ContractAddress.Hex())
+	// }
+	// set this manually for now
+	assetInfo := model.AssetEthereum_ETH
 
 	return &model.Transaction{
 		Chain:                model.ChainEthereum,
@@ -84,7 +117,7 @@ func Ethereum2Transaction(txReceipt *types.Receipt, tx *types.Transaction, isPen
 
 // getFromAddress gets the From address for an Ethereum transaction
 func getFromAddress(tx *types.Transaction) (string, error) {
-	msg, e := tx.AsMessage(types.NewEIP155Signer(tx.ChainId()), big.NewInt(0))
+	msg, e := tx.AsMessage(types.LatestSignerForChainID(tx.ChainId()), tx.GasPrice())
 	if e != nil {
 		return "", fmt.Errorf("could not get tx as message: %s", e)
 	}

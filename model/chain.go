@@ -6,17 +6,17 @@ import "fmt"
 type Chain struct {
 	Name            string
 	NativeAsset     *AssetInfo
-	AddressMappings map[*AssetInfo]*AssetInfo // maps from a fixed set of assets from the remote chain to another fixed set of assets on the native chain (for now hard-coded, later on load from db)
+	AddressMappings map[string]*AssetInfo // maps from a fixed set of assets from the remote chain to another fixed set of assets on the native chain (for now hard-coded, later on load from db)
 }
 
 var (
-	ChainStellar *Chain = &Chain{Name: "Stellar", NativeAsset: AssetStellar_XLM, AddressMappings: map[*AssetInfo]*AssetInfo{
-		AssetEthereum_ETH:  AssetStellar_ETH,
-		AssetEthereum_WXLM: AssetStellar_XLM,
+	ChainStellar *Chain = &Chain{Name: "Stellar", NativeAsset: AssetStellar_XLM, AddressMappings: map[string]*AssetInfo{
+		AssetEthereum_ETH.MapKey():  AssetStellar_ETH,
+		AssetEthereum_WXLM.MapKey(): AssetStellar_XLM,
 	}}
-	ChainEthereum *Chain = &Chain{Name: "Ethereum", NativeAsset: AssetEthereum_ETH, AddressMappings: map[*AssetInfo]*AssetInfo{
-		AssetStellar_ETH: AssetEthereum_ETH,
-		AssetStellar_XLM: AssetEthereum_WXLM,
+	ChainEthereum *Chain = &Chain{Name: "Ethereum", NativeAsset: AssetEthereum_ETH, AddressMappings: map[string]*AssetInfo{
+		AssetStellar_ETH.MapKey(): AssetEthereum_ETH,
+		AssetStellar_XLM.MapKey(): AssetEthereum_WXLM,
 	}}
 )
 
