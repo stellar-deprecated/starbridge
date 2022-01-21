@@ -16,6 +16,8 @@ import (
 	ff "github.com/peterbourgon/ff/v3"
 	"github.com/sirupsen/logrus"
 	"github.com/stellar/go/clients/horizonclient"
+	"github.com/stellar/go/keypair"
+	"github.com/stellar/go/network"
 	supportlog "github.com/stellar/go/support/log"
 	"github.com/stellar/go/txnbuild"
 
@@ -38,10 +40,12 @@ func main() {
 func run(args []string, logger *supportlog.Entry) error {
 	fs := flag.NewFlagSet("starbridge", flag.ExitOnError)
 
+	seed := ""
 	portP2P := "0"
 	peers := ""
 	horizonURL := "https://horizon-testnet.stellar.org"
 
+	fs.StringVar(&seed, "seed", "", "Seed secret key for Stellar with which to sign transactions for this node")
 	fs.StringVar(&portP2P, "port-p2p", portP2P, "Port to accept P2P requests on (also via PORT_P2P)")
 	fs.StringVar(&peers, "peers", peers, "Comma-separated list of addresses of peers to connect to on start (also via PEERS)")
 	fs.StringVar(&horizonURL, "horizon", horizonURL, "Horizon URL (also via HORIZON_URL)")
@@ -49,6 +53,10 @@ func run(args []string, logger *supportlog.Entry) error {
 	err := ff.Parse(fs, args, ff.WithEnvVarNoPrefix())
 	if err != nil {
 		return err
+	}
+
+	if seed == "" {
+		return fmt.Errorf("needs 'seed' command line option")
 	}
 
 	logger.Info("Starting...")
@@ -145,10 +153,15 @@ func run(args []string, logger *supportlog.Entry) error {
 	}
 	fmt.Println(integrations.Stellar2String(stellarTx))
 
-	// TODO: Sign transaction.
+	fmt.Println("signing Stellar tx...")
+	signedStellarTx, err := signTxForStellar(stellarTx, seed)
+	if err != nil {
+		return fmt.Errorf("signing tx: %w", err)
+	}
+	fmt.Println(integrations.Stellar2String(signedStellarTx))
 
-	stellarGenTx := txnbuild.NewGenericTransactionWithTransaction(stellarTx)
-	err = sigShareStellar.Share(context.Background(), stellarGenTx)
+	signedStellarGenTx := txnbuild.NewGenericTransactionWithTransaction(signedStellarTx)
+	err = sigShareStellar.Share(context.Background(), signedStellarGenTx)
 	if err != nil {
 		return fmt.Errorf("sharing stellar tx: %w", err)
 	}
@@ -156,6 +169,23 @@ func run(args []string, logger *supportlog.Entry) error {
 	time.Sleep(2 * time.Second)
 
 	return nil
+}
+
+func signTxForStellar(tx *txnbuild.Transaction, seed string) (*txnbuild.Transaction, error) {
+	networkPassphrase := network.TestNetworkPassphrase
+
+	kp, e := keypair.Parse(seed)
+	if e != nil {
+		return nil, fmt.Errorf("cannot parse seed into keypair: %s", e)
+	}
+
+	// keep adding signatures
+	signedTx, e := tx.Sign(networkPassphrase, kp.(*keypair.Full))
+	if e != nil {
+		return nil, fmt.Errorf("cannot sign tx with keypair (pubKey: %s): %s", kp.Address(), e)
+	}
+
+	return signedTx, nil
 }
 
 type mdnsNotifee struct {
