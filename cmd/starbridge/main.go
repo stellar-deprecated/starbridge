@@ -16,7 +16,11 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stellar/go/clients/horizonclient"
 	supportlog "github.com/stellar/go/support/log"
+
+	"github.com/stellar/starbridge/cmd/starbridge/integrations"
+	"github.com/stellar/starbridge/cmd/starbridge/model"
 	"github.com/stellar/starbridge/cmd/starbridge/sigsharestellar"
+	"github.com/stellar/starbridge/cmd/starbridge/transform"
 )
 
 func main() {
@@ -109,6 +113,35 @@ func run(args []string, logger *supportlog.Entry) error {
 		return fmt.Errorf("setting up sharing stellar signatures: %v", err)
 	}
 	// TODO: When generating and signing a Stellar transaction, call sigShareStellar.Share(ctx, tx).
+
+	txHash := "0x9a5ed1a2f961cbe3ddbf9ec083f662f0948924368bb8ea232b8abc5e1bfa70da"
+	modelTxEth, err := integrations.FetchEthTxByHash(txHash)
+	if err != nil {
+		return fmt.Errorf("fetching eth tx %s: %w", txHash, err)
+	}
+	fmt.Println("transaction fetched as modelTxEth:")
+	fmt.Println(modelTxEth.String())
+	fmt.Printf("\n\n")
+
+	modelTxStellar, err := transform.MapTxToChain(modelTxEth, model.ChainStellar)
+	if err != nil {
+		return fmt.Errorf("mapping model eth tx to model stellar tx: %w", err)
+	}
+	fmt.Println("transaction converted to modelTxStellar:")
+	fmt.Println(modelTxStellar.String())
+	fmt.Printf("\n\n")
+
+	stellarTx, err := integrations.Transaction2Stellar(modelTxStellar)
+	if err != nil {
+		return fmt.Errorf("building stellar tx: %w", err)
+	}
+	fmt.Println(integrations.Stellar2String(stellarTx))
+
+	// TODO: Share transaction:
+	// err = sigShareStellar.Share(context.Background(), stellarTx)
+	// if err != nil {
+	// 	return fmt.Errorf("sharing stellar tx: %w", err)
+	// }
 
 	return nil
 }
