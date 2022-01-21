@@ -8,7 +8,7 @@ require (
 	github.com/libp2p/go-libp2p-pubsub v0.6.0
 	github.com/peterbourgon/ff/v3 v3.1.2
 	github.com/sirupsen/logrus v1.6.0
-	github.com/stellar/go v0.0.0-20220121002512-4920b27104df
+	github.com/stellar/go v0.0.0-20220121195101-cd93d3e009f0
 )
 
 require (
