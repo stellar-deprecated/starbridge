@@ -10,7 +10,13 @@ import (
 )
 
 // TODO need to set the contract account, source account
-var sourceAccount = "GDXLLPH23EHIFOQLO46X2WQQPBBRJ6YPV7JOXEWS7V3AU74Z4EY7PGCS" // var sourceSecretKey = "SAJOMEU6AAHWIUSF43Z7BGFEEB4VUCZVTG56U4DU6RR3UGAZRFSHEYEQ"
+var sourceAccount = "GAEGI7MPXUMSFS2CHBU46LV6SFHHHYNONW5OM3MTGCRVIQCSSXOB5KOW" // var sourceSecretKey = "SASII4SLKZ3S2GD52BILLO5BC7P45C3RYKOH5BADLSIJWHCUTIAQHYSZ"
+var escrowAccount = "GBNV7CTQAJTSYJE4BTA76JF2GZ6UA6WRN3KN55GUY2K62XIYD4ZADID5" // var escrowSecretKey = "SABNONONIEROOG7JURODU56QHBBI4SYGYEZ7I432QPV4THZPHRSACIBF"
+
+// GetSourceAccount() fetches the source account
+func GetSourceAccount() string {
+	return sourceAccount
+}
 
 var baseFee int64 = 100
 
@@ -34,9 +40,9 @@ func Transaction2Stellar(tx *model.Transaction) (*txnbuild.Transaction, error) {
 		Destinations: []txnbuild.Claimant{
 			txnbuild.NewClaimant(tx.To, &txnbuild.UnconditionalPredicate),
 		},
-		Asset:  getStellarAsset(tx.AssetInfo),
-		Amount: fmt.Sprintf("%d", tx.Amount),
-		// SourceAccount: nil,
+		Asset:         getStellarAsset(tx.AssetInfo),
+		Amount:        fmt.Sprintf("%d", tx.Amount),
+		SourceAccount: escrowAccount, // escrow account is the source for these transactions
 	})
 
 	return txnbuild.NewTransaction(
