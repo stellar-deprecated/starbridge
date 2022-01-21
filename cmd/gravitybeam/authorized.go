@@ -177,11 +177,11 @@ func OperationThreshold(op xdr.OperationType) Threshold {
 	return t
 }
 
-func FeeBumpTransactionThresholds(tx *txnbuild.FeeBumpTransaction) map[string]Threshold {
-	return map[string]Threshold{
-		tx.FeeAccount(): LowThreshold,
-	}
-}
+// func FeeBumpTransactionThresholds(tx *txnbuild.FeeBumpTransaction) map[string]Threshold {
+// 	return map[string]Threshold{
+// 		tx.FeeAccount(): LowThreshold,
+// 	}
+// }
 
 func TransactionThresholds(tx *txnbuild.Transaction) map[string]Threshold {
 	txEnv := tx.ToXDR()
