@@ -49,8 +49,11 @@ func (c *Collector) Collect() error {
 	if err != nil {
 		return err
 	}
+	c.logger.Infof("Subscribed to topic %s", c.topic.String())
 	ctx := context.Background()
 	for {
+		logger := c.logger
+
 		msg, err := sub.Next(ctx)
 		if err != nil {
 			return err
@@ -72,7 +75,7 @@ func (c *Collector) Collect() error {
 		if err != nil {
 			return err
 		}
-		logger := c.logger.WithField("tx", hex.EncodeToString(hash[:]))
+		logger = c.logger.WithField("tx", hex.EncodeToString(hash[:]))
 		logger.Infof("tx received: sig count: %d", len(tx.Signatures()))
 
 		tx, err = c.store.StoreAndUpdate(hash, tx)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	libp2p "github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -16,6 +17,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stellar/go/clients/horizonclient"
 	supportlog "github.com/stellar/go/support/log"
+	"github.com/stellar/go/txnbuild"
 
 	"github.com/stellar/starbridge/cmd/starbridge/integrations"
 	"github.com/stellar/starbridge/cmd/starbridge/model"
@@ -108,11 +110,17 @@ func run(args []string, logger *supportlog.Entry) error {
 		return fmt.Errorf("configuring pubsub: %v", err)
 	}
 
-	_, err = sigsharestellar.NewSigShareStellar(networkDetails.NetworkPassphrase, pubSub)
+	sigShareStellar, err := sigsharestellar.NewSigShareStellar(sigsharestellar.SigShareStellarConfig{
+		NetworkPassphrase: networkDetails.NetworkPassphrase,
+		Logger:            logger,
+		PubSub:            pubSub,
+	})
 	if err != nil {
 		return fmt.Errorf("setting up sharing stellar signatures: %v", err)
 	}
 	// TODO: When generating and signing a Stellar transaction, call sigShareStellar.Share(ctx, tx).
+
+	time.Sleep(2 * time.Second)
 
 	txHash := "0x9a5ed1a2f961cbe3ddbf9ec083f662f0948924368bb8ea232b8abc5e1bfa70da"
 	modelTxEth, err := integrations.FetchEthTxByHash(txHash)
@@ -137,11 +145,15 @@ func run(args []string, logger *supportlog.Entry) error {
 	}
 	fmt.Println(integrations.Stellar2String(stellarTx))
 
-	// TODO: Share transaction:
-	// err = sigShareStellar.Share(context.Background(), stellarTx)
-	// if err != nil {
-	// 	return fmt.Errorf("sharing stellar tx: %w", err)
-	// }
+	// TODO: Sign transaction.
+
+	stellarGenTx := txnbuild.NewGenericTransactionWithTransaction(stellarTx)
+	err = sigShareStellar.Share(context.Background(), stellarGenTx)
+	if err != nil {
+		return fmt.Errorf("sharing stellar tx: %w", err)
+	}
+
+	time.Sleep(2 * time.Second)
 
 	return nil
 }
