@@ -4,16 +4,17 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/stellar/starbridge/cmd/starbridge/integrations"
 	"github.com/stellar/starbridge/cmd/starbridge/model"
 )
 
 // TODO this destination needs to be input from the input transaction on the remote chain from the memo or similar
-var destinationAccountForStellar = "GCBAA5476KARHPDSU6WFQTPXQOWX3QMXU4LF7JVZ2ZMWJ4OQEL7ZMV6G" // var destinationSecretKey = "SALR2RNJG55BBWTML2MKO5CXG5QDI4ZTSVDIA53XDWOU7QPOAEQNYUE2"
+var destinationAccountForStellar = "GBUKJ5TXOBDB5SKVCEV27OYLHUL2ZD3OITMVFNT7MZ4LPO3EECTLADCU" // var destinationSecretKey = "SB6HKIGE6KKAOMSFY7G7VFIKNKMSQ7QRASFI65CVJLTZ7SUPLY4FAZ3L"
 
 // MapTxToChain converts a given transaction to the destination chain along with mapping the assets appropriately to the right contracts
 func MapTxToChain(tx *model.Transaction, destinationChain *model.Chain) (*model.Transaction, error) {
 	if destinationChain != model.ChainStellar {
-		panic("can only convert to Stellar chain for now")
+		return nil, fmt.Errorf("can only convert to Stellar chain for now")
 	}
 
 	mappedAssetInfo, ok := destinationChain.AddressMappings[tx.AssetInfo.MapKey()]
@@ -21,12 +22,17 @@ func MapTxToChain(tx *model.Transaction, destinationChain *model.Chain) (*model.
 		return nil, fmt.Errorf("entry for input asset ('%s') did not exist, could not convert to mappedAssetInfo on destination chain", tx.AssetInfo.String())
 	}
 
+	nextNonce, e := destinationChain.NextNonce(integrations.GetSourceAccount())
+	if e != nil {
+		return nil, fmt.Errorf("cannot get next nonce: %s", e)
+	}
+
 	// TODO set fee values here
 	return &model.Transaction{
 		Chain:                destinationChain,
-		Hash:                 "",                           // TODO fill in converted tx hash
-		Block:                0,                            // we don't have a block yet
-		SeqNum:               destinationChain.NextNonce(), // TODO this can be asset specific too, but keeping it with a single nonce for now
+		Hash:                 "", // TODO fill in converted tx hash
+		Block:                0,  // we don't have a block yet
+		SeqNum:               nextNonce,
 		IsPending:            true,
 		From:                 mappedAssetInfo.ContractAddress, // we want to send from the Stellar escrow account for now
 		To:                   destinationAccountForStellar,    // TODO fetch from the input transaction
