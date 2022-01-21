@@ -10,8 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/stellar/starbridge/model"
 
+	"github.com/stellar/starbridge/cmd/starbridge/model"
 	"github.com/stellar/starbridge/contracts/gen/Counter"
 )
 

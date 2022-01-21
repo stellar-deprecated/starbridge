@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/stellar/starbridge/model"
+	"github.com/stellar/starbridge/cmd/starbridge/model"
 )
 
 // TODO this destination needs to be input from the input transaction on the remote chain from the memo or similar

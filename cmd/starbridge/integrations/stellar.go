@@ -5,7 +5,8 @@ import (
 	"strings"
 
 	"github.com/stellar/go/txnbuild"
-	"github.com/stellar/starbridge/model"
+
+	"github.com/stellar/starbridge/cmd/starbridge/model"
 )
 
 // TODO need to set the contract account, source account
