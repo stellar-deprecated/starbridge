@@ -40,11 +40,13 @@ func main() {
 func run(args []string, logger *supportlog.Entry) error {
 	fs := flag.NewFlagSet("starbridge", flag.ExitOnError)
 
+	txHash := ""
 	seed := ""
 	portP2P := "0"
 	peers := ""
 	horizonURL := "https://horizon-testnet.stellar.org"
 
+	fs.StringVar(&txHash, "txHash", "", "txHash on Ethereum to be queried for conversion")
 	fs.StringVar(&seed, "seed", "", "Seed secret key for Stellar with which to sign transactions for this node")
 	fs.StringVar(&portP2P, "port-p2p", portP2P, "Port to accept P2P requests on (also via PORT_P2P)")
 	fs.StringVar(&peers, "peers", peers, "Comma-separated list of addresses of peers to connect to on start (also via PEERS)")
@@ -55,8 +57,11 @@ func run(args []string, logger *supportlog.Entry) error {
 		return err
 	}
 
+	if txHash == "" {
+		return fmt.Errorf("needs a valid 'txHash' command line option")
+	}
 	if seed == "" {
-		return fmt.Errorf("needs 'seed' command line option")
+		return fmt.Errorf("needs a valid 'seed' command line option")
 	}
 
 	logger.Info("Starting...")
@@ -130,8 +135,6 @@ func run(args []string, logger *supportlog.Entry) error {
 
 	time.Sleep(2 * time.Second)
 
-	// txHash := "0x8f56990233197a8fd83c48ae3cd5c2799b27f075fd7ca902ae6572f5ba7d39f9" // 1.5 ETH hash transaction
-	txHash := "0x980f13a1acdb28fc9d86d68b3debca65bd3ca27a32e803cbc716ec12aa326c4b" // 100.0 USDC hash transaction
 	modelTxEth, err := integrations.FetchEthTxByHash(txHash)
 	if err != nil {
 		return fmt.Errorf("fetching eth tx %s: %w", txHash, err)
