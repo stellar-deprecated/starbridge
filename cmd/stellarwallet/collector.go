@@ -4,28 +4,30 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/stellar/go/clients/horizonclient"
+	"github.com/stellar/go/keypair"
 	supportlog "github.com/stellar/go/support/log"
 	"github.com/stellar/go/txnbuild"
 )
 
 type CollectorConfig struct {
+	Address           *keypair.FromAddress
 	NetworkPassphrase string
 	Logger            *supportlog.Entry
 	HorizonClient     horizonclient.ClientInterface
 	PubSub            *pubsub.PubSub
-	Store             *Store
 }
 
 type Collector struct {
+	address           *keypair.FromAddress
 	networkPassphrase string
 	logger            *supportlog.Entry
 	horizonClient     horizonclient.ClientInterface
 	topic             *pubsub.Topic
-	store             *Store
 }
 
 func NewCollector(config CollectorConfig) (*Collector, error) {
@@ -34,10 +36,10 @@ func NewCollector(config CollectorConfig) (*Collector, error) {
 		return nil, err
 	}
 	c := &Collector{
+		address:           config.Address,
 		networkPassphrase: config.NetworkPassphrase,
 		logger:            config.Logger,
 		horizonClient:     config.HorizonClient,
-		store:             config.Store,
 		topic:             topic,
 	}
 	return c, nil
@@ -75,12 +77,32 @@ func (c *Collector) Collect() error {
 			return err
 		}
 		logger = c.logger.WithField("tx", hex.EncodeToString(hash[:]))
-		logger.Infof("tx received: sig count: %d", len(tx.Signatures()))
 
-		tx, err = c.store.StoreAndUpdate(hash, tx)
-		if err != nil {
+		if !IsRecipient(tx, c.address) {
+			logger.Infof("tx does not have address as recipient, ignoring")
+			continue
+		}
+		logger.Infof("tx has address as recipient")
+
+		tx, err = AuthorizedTransaction(c.horizonClient, hash, tx)
+		if errors.Is(err, ErrNotAuthorized) {
+			logger.Infof("tx not yet authorized")
+			continue
+		} else if err != nil {
 			return err
 		}
-		logger.Infof("tx stored: sig count: %d", len(tx.Signatures()))
+		logger.Infof("tx authorized: sig count: %d", len(tx.Signatures()))
+
+		// Submit transaction.
+		go func() {
+			// TODO: Wrap in a fee bump transaction.
+			logger.Infof("tx submitting: sig count: %d", len(tx.Signatures()))
+			txResp, err := c.horizonClient.SubmitTransaction(tx)
+			if err != nil {
+				logger.Error(err)
+				return
+			}
+			logger.Infof("tx submitted: successful: %t", txResp.Successful)
+		}()
 	}
 }
