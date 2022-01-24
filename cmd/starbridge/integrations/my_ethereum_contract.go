@@ -2,9 +2,13 @@ package integrations
 
 import (
 	"encoding/hex"
+	"fmt"
 	"log"
+	"math/big"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -22,6 +26,14 @@ func IsMyContractAddress(otherAddress string) bool {
 }
 
 var MY_CONTRACT_METHOD_HASH_SELECTORS = map[string]string{}
+
+type PaymentEvent struct {
+	ContractAddress string
+	Amount          *big.Int
+}
+
+var ethContractAddressHash = fmt.Sprintf("0x%s", common.Bytes2Hex(crypto.Keccak256([]byte("0x0000000000000000000000000000000000000000"))))
+var usdcContractAddressHash = fmt.Sprintf("0x%s", common.Bytes2Hex(crypto.Keccak256([]byte("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"))))
 
 func init() {
 	fnSigs := []string{

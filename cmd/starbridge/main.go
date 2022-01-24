@@ -130,7 +130,8 @@ func run(args []string, logger *supportlog.Entry) error {
 
 	time.Sleep(2 * time.Second)
 
-	txHash := "0x9a5ed1a2f961cbe3ddbf9ec083f662f0948924368bb8ea232b8abc5e1bfa70da"
+	// txHash := "0x8f56990233197a8fd83c48ae3cd5c2799b27f075fd7ca902ae6572f5ba7d39f9" // 1.5 ETH hash transaction
+	txHash := "0x980f13a1acdb28fc9d86d68b3debca65bd3ca27a32e803cbc716ec12aa326c4b" // 100.0 USDC hash transaction
 	modelTxEth, err := integrations.FetchEthTxByHash(txHash)
 	if err != nil {
 		return fmt.Errorf("fetching eth tx %s: %w", txHash, err)
