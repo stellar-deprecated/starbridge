@@ -91,7 +91,8 @@ func (c *Collector) Collect() error {
 		}
 
 		for _, a := range Accounts(tx) {
-			t, err := c.pubSub.Join("starbridge-stellar-transactions-signed-"+a)
+			logger.Infof("publishing to topic for %s", a)
+			t, err := c.pubSub.Join("starbridge-stellar-transactions-signed-" + a)
 			if err != nil {
 				return fmt.Errorf("joining topic to publish tx %s for account %s: %w", hash, a, err)
 			}
