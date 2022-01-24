@@ -75,7 +75,7 @@ func (c *Collector) Collect() error {
 		if err != nil {
 			return err
 		}
-		logger = c.logger.WithField("tx", hex.EncodeToString(hash[:]))
+		logger = logger.WithField("tx", hex.EncodeToString(hash[:]))
 		logger.Infof("tx received: sig count: %d", len(tx.Signatures()))
 
 		tx, err = c.store.StoreAndUpdate(hash, tx)
