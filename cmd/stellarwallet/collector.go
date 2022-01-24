@@ -31,7 +31,7 @@ type Collector struct {
 }
 
 func NewCollector(config CollectorConfig) (*Collector, error) {
-	topic, err := config.PubSub.Join("starbridge-stellar-transactions-signed")
+	topic, err := config.PubSub.Join("starbridge-stellar-transactions-signed-" + config.Address.Address())
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func (c *Collector) Collect() error {
 		if err != nil {
 			return err
 		}
-		logger = c.logger.WithField("tx", hex.EncodeToString(hash[:]))
+		logger = logger.WithField("tx", hex.EncodeToString(hash[:]))
 
 		if !IsRecipient(tx, c.address) {
 			logger.Infof("tx does not have address as recipient, ignoring")

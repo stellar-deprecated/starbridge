@@ -24,6 +24,7 @@ type Collector struct {
 	networkPassphrase string
 	logger            *supportlog.Entry
 	horizonClient     horizonclient.ClientInterface
+	pubSub            *pubsub.PubSub
 	topic             *pubsub.Topic
 	store             *Store
 }
@@ -38,6 +39,7 @@ func NewCollector(config CollectorConfig) (*Collector, error) {
 		logger:            config.Logger,
 		horizonClient:     config.HorizonClient,
 		store:             config.Store,
+		pubSub:            config.PubSub,
 		topic:             topic,
 	}
 	return c, nil
@@ -82,5 +84,22 @@ func (c *Collector) Collect() error {
 			return err
 		}
 		logger.Infof("tx stored: sig count: %d", len(tx.Signatures()))
+
+		txBytes, err = tx.MarshalBinary()
+		if err != nil {
+			return fmt.Errorf("marshaling tx %s: %w", hash, err)
+		}
+
+		for _, a := range Accounts(tx) {
+			t, err := c.pubSub.Join("starbridge-stellar-transactions-signed-"+a)
+			if err != nil {
+				return fmt.Errorf("joining topic to publish tx %s for account %s: %w", hash, a, err)
+			}
+			defer t.Close()
+			err = t.Publish(ctx, txBytes)
+			if err != nil {
+				return fmt.Errorf("publishing tx %s for account %s: %w", hash, a, err)
+			}
+		}
 	}
 }
