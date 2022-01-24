@@ -153,12 +153,21 @@ func run(args []string, logger *supportlog.Entry) error {
 	}
 	fmt.Println(integrations.Stellar2String(stellarTx))
 
+	fmt.Println("")
 	fmt.Println("signing Stellar tx...")
 	signedStellarTx, err := signTxForStellar(stellarTx, seed)
 	if err != nil {
 		return fmt.Errorf("signing tx: %w", err)
 	}
 	fmt.Println(integrations.Stellar2String(signedStellarTx))
+
+	fmt.Println("")
+	fmt.Println("stellar tx base64 encoded:")
+	signedStellarTxBase64String, err := signedStellarTx.Base64()
+	if err != nil {
+		return fmt.Errorf("converting to base64 string: %w", err)
+	}
+	fmt.Println(signedStellarTxBase64String)
 
 	signedStellarGenTx := txnbuild.NewGenericTransactionWithTransaction(signedStellarTx)
 	err = sigShareStellar.Share(context.Background(), signedStellarGenTx)
