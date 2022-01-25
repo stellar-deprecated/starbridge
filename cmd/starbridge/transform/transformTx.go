@@ -17,9 +17,9 @@ func MapTxToChain(tx *model.Transaction) (*model.Transaction, error) {
 		return nil, fmt.Errorf("can only convert to Stellar chain for now")
 	}
 
-	mappedAssetInfo, ok := tx.Data.TargetDestinationChain.AddressMappings[tx.AssetInfo.MapKey()]
+	mappedAssetInfo, ok := tx.Data.TargetDestinationChain.AddressMappings[tx.Data.AssetInfo.MapKey()]
 	if !ok {
-		return nil, fmt.Errorf("entry for input asset ('%s') did not exist, could not convert to mappedAssetInfo on destination chain with addressMappings: %+v", tx.AssetInfo.String(), tx.Data.TargetDestinationChain.AddressMappings)
+		return nil, fmt.Errorf("entry for input asset ('%s') did not exist, could not convert to mappedAssetInfo on destination chain with addressMappings: %+v", tx.Data.AssetInfo.String(), tx.Data.TargetDestinationChain.AddressMappings)
 	}
 
 	// TODO the source account should maybe come directly from the chain but adding here to avoid an import cycle. Need to move files around
@@ -38,7 +38,7 @@ func MapTxToChain(tx *model.Transaction) (*model.Transaction, error) {
 		From:                 mappedAssetInfo.ContractAddress,               // escrow account is always the account that will send the payment
 		To:                   tx.Data.TargetDestinationAddressOnRemoteChain, // this is where we do the conversion of the contract data to the To account
 		AssetInfo:            mappedAssetInfo,
-		Amount:               amountUsingDecimals(tx.AssetInfo.Decimals, mappedAssetInfo.Decimals, tx.Amount), // this is where we do the conversion of the contract data to the Amount value
+		Amount:               amountUsingDecimals(tx.Data.AssetInfo.Decimals, mappedAssetInfo.Decimals, tx.Data.Amount), // this is where we do the conversion of the contract data to the Amount value
 		Data:                 tx.Data,
 		OriginalTx:           tx,
 		AdditionalOriginalTx: nil,

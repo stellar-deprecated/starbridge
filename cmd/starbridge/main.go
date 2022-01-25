@@ -148,6 +148,9 @@ func run(args []string, logger *supportlog.Entry) error {
 	}
 	fmt.Println("transaction converted to modelTxStellar:")
 	fmt.Println(modelTxStellar.String())
+	if modelTxStellar.To != modelTxStellar.Data.TargetDestinationAddressOnRemoteChain {
+		return fmt.Errorf("incorrect mapping since To value of converted transaction should match TargetDestinationAddressOnRemoteChain from event data")
+	}
 	fmt.Printf("\n\n")
 
 	stellarTx, err := integrations.Transaction2Stellar(modelTxStellar)
