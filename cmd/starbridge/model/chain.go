@@ -61,7 +61,8 @@ func nextStellarNonceFn(sourceAccount string) (uint64, error) {
 	if e != nil {
 		return 0, fmt.Errorf("error getting seq num: %s", e)
 	}
-	return uint64(seqNum), nil
+	incrementedSeqNum := uint64(seqNum) + 1
+	return incrementedSeqNum, nil
 }
 
 func unsupportedNonceForChain(sourceAccount string) (uint64, error) {
