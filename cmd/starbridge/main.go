@@ -189,15 +189,15 @@ func run(args []string, logger *supportlog.Entry) error {
 func signTxForStellar(tx *txnbuild.Transaction, seed string) (*txnbuild.Transaction, error) {
 	networkPassphrase := network.TestNetworkPassphrase
 
-	kp, e := keypair.Parse(seed)
-	if e != nil {
-		return nil, fmt.Errorf("cannot parse seed into keypair: %s", e)
+	kp, err := keypair.Parse(seed)
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse seed into keypair: %s", err)
 	}
 
 	// keep adding signatures
-	signedTx, e := tx.Sign(networkPassphrase, kp.(*keypair.Full))
-	if e != nil {
-		return nil, fmt.Errorf("cannot sign tx with keypair (pubKey: %s): %s", kp.Address(), e)
+	signedTx, err := tx.Sign(networkPassphrase, kp.(*keypair.Full))
+	if err != nil {
+		return nil, fmt.Errorf("cannot sign tx with keypair (pubKey: %s): %s", kp.Address(), err)
 	}
 
 	return signedTx, nil

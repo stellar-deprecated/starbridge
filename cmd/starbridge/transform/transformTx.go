@@ -23,14 +23,14 @@ func MapTxToChain(tx *model.Transaction) (*model.Transaction, error) {
 	}
 
 	// TODO NS the source account should maybe come directly from the chain but adding here to avoid an import cycle. Need to move files around
-	nextNonce, e := tx.Data.TargetDestinationChain.NextNonce(integrations.GetSourceAccount())
-	if e != nil {
-		return nil, fmt.Errorf("cannot get next nonce: %s", e)
+	nextNonce, err := tx.Data.TargetDestinationChain.NextNonce(integrations.GetSourceAccount())
+	if err != nil {
+		return nil, fmt.Errorf("cannot get next nonce: %s", err)
 	}
 
-	e = tx.Data.TargetDestinationChain.ValidateDestinationAddressFn(tx.Data.TargetDestinationAddressOnRemoteChain)
-	if e != nil {
-		return nil, fmt.Errorf("validating destination address '%s': %w", tx.Data.TargetDestinationAddressOnRemoteChain, e)
+	err = tx.Data.TargetDestinationChain.ValidateDestinationAddressFn(tx.Data.TargetDestinationAddressOnRemoteChain)
+	if err != nil {
+		return nil, fmt.Errorf("validating destination address '%s': %w", tx.Data.TargetDestinationAddressOnRemoteChain, err)
 	}
 
 	// TODO NS set fee values here

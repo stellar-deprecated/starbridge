@@ -76,13 +76,13 @@ func nextStellarNonceFn(sourceAccount string) (uint64, error) {
 
 	log.Println("loading sequence number for Stellar")
 	acctReq := horizonclient.AccountRequest{AccountID: sourceAccount}
-	accountDetail, e := sdexAPI.AccountDetail(acctReq)
-	if e != nil {
-		return 0, fmt.Errorf("error loading account detail: %s", e)
+	accountDetail, err := sdexAPI.AccountDetail(acctReq)
+	if err != nil {
+		return 0, fmt.Errorf("error loading account detail: %s", err)
 	}
-	seqNum, e := accountDetail.GetSequenceNumber()
-	if e != nil {
-		return 0, fmt.Errorf("error getting seq num: %s", e)
+	seqNum, err := accountDetail.GetSequenceNumber()
+	if err != nil {
+		return 0, fmt.Errorf("error getting seq num: %s", err)
 	}
 	return uint64(seqNum), nil
 }
