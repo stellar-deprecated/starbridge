@@ -37,8 +37,8 @@ var (
 	}
 
 	// wrapped assets on Ethereum
+	// TODO NS need to set contract accounts from config files
 	AssetEthereum_WXLM *AssetInfo = &AssetInfo{
-		// TODO need to set contract account and key correctly
 		Code:            "WXLM",
 		ContractAddress: "0x0000000000000000000000000000000123456789", // contractSecret ??
 		Decimals:        7,
@@ -46,15 +46,14 @@ var (
 	}
 
 	// wrapped assets on Stellar
+	// TODO NS need to set contract accounts from config files
 	AssetStellar_ETH *AssetInfo = &AssetInfo{
-		// TODO need to set contract account and key correctly
 		Code:            "ETH",                // Stellar assets will retain the original assetCode and will not have the W prefix
 		ContractAddress: stellarEscrowAccount, // this is the escrow account
 		Decimals:        7,
 		mapKey:          stellarMapKey,
 	}
 	AssetStellar_WUSDC *AssetInfo = &AssetInfo{
-		// TODO need to set contract account and key correctly
 		Code:            "WUSDC",              // since we have a USDC on Stellar, we add the "W" prefix for now
 		ContractAddress: stellarEscrowAccount, // this is the escrow account
 		Decimals:        7,

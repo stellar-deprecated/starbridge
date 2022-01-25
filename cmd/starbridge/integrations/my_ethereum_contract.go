@@ -4,8 +4,16 @@ import (
 	"math/big"
 	"strings"
 
+	supportlog "github.com/stellar/go/support/log"
 	"github.com/stellar/starbridge/cmd/starbridge/model"
 )
+
+// global for now
+var logger *supportlog.Entry
+
+func SetLogger(l *supportlog.Entry) {
+	logger = l
+}
 
 // temporarily used this contract address, which has a tx (0xf08debd774d2ecf0a18f62d593f0ec3af2aabd373139d87b58e3d28e088c2b59) through which
 // a USDC payment was sent from one address to another by interacting with this contract directly (the USDC contract).
@@ -30,4 +38,4 @@ type PaymentEvent struct {
 
 const eventName = "Payment"
 
-var payableAsset = model.AssetEthereum_ETH // TODO this is hard-coded to ETH right now since our smart-contract only allows sending that asset to our smart-contract for now
+var payableAsset = model.AssetEthereum_ETH // TODO NS this is hard-coded to ETH right now since our smart-contract only allows sending that asset to our smart-contract for now

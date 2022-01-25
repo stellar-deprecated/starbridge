@@ -39,7 +39,7 @@ type Transaction struct {
 	Data                 ContractData // this is where the actual information lives about what needs to be transferred
 	OriginalTx           interface{}
 	AdditionalOriginalTx []interface{}
-	// TODO add fee information to the transaction
+	// TODO NS add fee information to the transaction
 }
 
 // String is the Stringer method

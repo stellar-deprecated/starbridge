@@ -3,7 +3,6 @@ package integrations
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/ethereum/go-ethereum"
@@ -19,25 +18,25 @@ import (
 // FetchEthTxByHash returns a model.Transaction
 func FetchEthTxByHash(txHash string) (*model.Transaction, error) {
 	infuraURL := "https://ropsten.infura.io/v3/a42ad89bbcec4ddca5c9abb60eb4a300"
-	conn, e := ethclient.Dial(infuraURL)
-	if e != nil {
-		return nil, fmt.Errorf("could not connect to infura (%s): %s", infuraURL, e)
+	conn, err := ethclient.Dial(infuraURL)
+	if err != nil {
+		return nil, fmt.Errorf("could not connect to infura (%s): %s", infuraURL, err)
 	}
 	defer conn.Close()
 
 	ctx := context.Background()
-	ethTxReceipt, e := conn.TransactionReceipt(ctx, common.HexToHash(txHash))
-	if e != nil {
-		return nil, fmt.Errorf("could not fetch transaction receipt '%s' by hash from network: %s", txHash, e)
+	ethTxReceipt, err := conn.TransactionReceipt(ctx, common.HexToHash(txHash))
+	if err != nil {
+		return nil, fmt.Errorf("could not fetch transaction receipt '%s' by hash from network: %s", txHash, err)
 	}
-	ethTx, isPending, e := conn.TransactionByHash(ctx, common.HexToHash(txHash))
-	if e != nil {
-		return nil, fmt.Errorf("could not fetch transaction '%s' by hash from network: %s", txHash, e)
+	ethTx, isPending, err := conn.TransactionByHash(ctx, common.HexToHash(txHash))
+	if err != nil {
+		return nil, fmt.Errorf("could not fetch transaction '%s' by hash from network: %s", txHash, err)
 	}
 
-	tx, e := Ethereum2Transaction(conn, ethTxReceipt, ethTx, isPending)
-	if e != nil {
-		return nil, fmt.Errorf("could not convert txToString: %s", e)
+	tx, err := Ethereum2Transaction(conn, ethTxReceipt, ethTx, isPending)
+	if err != nil {
+		return nil, fmt.Errorf("could not convert txToString: %s", err)
 	}
 	return tx, nil
 }
@@ -48,9 +47,9 @@ func Ethereum2Transaction(conn *ethclient.Client, txReceipt *types.Receipt, tx *
 	if !IsMyContractAddress(tx.To().Hex()) {
 		return nil, fmt.Errorf("unsupported receiver address '%s'", tx.To().Hex())
 	}
-	fromAddress, e := getFromAddress(tx)
-	if e != nil {
-		return nil, fmt.Errorf("unable to get From address: %s", e)
+	fromAddress, err := getFromAddress(tx)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get From address: %s", err)
 	}
 
 	// pulled logic to read events from here: https://goethereumbook.org/event-read/ with many modifications to suit our smart contract
@@ -62,17 +61,15 @@ func Ethereum2Transaction(conn *ethclient.Client, txReceipt *types.Receipt, tx *
 			common.HexToAddress(MY_ETHEREUM_CONTRACT_ADDRESS),
 		},
 	}
-	logs, e := conn.FilterLogs(context.Background(), query)
-	if e != nil {
-		return nil, fmt.Errorf("unable to filter logs for contract address on block number %d: %w", txReceipt.BlockNumber.Int64(), e)
+	logs, err := conn.FilterLogs(context.Background(), query)
+	if err != nil {
+		return nil, fmt.Errorf("unable to filter logs for contract address on block number %d: %w", txReceipt.BlockNumber.Int64(), err)
 	}
 
 	// parse filtered log events
-	var assetInfo *model.AssetInfo
-	var eventTokenAmount uint64
-	myAbi, e := abi.JSON(strings.NewReader(string(SimpleEscrowEvents.SimpleEscrowEventsABI)))
-	if e != nil {
-		return nil, fmt.Errorf("unable to read ABI: %s", e)
+	myAbi, err := abi.JSON(strings.NewReader(string(SimpleEscrowEvents.SimpleEscrowEventsABI)))
+	if err != nil {
+		return nil, fmt.Errorf("unable to read ABI: %s", err)
 	}
 	if len(logs) == 0 {
 		return nil, fmt.Errorf("no event emitted for this tx hash")
@@ -84,45 +81,36 @@ func Ethereum2Transaction(conn *ethclient.Client, txReceipt *types.Receipt, tx *
 		return nil, fmt.Errorf("we expect 1 topic entries for each event, for the event signature only")
 	}
 	event := PaymentEvent{}
-	e = myAbi.UnpackIntoInterface(&event, eventName, vLog.Data)
-	if e != nil {
-		return nil, fmt.Errorf("unable to unpack event into event type Payment: %s", e)
+	err = myAbi.UnpackIntoInterface(&event, eventName, vLog.Data)
+	if err != nil {
+		return nil, fmt.Errorf("unable to unpack event into event type Payment: %s", err)
 	}
-	// set values from log event
-	// TODO make this use the map in the Chain directly, need to store it by keccak256 hash value too
-	//     assetInfo, ok := model.ChainEthereum.AddressMappings[txReceipt.ContractAddress.Hex()]
-	eventDestinationStellarAddress := event.DestinationStellarAddress
-	eventTokenAmount = uint64(event.TokenAmount.Int64())
-	if event.TokenContractAddress == model.AssetEthereum_ETH.ContractAddress {
-		log.Printf("DEBUG - found event with ethContractAddress at txhash (%s): event.DestinationStellarAddress='%s', TokenAmount='%d'\n", vLog.TxHash.Hex(), event.DestinationStellarAddress, event.TokenAmount.Int64())
-		assetInfo = model.AssetEthereum_ETH
-	} else if event.TokenContractAddress == model.AssetEthereum_USDC.ContractAddress {
-		log.Printf("DEBUG - found event with usdcContractAddress at txhash (%s): event.DestinationStellarAddress='%s', TokenAmount='%d'\n", vLog.TxHash.Hex(), event.DestinationStellarAddress, event.TokenAmount.Int64())
-		assetInfo = model.AssetEthereum_USDC
-	} else {
+	logger.Infof("found event at txhash (%s): event.DestinationStellarAddress='%s', TokenAmount='%d', TokenContractAddress='%s'", vLog.TxHash.Hex(), event.DestinationStellarAddress, event.TokenAmount.Int64(), event.TokenContractAddress)
+
+	// select asset using data from tx event
+	assetInfo, ok := model.ChainEthereum.AllAssetMap[event.TokenContractAddress]
+	if !ok {
 		return nil, fmt.Errorf("found event with an unsupported contractAddress: %s", event.TokenContractAddress)
 	}
-	contractData := model.ContractData{
-		EventName:                             eventName,
-		TargetDestinationChain:                model.ChainStellar, // we have hard-coded this to Stellar for the MVP
-		TargetDestinationAddressOnRemoteChain: eventDestinationStellarAddress,
-		AssetInfo:                             assetInfo,
-		Amount:                                eventTokenAmount,
-	}
-
-	// TODO parse Stellar destination address and see if it is valid
+	logger.Debugf("converted tokenContractAddress '%s' to assetInfo '%s'", event.TokenContractAddress, assetInfo)
 
 	return &model.Transaction{
-		Chain:                model.ChainEthereum,
-		Hash:                 txReceipt.TxHash.Hex(),
-		Block:                txReceipt.BlockNumber.Uint64(),
-		SeqNum:               tx.Nonce(),
-		IsPending:            isPending,
-		From:                 fromAddress,
-		To:                   tx.To().Hex(),
-		AssetInfo:            payableAsset,
-		Amount:               tx.Value().Uint64(),
-		Data:                 contractData,
+		Chain:     model.ChainEthereum,
+		Hash:      txReceipt.TxHash.Hex(),
+		Block:     txReceipt.BlockNumber.Uint64(),
+		SeqNum:    tx.Nonce(),
+		IsPending: isPending,
+		From:      fromAddress,
+		To:        tx.To().Hex(),
+		AssetInfo: payableAsset,
+		Amount:    tx.Value().Uint64(),
+		Data: model.ContractData{
+			EventName:                             eventName,
+			TargetDestinationChain:                model.ChainStellar, // we have hard-coded this to Stellar for the MVP
+			TargetDestinationAddressOnRemoteChain: event.DestinationStellarAddress,
+			AssetInfo:                             assetInfo,
+			Amount:                                uint64(event.TokenAmount.Int64()),
+		},
 		OriginalTx:           tx,
 		AdditionalOriginalTx: []interface{}{txReceipt},
 	}, nil
@@ -130,9 +118,9 @@ func Ethereum2Transaction(conn *ethclient.Client, txReceipt *types.Receipt, tx *
 
 // getFromAddress gets the From address for an Ethereum transaction
 func getFromAddress(tx *types.Transaction) (string, error) {
-	msg, e := tx.AsMessage(types.LatestSignerForChainID(tx.ChainId()), tx.GasPrice())
-	if e != nil {
-		return "", fmt.Errorf("could not get tx as message: %s", e)
+	msg, err := tx.AsMessage(types.LatestSignerForChainID(tx.ChainId()), tx.GasPrice())
+	if err != nil {
+		return "", fmt.Errorf("could not get tx as message: %s", err)
 	}
 	return msg.From().Hex(), nil
 }
