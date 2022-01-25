@@ -4,8 +4,16 @@ import (
 	"math/big"
 	"strings"
 
+	supportlog "github.com/stellar/go/support/log"
 	"github.com/stellar/starbridge/cmd/starbridge/model"
 )
+
+// global for now
+var logger *supportlog.Entry
+
+func SetLogger(l *supportlog.Entry) {
+	logger = l
+}
 
 // temporarily used this contract address, which has a tx (0xf08debd774d2ecf0a18f62d593f0ec3af2aabd373139d87b58e3d28e088c2b59) through which
 // a USDC payment was sent from one address to another by interacting with this contract directly (the USDC contract).

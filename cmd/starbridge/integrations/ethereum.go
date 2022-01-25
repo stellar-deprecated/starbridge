@@ -3,7 +3,6 @@ package integrations
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/ethereum/go-ethereum"
@@ -86,14 +85,14 @@ func Ethereum2Transaction(conn *ethclient.Client, txReceipt *types.Receipt, tx *
 	if err != nil {
 		return nil, fmt.Errorf("unable to unpack event into event type Payment: %s", err)
 	}
-	log.Printf("DEBUG - found event at txhash (%s): event.DestinationStellarAddress='%s', TokenAmount='%d', TokenContractAddress='%s'\n", vLog.TxHash.Hex(), event.DestinationStellarAddress, event.TokenAmount.Int64(), event.TokenContractAddress)
+	logger.Infof("found event at txhash (%s): event.DestinationStellarAddress='%s', TokenAmount='%d', TokenContractAddress='%s'", vLog.TxHash.Hex(), event.DestinationStellarAddress, event.TokenAmount.Int64(), event.TokenContractAddress)
 
 	// select asset using data from tx event
 	assetInfo, ok := model.ChainEthereum.AllAssetMap[event.TokenContractAddress]
 	if !ok {
 		return nil, fmt.Errorf("found event with an unsupported contractAddress: %s", event.TokenContractAddress)
 	}
-	log.Printf("DEBUG - converted tokenContractAddress '%s' to assetInfo '%s'\n", event.TokenContractAddress, assetInfo)
+	logger.Debugf("converted tokenContractAddress '%s' to assetInfo '%s'", event.TokenContractAddress, assetInfo)
 
 	return &model.Transaction{
 		Chain:     model.ChainEthereum,

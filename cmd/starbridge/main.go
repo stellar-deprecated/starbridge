@@ -29,6 +29,7 @@ import (
 func main() {
 	logger := supportlog.New()
 	logger.SetLevel(logrus.InfoLevel)
+	integrations.SetLogger(logger)
 	err := run(os.Args[1:], logger)
 	if err != nil {
 		logger.WithStack(err).Error(err)
@@ -138,42 +139,35 @@ func run(args []string, logger *supportlog.Entry) error {
 	if err != nil {
 		return fmt.Errorf("fetching eth tx %s: %w", txHash, err)
 	}
-	fmt.Println("transaction fetched as modelTxEth:")
-	fmt.Println(modelTxEth.String())
-	fmt.Printf("\n\n")
+	logger.Infof("transaction fetched as modelTxEth: %s", modelTxEth)
 
 	modelTxStellar, err := transform.MapTxToChain(modelTxEth)
 	if err != nil {
 		return fmt.Errorf("mapping model eth tx to model stellar tx: %w", err)
 	}
-	fmt.Println("transaction converted to modelTxStellar:")
-	fmt.Println(modelTxStellar.String())
+	logger.Infof("transaction converted to modelTxStellar: %s", modelTxStellar)
 	if modelTxStellar.To != modelTxStellar.Data.TargetDestinationAddressOnRemoteChain {
 		return fmt.Errorf("incorrect mapping since To value of converted transaction should match TargetDestinationAddressOnRemoteChain from event data")
 	}
-	fmt.Printf("\n\n")
 
 	stellarTx, err := integrations.Transaction2Stellar(modelTxStellar)
 	if err != nil {
 		return fmt.Errorf("building stellar tx: %w", err)
 	}
-	fmt.Println(integrations.Stellar2String(stellarTx))
+	logger.Infof("transaction as an unsigned stellarTx: %s", integrations.Stellar2String(stellarTx))
 
-	fmt.Println("")
-	fmt.Println("signing Stellar tx...")
+	logger.Infof("signing Stellar tx...")
 	signedStellarTx, err := signTxForStellar(stellarTx, seed)
 	if err != nil {
 		return fmt.Errorf("signing tx: %w", err)
 	}
-	fmt.Println(integrations.Stellar2String(signedStellarTx))
+	logger.Infof("transaction as a signed stellarTx: %s", integrations.Stellar2String(signedStellarTx))
 
-	fmt.Println("")
-	fmt.Println("stellar tx base64 encoded:")
 	signedStellarTxBase64String, err := signedStellarTx.Base64()
 	if err != nil {
 		return fmt.Errorf("converting to base64 string: %w", err)
 	}
-	fmt.Println(signedStellarTxBase64String)
+	logger.Infof("stellar tx base64 encoded: %s", signedStellarTxBase64String)
 
 	signedStellarGenTx := txnbuild.NewGenericTransactionWithTransaction(signedStellarTx)
 	err = sigShareStellar.Share(context.Background(), signedStellarGenTx)

@@ -2,11 +2,15 @@ package model
 
 import (
 	"fmt"
-	"log"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stellar/go/clients/horizonclient"
+	supportlog "github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
 )
+
+// global for now
+var logger *supportlog.Entry
 
 // Enum for Chain
 type Chain struct {
@@ -52,11 +56,14 @@ func computeAllAssetMap(chain *Chain) map[string]*AssetInfo {
 	// native asset is included in the above list since it will be in the AddressMappings but add explicitly here too
 	m[chain.NativeAsset.MapKey()] = chain.NativeAsset
 
-	log.Printf("added %d items when creating AllAssetMap for chain=%s", len(m), chain.Name)
+	logger.Debugf("added %d items when creating AllAssetMap for chain=%s", len(m), chain.Name)
 	return m
 }
 
 func init() {
+	logger = supportlog.New()
+	logger.SetLevel(logrus.InfoLevel)
+
 	ChainStellar.AllAssetMap = computeAllAssetMap(ChainStellar)
 	ChainEthereum.AllAssetMap = computeAllAssetMap(ChainEthereum)
 }
@@ -74,7 +81,7 @@ func (c *Chain) NextNonce(sourceAccount string) (uint64, error) {
 func nextStellarNonceFn(sourceAccount string) (uint64, error) {
 	sdexAPI := horizonclient.DefaultTestNetClient
 
-	log.Println("loading sequence number for Stellar")
+	logger.Infof("loading sequence number for Stellar")
 	acctReq := horizonclient.AccountRequest{AccountID: sourceAccount}
 	accountDetail, err := sdexAPI.AccountDetail(acctReq)
 	if err != nil {
