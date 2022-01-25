@@ -64,7 +64,7 @@ func Ethereum2Transaction(conn *ethclient.Client, txReceipt *types.Receipt, tx *
 	}
 	logs, e := conn.FilterLogs(context.Background(), query)
 	if e != nil {
-		return nil, fmt.Errorf("unable to filter logs for contract address on block number %d", txReceipt.BlockNumber.Int64())
+		return nil, fmt.Errorf("unable to filter logs for contract address on block number %d: %w", txReceipt.BlockNumber.Int64(), e)
 	}
 
 	// parse filtered log events
@@ -80,8 +80,8 @@ func Ethereum2Transaction(conn *ethclient.Client, txReceipt *types.Receipt, tx *
 		return nil, fmt.Errorf("more than one event emitted for this tx hash")
 	}
 	vLog := logs[0]
-	if len(vLog.Topics) != 3 {
-		return nil, fmt.Errorf("we expect 3 topic entries for each event, one for the event signature and the other for the DestinationStellarAddress and TokenContractAddress")
+	if len(vLog.Topics) != 1 {
+		return nil, fmt.Errorf("we expect 1 topic entries for each event, for the event signature only")
 	}
 	event := PaymentEvent{}
 	e = myAbi.UnpackIntoInterface(&event, eventName, vLog.Data)
@@ -91,17 +91,16 @@ func Ethereum2Transaction(conn *ethclient.Client, txReceipt *types.Receipt, tx *
 	// set values from log event
 	// TODO make this use the map in the Chain directly, need to store it by keccak256 hash value too
 	//     assetInfo, ok := model.ChainEthereum.AddressMappings[txReceipt.ContractAddress.Hex()]
-	eventDestinationStellarAddress := vLog.Topics[1].Hex()
-	eventTokenContractAddress := vLog.Topics[2].Hex()
+	eventDestinationStellarAddress := event.DestinationStellarAddress
 	eventTokenAmount = uint64(event.TokenAmount.Int64())
-	if eventTokenContractAddress == ethContractAddressHash {
-		log.Printf("DEBUG - found event with ethContractAddress at txhash (%s): DestinationStellarAddress='%s', TokenAmount='%d'\n", vLog.TxHash.Hex(), event.DestinationStellarAddress, event.TokenAmount.Int64())
+	if event.TokenContractAddress == model.AssetEthereum_ETH.ContractAddress {
+		log.Printf("DEBUG - found event with ethContractAddress at txhash (%s): event.DestinationStellarAddress='%s', TokenAmount='%d'\n", vLog.TxHash.Hex(), event.DestinationStellarAddress, event.TokenAmount.Int64())
 		assetInfo = model.AssetEthereum_ETH
-	} else if eventTokenContractAddress == usdcContractAddressHash {
-		log.Printf("DEBUG - found event with usdcContractAddress at txhash (%s): DestinationStellarAddress='%s', TokenAmount='%d'\n", vLog.TxHash.Hex(), event.DestinationStellarAddress, event.TokenAmount.Int64())
+	} else if event.TokenContractAddress == model.AssetEthereum_USDC.ContractAddress {
+		log.Printf("DEBUG - found event with usdcContractAddress at txhash (%s): event.DestinationStellarAddress='%s', TokenAmount='%d'\n", vLog.TxHash.Hex(), event.DestinationStellarAddress, event.TokenAmount.Int64())
 		assetInfo = model.AssetEthereum_USDC
 	} else {
-		return nil, fmt.Errorf("found event with an unsupported contractAddress: %s", eventTokenContractAddress)
+		return nil, fmt.Errorf("found event with an unsupported contractAddress: %s", event.TokenContractAddress)
 	}
 	contractData := model.ContractData{
 		EventName:                             eventName,
