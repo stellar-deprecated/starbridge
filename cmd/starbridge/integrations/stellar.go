@@ -13,7 +13,6 @@ import (
 
 // TODO need to set the contract account, source account
 var sourceAccount = "GAEGI7MPXUMSFS2CHBU46LV6SFHHHYNONW5OM3MTGCRVIQCSSXOB5KOW" // var sourceSecretKey = "SASII4SLKZ3S2GD52BILLO5BC7P45C3RYKOH5BADLSIJWHCUTIAQHYSZ"
-var escrowAccount = "GBNV7CTQAJTSYJE4BTA76JF2GZ6UA6WRN3KN55GUY2K62XIYD4ZADID5" // var escrowSecretKey = "SABNONONIEROOG7JURODU56QHBBI4SYGYEZ7I432QPV4THZPHRSACIBF"
 
 // GetSourceAccount() fetches the source account
 func GetSourceAccount() string {
@@ -34,7 +33,11 @@ func getStellarAsset(assetInfo *model.AssetInfo) txnbuild.Asset {
 
 func Transaction2Stellar(tx *model.Transaction) (*txnbuild.Transaction, error) {
 	if tx.Chain != model.ChainStellar {
-		return nil, fmt.Errorf("cannot convert transaction from a different chain ('%s') to Stellar, need to convert the transaction to the Stellar chain first", tx.Chain.Name)
+		return nil, fmt.Errorf("cannot convert transaction from a different chain ('%s') to Stellar, need to convert the model.Transaction to the Stellar chain first", tx.Chain.Name)
+	}
+
+	if tx.Data.TargetDestinationChain != model.ChainStellar {
+		return nil, fmt.Errorf("Stellar needs to be the destination chain (found=%s), we should not be dealing with native Stellar transactions in the codebase until we want to submit", tx.Data.TargetDestinationChain)
 	}
 
 	ops := []txnbuild.Operation{}
@@ -44,7 +47,7 @@ func Transaction2Stellar(tx *model.Transaction) (*txnbuild.Transaction, error) {
 		},
 		Asset:         getStellarAsset(tx.AssetInfo),
 		Amount:        fmt.Sprintf("%d", tx.Amount),
-		SourceAccount: escrowAccount, // escrow account is the source for these transactions
+		SourceAccount: tx.From, // specify the account here since we use a different source account on the Stellar tx
 	})
 
 	return txnbuild.NewTransaction(
@@ -56,8 +59,7 @@ func Transaction2Stellar(tx *model.Transaction) (*txnbuild.Transaction, error) {
 			BaseFee:              baseFee,
 			IncrementSequenceNum: true,
 			Operations:           ops,
-			// TODO need to set timebounds correctly
-			Timebounds: txnbuild.NewInfiniteTimeout(),
+			Timebounds:           txnbuild.NewInfiniteTimeout(),
 		},
 	)
 }

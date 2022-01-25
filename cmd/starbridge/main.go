@@ -22,7 +22,6 @@ import (
 	"github.com/stellar/go/txnbuild"
 
 	"github.com/stellar/starbridge/cmd/starbridge/integrations"
-	"github.com/stellar/starbridge/cmd/starbridge/model"
 	"github.com/stellar/starbridge/cmd/starbridge/sigsharestellar"
 	"github.com/stellar/starbridge/cmd/starbridge/transform"
 )
@@ -143,12 +142,15 @@ func run(args []string, logger *supportlog.Entry) error {
 	fmt.Println(modelTxEth.String())
 	fmt.Printf("\n\n")
 
-	modelTxStellar, err := transform.MapTxToChain(modelTxEth, model.ChainStellar)
+	modelTxStellar, err := transform.MapTxToChain(modelTxEth)
 	if err != nil {
 		return fmt.Errorf("mapping model eth tx to model stellar tx: %w", err)
 	}
 	fmt.Println("transaction converted to modelTxStellar:")
 	fmt.Println(modelTxStellar.String())
+	if modelTxStellar.To != modelTxStellar.Data.TargetDestinationAddressOnRemoteChain {
+		return fmt.Errorf("incorrect mapping since To value of converted transaction should match TargetDestinationAddressOnRemoteChain from event data")
+	}
 	fmt.Printf("\n\n")
 
 	stellarTx, err := integrations.Transaction2Stellar(modelTxStellar)

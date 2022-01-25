@@ -64,12 +64,12 @@ func Ethereum2Transaction(conn *ethclient.Client, txReceipt *types.Receipt, tx *
 	}
 	logs, e := conn.FilterLogs(context.Background(), query)
 	if e != nil {
-		return nil, fmt.Errorf("unable to filter logs for contract address on block number %d", txReceipt.BlockNumber.Int64())
+		return nil, fmt.Errorf("unable to filter logs for contract address on block number %d: %w", txReceipt.BlockNumber.Int64(), e)
 	}
 
 	// parse filtered log events
 	var assetInfo *model.AssetInfo
-	var eventAmount uint64
+	var eventTokenAmount uint64
 	myAbi, e := abi.JSON(strings.NewReader(string(SimpleEscrowEvents.SimpleEscrowEventsABI)))
 	if e != nil {
 		return nil, fmt.Errorf("unable to read ABI: %s", e)
@@ -80,28 +80,37 @@ func Ethereum2Transaction(conn *ethclient.Client, txReceipt *types.Receipt, tx *
 		return nil, fmt.Errorf("more than one event emitted for this tx hash")
 	}
 	vLog := logs[0]
-	if len(vLog.Topics) != 2 {
-		return nil, fmt.Errorf("we expect 2 topic entries for each event, one for the event signature and the other for the ContractAddress")
+	if len(vLog.Topics) != 1 {
+		return nil, fmt.Errorf("we expect 1 topic entries for each event, for the event signature only")
 	}
 	event := PaymentEvent{}
-	e = myAbi.UnpackIntoInterface(&event, "Payment", vLog.Data)
+	e = myAbi.UnpackIntoInterface(&event, eventName, vLog.Data)
 	if e != nil {
 		return nil, fmt.Errorf("unable to unpack event into event type Payment: %s", e)
 	}
 	// set values from log event
 	// TODO make this use the map in the Chain directly, need to store it by keccak256 hash value too
 	//     assetInfo, ok := model.ChainEthereum.AddressMappings[txReceipt.ContractAddress.Hex()]
-	eventContractAddress := vLog.Topics[1].Hex()
-	eventAmount = uint64(event.Amount.Int64())
-	if eventContractAddress == ethContractAddressHash {
-		log.Printf("DEBUG - found event with ethContractAddress at txhash (%s): Amount='%d'\n", vLog.TxHash.Hex(), event.Amount.Int64())
+	eventDestinationStellarAddress := event.DestinationStellarAddress
+	eventTokenAmount = uint64(event.TokenAmount.Int64())
+	if event.TokenContractAddress == model.AssetEthereum_ETH.ContractAddress {
+		log.Printf("DEBUG - found event with ethContractAddress at txhash (%s): event.DestinationStellarAddress='%s', TokenAmount='%d'\n", vLog.TxHash.Hex(), event.DestinationStellarAddress, event.TokenAmount.Int64())
 		assetInfo = model.AssetEthereum_ETH
-	} else if eventContractAddress == usdcContractAddressHash {
-		log.Printf("DEBUG - found event with usdcContractAddress at txhash (%s): Amount='%d'\n", vLog.TxHash.Hex(), event.Amount.Int64())
+	} else if event.TokenContractAddress == model.AssetEthereum_USDC.ContractAddress {
+		log.Printf("DEBUG - found event with usdcContractAddress at txhash (%s): event.DestinationStellarAddress='%s', TokenAmount='%d'\n", vLog.TxHash.Hex(), event.DestinationStellarAddress, event.TokenAmount.Int64())
 		assetInfo = model.AssetEthereum_USDC
 	} else {
-		return nil, fmt.Errorf("found event with an unsupported contractAddress: %s", eventContractAddress)
+		return nil, fmt.Errorf("found event with an unsupported contractAddress: %s", event.TokenContractAddress)
 	}
+	contractData := model.ContractData{
+		EventName:                             eventName,
+		TargetDestinationChain:                model.ChainStellar, // we have hard-coded this to Stellar for the MVP
+		TargetDestinationAddressOnRemoteChain: eventDestinationStellarAddress,
+		AssetInfo:                             assetInfo,
+		Amount:                                eventTokenAmount,
+	}
+
+	// TODO parse Stellar destination address and see if it is valid
 
 	return &model.Transaction{
 		Chain:                model.ChainEthereum,
@@ -111,28 +120,12 @@ func Ethereum2Transaction(conn *ethclient.Client, txReceipt *types.Receipt, tx *
 		IsPending:            isPending,
 		From:                 fromAddress,
 		To:                   tx.To().Hex(),
-		AssetInfo:            assetInfo,
-		Amount:               eventAmount,
+		AssetInfo:            payableAsset,
+		Amount:               tx.Value().Uint64(),
+		Data:                 contractData,
 		OriginalTx:           tx,
 		AdditionalOriginalTx: []interface{}{txReceipt},
 	}, nil
-
-	// sb.WriteString("Chain ID: " + tx.ChainId().String())
-	// sb.WriteString("\nHash: " + txReceipt.TxHash.String())
-	// sb.WriteString("\nIs Pending: " + fmt.Sprintf("%v", isPending))
-	// sb.WriteString("\nBlock: " + txReceipt.BlockNumber.String())
-	// sb.WriteString("\nNonce: " + fmt.Sprintf("%d", tx.Nonce()))
-	// sb.WriteString("\nTx Index: " + fmt.Sprintf("%d", txReceipt.TransactionIndex))
-	// sb.WriteString("\nContract Address: " + txReceipt.ContractAddress.String())
-	// sb.WriteString("\nGas Price: " + tx.GasPrice().String())
-	// sb.WriteString("\nCumulative Gas Used: " + fmt.Sprintf("%d", txReceipt.CumulativeGasUsed))
-	// sb.WriteString("\nGas Used: " + fmt.Sprintf("%d", txReceipt.GasUsed))
-	// sb.WriteString("\nStorage Size: " + txReceipt.Size().String())
-	// sb.WriteString("\nCost: " + tx.Cost().String())
-	// sb.WriteString("\nFrom: " + fromAddress)
-	// sb.WriteString("\nTo: " + tx.To().Hex())
-	// sb.WriteString("\nValue: " + tx.Value().String())
-	// sb.WriteString("\nData: " + string(tx.Data()))
 }
 
 // getFromAddress gets the From address for an Ethereum transaction
