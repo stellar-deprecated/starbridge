@@ -68,8 +68,6 @@ func Ethereum2Transaction(conn *ethclient.Client, txReceipt *types.Receipt, tx *
 	}
 
 	// parse filtered log events
-	var assetInfo *model.AssetInfo
-	var eventTokenAmount uint64
 	myAbi, e := abi.JSON(strings.NewReader(string(SimpleEscrowEvents.SimpleEscrowEventsABI)))
 	if e != nil {
 		return nil, fmt.Errorf("unable to read ABI: %s", e)
@@ -88,39 +86,32 @@ func Ethereum2Transaction(conn *ethclient.Client, txReceipt *types.Receipt, tx *
 	if e != nil {
 		return nil, fmt.Errorf("unable to unpack event into event type Payment: %s", e)
 	}
-	// set values from log event
-	// TODO NS make this use the map in the Chain directly, need to store it by keccak256 hash value too
-	//     assetInfo, ok := model.ChainEthereum.AddressMappings[txReceipt.ContractAddress.Hex()]
-	eventDestinationStellarAddress := event.DestinationStellarAddress
-	eventTokenAmount = uint64(event.TokenAmount.Int64())
-	if event.TokenContractAddress == model.AssetEthereum_ETH.ContractAddress {
-		log.Printf("DEBUG - found event with ethContractAddress at txhash (%s): event.DestinationStellarAddress='%s', TokenAmount='%d'\n", vLog.TxHash.Hex(), event.DestinationStellarAddress, event.TokenAmount.Int64())
-		assetInfo = model.AssetEthereum_ETH
-	} else if event.TokenContractAddress == model.AssetEthereum_USDC.ContractAddress {
-		log.Printf("DEBUG - found event with usdcContractAddress at txhash (%s): event.DestinationStellarAddress='%s', TokenAmount='%d'\n", vLog.TxHash.Hex(), event.DestinationStellarAddress, event.TokenAmount.Int64())
-		assetInfo = model.AssetEthereum_USDC
-	} else {
+	log.Printf("DEBUG - found event at txhash (%s): event.DestinationStellarAddress='%s', TokenAmount='%d', TokenContractAddress='%s'\n", vLog.TxHash.Hex(), event.DestinationStellarAddress, event.TokenAmount.Int64(), event.TokenContractAddress)
+
+	// select asset using data from tx event
+	assetInfo, ok := model.ChainEthereum.AllAssetMap[event.TokenContractAddress]
+	if !ok {
 		return nil, fmt.Errorf("found event with an unsupported contractAddress: %s", event.TokenContractAddress)
 	}
-	contractData := model.ContractData{
-		EventName:                             eventName,
-		TargetDestinationChain:                model.ChainStellar, // we have hard-coded this to Stellar for the MVP
-		TargetDestinationAddressOnRemoteChain: eventDestinationStellarAddress,
-		AssetInfo:                             assetInfo,
-		Amount:                                eventTokenAmount,
-	}
+	log.Printf("DEBUG - converted tokenContractAddress '%s' to assetInfo '%s'\n", event.TokenContractAddress, assetInfo)
 
 	return &model.Transaction{
-		Chain:                model.ChainEthereum,
-		Hash:                 txReceipt.TxHash.Hex(),
-		Block:                txReceipt.BlockNumber.Uint64(),
-		SeqNum:               tx.Nonce(),
-		IsPending:            isPending,
-		From:                 fromAddress,
-		To:                   tx.To().Hex(),
-		AssetInfo:            payableAsset,
-		Amount:               tx.Value().Uint64(),
-		Data:                 contractData,
+		Chain:     model.ChainEthereum,
+		Hash:      txReceipt.TxHash.Hex(),
+		Block:     txReceipt.BlockNumber.Uint64(),
+		SeqNum:    tx.Nonce(),
+		IsPending: isPending,
+		From:      fromAddress,
+		To:        tx.To().Hex(),
+		AssetInfo: payableAsset,
+		Amount:    tx.Value().Uint64(),
+		Data: model.ContractData{
+			EventName:                             eventName,
+			TargetDestinationChain:                model.ChainStellar, // we have hard-coded this to Stellar for the MVP
+			TargetDestinationAddressOnRemoteChain: event.DestinationStellarAddress,
+			AssetInfo:                             assetInfo,
+			Amount:                                uint64(event.TokenAmount.Int64()),
+		},
 		OriginalTx:           tx,
 		AdditionalOriginalTx: []interface{}{txReceipt},
 	}, nil

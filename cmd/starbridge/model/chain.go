@@ -12,6 +12,7 @@ import (
 type Chain struct {
 	Name                         string
 	NativeAsset                  *AssetInfo
+	AllAssetMap                  map[string]*AssetInfo // maps it's own assets (native + issued) so we can know what asset was used in a transaction being sent from this chain
 	AddressMappings              map[string]*AssetInfo // maps from a fixed set of assets from the remote chain to another fixed set of assets on the native chain (for now hard-coded, later on load from db)
 	nextNonceFn                  func(sourceAccount string) (uint64, error)
 	ValidateDestinationAddressFn func(addr string) error
@@ -41,6 +42,24 @@ var (
 		ValidateDestinationAddressFn: unsupportedValidateDestinationAddressFn,
 	}
 )
+
+func computeAllAssetMap(chain *Chain) map[string]*AssetInfo {
+	m := map[string]*AssetInfo{}
+	for _, v := range chain.AddressMappings {
+		m[v.MapKey()] = v
+	}
+
+	// native asset is included in the above list since it will be in the AddressMappings but add explicitly here too
+	m[chain.NativeAsset.MapKey()] = chain.NativeAsset
+
+	log.Printf("added %d items when creating AllAssetMap for chain=%s", len(m), chain.Name)
+	return m
+}
+
+func init() {
+	ChainStellar.AllAssetMap = computeAllAssetMap(ChainStellar)
+	ChainEthereum.AllAssetMap = computeAllAssetMap(ChainEthereum)
+}
 
 // String is the Stringer method
 func (c *Chain) String() string {
