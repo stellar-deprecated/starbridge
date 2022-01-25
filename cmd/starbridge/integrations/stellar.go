@@ -11,7 +11,7 @@ import (
 	"github.com/stellar/starbridge/cmd/starbridge/model"
 )
 
-// TODO need to set the contract account, source account
+// TODO NS need to set the contract account, source account from a config file
 var sourceAccount = "GAEGI7MPXUMSFS2CHBU46LV6SFHHHYNONW5OM3MTGCRVIQCSSXOB5KOW" // var sourceSecretKey = "SASII4SLKZ3S2GD52BILLO5BC7P45C3RYKOH5BADLSIJWHCUTIAQHYSZ"
 
 // GetSourceAccount() fetches the source account

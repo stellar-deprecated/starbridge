@@ -37,7 +37,7 @@ var (
 			AssetStellar_WUSDC.MapKey(): AssetEthereum_USDC,
 			AssetStellar_XLM.MapKey():   AssetEthereum_WXLM,
 		},
-		nextNonceFn: unsupportedNonceForChain, // TODO we haven't had the time to add the logic to go from Stellar to Ethereum yet
+		nextNonceFn:                  unsupportedNonceForChain, // TODO NS we haven't had the time to add the logic to go from Stellar to Ethereum yet
 		ValidateDestinationAddressFn: unsupportedValidateDestinationAddressFn,
 	}
 )

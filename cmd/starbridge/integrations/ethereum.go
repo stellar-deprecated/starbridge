@@ -89,7 +89,7 @@ func Ethereum2Transaction(conn *ethclient.Client, txReceipt *types.Receipt, tx *
 		return nil, fmt.Errorf("unable to unpack event into event type Payment: %s", e)
 	}
 	// set values from log event
-	// TODO make this use the map in the Chain directly, need to store it by keccak256 hash value too
+	// TODO NS make this use the map in the Chain directly, need to store it by keccak256 hash value too
 	//     assetInfo, ok := model.ChainEthereum.AddressMappings[txReceipt.ContractAddress.Hex()]
 	eventDestinationStellarAddress := event.DestinationStellarAddress
 	eventTokenAmount = uint64(event.TokenAmount.Int64())

@@ -22,21 +22,21 @@ func MapTxToChain(tx *model.Transaction) (*model.Transaction, error) {
 		return nil, fmt.Errorf("entry for input asset ('%s') did not exist, could not convert to mappedAssetInfo on destination chain with addressMappings: %+v", tx.Data.AssetInfo.String(), tx.Data.TargetDestinationChain.AddressMappings)
 	}
 
-	// TODO the source account should maybe come directly from the chain but adding here to avoid an import cycle. Need to move files around
+	// TODO NS the source account should maybe come directly from the chain but adding here to avoid an import cycle. Need to move files around
 	nextNonce, e := tx.Data.TargetDestinationChain.NextNonce(integrations.GetSourceAccount())
 	if e != nil {
 		return nil, fmt.Errorf("cannot get next nonce: %s", e)
 	}
 
-	// TODO set fee values here
 	e = tx.Data.TargetDestinationChain.ValidateDestinationAddressFn(tx.Data.TargetDestinationAddressOnRemoteChain)
 	if e != nil {
 		return nil, fmt.Errorf("validating destination address '%s': %w", tx.Data.TargetDestinationAddressOnRemoteChain, e)
 	}
 
+	// TODO NS set fee values here
 	return &model.Transaction{
 		Chain:                tx.Data.TargetDestinationChain,
-		Hash:                 "", // TODO fill in converted tx hash
+		Hash:                 "", // TODO NS fill in converted tx hash
 		Block:                0,  // we don't have a block yet
 		SeqNum:               nextNonce,
 		IsPending:            true,

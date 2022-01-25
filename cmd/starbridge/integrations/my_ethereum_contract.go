@@ -30,4 +30,4 @@ type PaymentEvent struct {
 
 const eventName = "Payment"
 
-var payableAsset = model.AssetEthereum_ETH // TODO this is hard-coded to ETH right now since our smart-contract only allows sending that asset to our smart-contract for now
+var payableAsset = model.AssetEthereum_ETH // TODO NS this is hard-coded to ETH right now since our smart-contract only allows sending that asset to our smart-contract for now
