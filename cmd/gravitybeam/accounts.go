@@ -11,10 +11,9 @@ func Accounts(tx *txnbuild.Transaction) []string {
 
 	for _, op := range tx.Operations() {
 		opSource := op.GetSourceAccount()
-		if opSource == "" {
-			continue
+		if opSource != "" {
+			accountsMap[opSource] = true
 		}
-		accountsMap[opSource] = true
 
 		switch o := op.(type) {
 		case *txnbuild.CreateClaimableBalance:
