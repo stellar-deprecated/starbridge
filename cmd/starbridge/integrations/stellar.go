@@ -37,7 +37,7 @@ func Transaction2Stellar(tx *model.Transaction) (*txnbuild.Transaction, error) {
 	}
 
 	if tx.Data.TargetDestinationChain != model.ChainStellar {
-		return nil, fmt.Errorf("Stellar needs to be the destination chain (found=%s), we should not be dealing with native Stellar transactions in the codebase until we want to submit", tx.Data.TargetDestinationChain)
+		return nil, fmt.Errorf("stellar needs to be the destination chain (found=%s), we should not be dealing with native Stellar transactions in the codebase until we want to submit", tx.Data.TargetDestinationChain)
 	}
 
 	ops := []txnbuild.Operation{}

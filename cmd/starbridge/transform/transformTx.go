@@ -29,6 +29,11 @@ func MapTxToChain(tx *model.Transaction) (*model.Transaction, error) {
 	}
 
 	// TODO set fee values here
+	e = tx.Data.TargetDestinationChain.ValidateDestinationAddressFn(tx.Data.TargetDestinationAddressOnRemoteChain)
+	if e != nil {
+		return nil, fmt.Errorf("validating destination address '%s': %w", tx.Data.TargetDestinationAddressOnRemoteChain, e)
+	}
+
 	return &model.Transaction{
 		Chain:                tx.Data.TargetDestinationChain,
 		Hash:                 "", // TODO fill in converted tx hash

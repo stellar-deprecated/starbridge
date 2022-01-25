@@ -110,8 +110,6 @@ func Ethereum2Transaction(conn *ethclient.Client, txReceipt *types.Receipt, tx *
 		Amount:                                eventTokenAmount,
 	}
 
-	// TODO parse Stellar destination address and see if it is valid
-
 	return &model.Transaction{
 		Chain:                model.ChainEthereum,
 		Hash:                 txReceipt.TxHash.Hex(),
