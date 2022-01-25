@@ -88,14 +88,7 @@ func run(args []string, logger *supportlog.Entry) error {
 		logger.Infof("Listening for p2p on... %v", a)
 	}
 
-	if peers == "" {
-		logger.Info("Using mdns to discover local peers...")
-		mdnsService := mdns.NewMdnsService(host, "gravitybeam", &mdnsNotifee{Host: host, Logger: logger})
-		err = mdnsService.Start()
-		if err != nil {
-			return err
-		}
-	} else {
+	if peers != "" {
 		peersArr := strings.Split(peers, ",")
 		for _, p := range peersArr {
 			p := p
@@ -115,6 +108,13 @@ func run(args []string, logger *supportlog.Entry) error {
 				logger.Info("Connected to peer")
 			}()
 		}
+	}
+
+	logger.Info("Using mdns to discover local peers...")
+	mdnsService := mdns.NewMdnsService(host, "starbridge", &mdnsNotifee{Host: host, Logger: logger})
+	err = mdnsService.Start()
+	if err != nil {
+		return err
 	}
 
 	pubSub, err := pubsub.NewGossipSub(context.Background(), host)
