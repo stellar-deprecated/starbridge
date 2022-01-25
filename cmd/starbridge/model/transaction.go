@@ -5,6 +5,27 @@ import (
 	"strings"
 )
 
+type ContractData struct {
+	EventName                             string
+	TargetDestinationChain                *Chain
+	TargetDestinationAddressOnRemoteChain string
+	AssetInfo                             *AssetInfo
+	Amount                                uint64
+}
+
+// String is the Stringer method
+func (c ContractData) String() string {
+	sb := strings.Builder{}
+	sb.WriteString("ContractData[")
+	sb.WriteString(fmt.Sprintf("EventName=%s", c.EventName))
+	sb.WriteString(fmt.Sprintf(", TargetDestinationChain=%s", c.TargetDestinationChain.String()))
+	sb.WriteString(fmt.Sprintf(", TargetDestinationAddressOnRemoteChain=%s", c.TargetDestinationAddressOnRemoteChain))
+	sb.WriteString(fmt.Sprintf(", AssetInfo=%s", c.AssetInfo.String()))
+	sb.WriteString(fmt.Sprintf(", Amount=%d", c.Amount))
+	sb.WriteString("]")
+	return sb.String()
+}
+
 type Transaction struct {
 	Chain                *Chain
 	Hash                 string
@@ -15,6 +36,7 @@ type Transaction struct {
 	To                   string
 	AssetInfo            *AssetInfo
 	Amount               uint64
+	Data                 ContractData // this is where the actual information lives about what needs to be transferred
 	OriginalTx           interface{}
 	AdditionalOriginalTx []interface{}
 	// TODO add fee information to the transaction
@@ -33,6 +55,7 @@ func (t Transaction) String() string {
 	sb.WriteString(fmt.Sprintf(", To=%s", t.To))
 	sb.WriteString(fmt.Sprintf(", AssetInfo=%s", t.AssetInfo.String()))
 	sb.WriteString(fmt.Sprintf(", Amount=%d", t.Amount))
+	sb.WriteString(fmt.Sprintf(", Data=%s", t.Data.String()))
 	sb.WriteString(fmt.Sprintf(", HasOriginalTx=%v", t.OriginalTx != nil))
 	sb.WriteString(fmt.Sprintf(", HasAdditionalOriginalTx=%v", t.AdditionalOriginalTx != nil && len(t.AdditionalOriginalTx) > 0))
 	sb.WriteString("]")

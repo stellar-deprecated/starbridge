@@ -30,12 +30,11 @@ var (
 
 // SimpleEscrowEventsMetaData contains all meta data concerning the SimpleEscrowEvents contract.
 var SimpleEscrowEventsMetaData = &bind.MetaData{
-	ABI: "[{\"constant\":false,\"inputs\":[{\"name\":\"contractAddress\",\"type\":\"string\"},{\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"send\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"a\",\"type\":\"string\"},{\"name\":\"b\",\"type\":\"string\"}],\"name\":\"isStringsEqual\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"pure\",\"type\":\"function\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"name\":\"contractAddress\",\"type\":\"string\"},{\"indexed\":false,\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Payment\",\"type\":\"event\"}]",
+	ABI: "[{\"constant\":false,\"inputs\":[{\"name\":\"destinationStellarAddress\",\"type\":\"string\"},{\"name\":\"tokenContractAddress\",\"type\":\"string\"},{\"name\":\"tokenAmount\",\"type\":\"uint256\"}],\"name\":\"send\",\"outputs\":[],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"name\":\"destinationStellarAddress\",\"type\":\"string\"},{\"indexed\":true,\"name\":\"tokenContractAddress\",\"type\":\"string\"},{\"indexed\":false,\"name\":\"tokenAmount\",\"type\":\"uint256\"}],\"name\":\"Payment\",\"type\":\"event\"}]",
 	Sigs: map[string]string{
-		"ede429bc": "isStringsEqual(string,string)",
-		"ccc95e03": "send(string,uint256)",
+		"cd485c28": "send(string,string,uint256)",
 	},
-	Bin: "0x608060405234801561001057600080fd5b506104df806100206000396000f30060806040526004361061004b5763ffffffff7c0100000000000000000000000000000000000000000000000000000000600035041663ccc95e038114610050578063ede429bc146100ad575b600080fd5b34801561005c57600080fd5b506040805160206004803580820135601f81018490048402850184019095528484526100ab94369492936024939284019190819084018382808284375094975050933594506101589350505050565b005b3480156100b957600080fd5b506040805160206004803580820135601f810184900484028501840190955284845261014494369492936024939284019190819084018382808284375050604080516020601f89358b018035918201839004830284018301909452808352979a9998810197919650918201945092508291508401838280828437509497506103269650505050505050565b604080519115158252519081900360200190f35b6101be82606060405190810160405280602a81526020017f307830303030303030303030303030303030303030303030303030303030303081526020017f3030303030303030303000000000000000000000000000000000000000000000815250610326565b8061022a575061022a82606060405190810160405280602a81526020017f307861306238363939316336323138623336633164313964346132653965623081526020017f6365333630366562343800000000000000000000000000000000000000000000815250610326565b151561029757604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601d60248201527f636f6e747261637441646472657373206e6f7420737570706f72746564000000604482015290519081900360640190fd5b816040518082805190602001908083835b602083106102c75780518252601f1990920191602091820191016102a8565b51815160209384036101000a60001901801990921691161790526040805192909401829003822087835293519395507f10bc7b26b8e5a9e4746a8ab34931348ab6bb1caeeb7f7d4aec1febe619194b0b94509083900301919050a25050565b6000816040516020018082805190602001908083835b6020831061035b5780518252601f19909201916020918201910161033c565b6001836020036101000a0380198251168184511680821785525050505050509050019150506040516020818303038152906040526040518082805190602001908083835b602083106103be5780518252601f19909201916020918201910161039f565b51815160209384036101000a60001901801990921691161790526040519190930181900381208851909550889450908301928392508401908083835b602083106104195780518252601f1990920191602091820191016103fa565b6001836020036101000a0380198251168184511680821785525050505050509050019150506040516020818303038152906040526040518082805190602001908083835b6020831061047c5780518252601f19909201916020918201910161045d565b5181516020939093036101000a600019018019909116921691909117905260405192018290039091209390931496955050505050505600a165627a7a72305820c45564e248c77dcd6bfe18079c139f4fc15842cf374b7511ff8046e76a3893160029",
+	Bin: "0x608060405234801561001057600080fd5b506104e7806100206000396000f3006080604052600436106100405763ffffffff7c0100000000000000000000000000000000000000000000000000000000600035041663cd485c288114610045575b600080fd5b34801561005157600080fd5b506040805160206004803580820135601f81018490048402850184019095528484526100de94369492936024939284019190819084018382808284375050604080516020601f89358b018035918201839004830284018301909452808352979a99988101979196509182019450925082915084018382808284375094975050933594506100e09350505050565b005b61014682606060405190810160405280602a81526020017f307830303030303030303030303030303030303030303030303030303030303081526020017f303030303030303030300000000000000000000000000000000000000000000081525061032e565b806101b257506101b282606060405190810160405280602a81526020017f307861306238363939316336323138623336633164313964346132653965623081526020017f636533363036656234380000000000000000000000000000000000000000000081525061032e565b151561024557604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152602260248201527f746f6b656e436f6e747261637441646472657373206e6f7420737570706f727460448201527f6564000000000000000000000000000000000000000000000000000000000000606482015290519081900360840190fd5b816040518082805190602001908083835b602083106102755780518252601f199092019160209182019101610256565b51815160209384036101000a6000190180199092169116179052604051919093018190038120885190955088945090928392508401908083835b602083106102ce5780518252601f1990920191602091820191016102af565b51815160209384036101000a60001901801990921691161790526040805192909401829003822088835293519395507fa65615f26a7f49d1df9b25d7019bf788d420564dbe08ad9c06d70ef5519c05ff94509083900301919050a3505050565b6000816040516020018082805190602001908083835b602083106103635780518252601f199092019160209182019101610344565b6001836020036101000a0380198251168184511680821785525050505050509050019150506040516020818303038152906040526040518082805190602001908083835b602083106103c65780518252601f1990920191602091820191016103a7565b51815160209384036101000a60001901801990921691161790526040519190930181900381208851909550889450908301928392508401908083835b602083106104215780518252601f199092019160209182019101610402565b6001836020036101000a0380198251168184511680821785525050505050509050019150506040516020818303038152906040526040518082805190602001908083835b602083106104845780518252601f199092019160209182019101610465565b5181516020939093036101000a600019018019909116921691909117905260405192018290039091209390931496955050505050505600a165627a7a72305820082bf9fb96f0a3d77f788abb0b773db6933df158793648aa1cf0ac2de3ffe51d0029",
 }
 
 // SimpleEscrowEventsABI is the input ABI used to generate the binding from.
@@ -209,56 +208,25 @@ func (_SimpleEscrowEvents *SimpleEscrowEventsTransactorRaw) Transact(opts *bind.
 	return _SimpleEscrowEvents.Contract.contract.Transact(opts, method, params...)
 }
 
-// IsStringsEqual is a free data retrieval call binding the contract method 0xede429bc.
+// Send is a paid mutator transaction binding the contract method 0xcd485c28.
 //
-// Solidity: function isStringsEqual(string a, string b) pure returns(bool)
-func (_SimpleEscrowEvents *SimpleEscrowEventsCaller) IsStringsEqual(opts *bind.CallOpts, a string, b string) (bool, error) {
-	var out []interface{}
-	err := _SimpleEscrowEvents.contract.Call(opts, &out, "isStringsEqual", a, b)
-
-	if err != nil {
-		return *new(bool), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
-
-	return out0, err
-
+// Solidity: function send(string destinationStellarAddress, string tokenContractAddress, uint256 tokenAmount) returns()
+func (_SimpleEscrowEvents *SimpleEscrowEventsTransactor) Send(opts *bind.TransactOpts, destinationStellarAddress string, tokenContractAddress string, tokenAmount *big.Int) (*types.Transaction, error) {
+	return _SimpleEscrowEvents.contract.Transact(opts, "send", destinationStellarAddress, tokenContractAddress, tokenAmount)
 }
 
-// IsStringsEqual is a free data retrieval call binding the contract method 0xede429bc.
+// Send is a paid mutator transaction binding the contract method 0xcd485c28.
 //
-// Solidity: function isStringsEqual(string a, string b) pure returns(bool)
-func (_SimpleEscrowEvents *SimpleEscrowEventsSession) IsStringsEqual(a string, b string) (bool, error) {
-	return _SimpleEscrowEvents.Contract.IsStringsEqual(&_SimpleEscrowEvents.CallOpts, a, b)
+// Solidity: function send(string destinationStellarAddress, string tokenContractAddress, uint256 tokenAmount) returns()
+func (_SimpleEscrowEvents *SimpleEscrowEventsSession) Send(destinationStellarAddress string, tokenContractAddress string, tokenAmount *big.Int) (*types.Transaction, error) {
+	return _SimpleEscrowEvents.Contract.Send(&_SimpleEscrowEvents.TransactOpts, destinationStellarAddress, tokenContractAddress, tokenAmount)
 }
 
-// IsStringsEqual is a free data retrieval call binding the contract method 0xede429bc.
+// Send is a paid mutator transaction binding the contract method 0xcd485c28.
 //
-// Solidity: function isStringsEqual(string a, string b) pure returns(bool)
-func (_SimpleEscrowEvents *SimpleEscrowEventsCallerSession) IsStringsEqual(a string, b string) (bool, error) {
-	return _SimpleEscrowEvents.Contract.IsStringsEqual(&_SimpleEscrowEvents.CallOpts, a, b)
-}
-
-// Send is a paid mutator transaction binding the contract method 0xccc95e03.
-//
-// Solidity: function send(string contractAddress, uint256 amount) returns()
-func (_SimpleEscrowEvents *SimpleEscrowEventsTransactor) Send(opts *bind.TransactOpts, contractAddress string, amount *big.Int) (*types.Transaction, error) {
-	return _SimpleEscrowEvents.contract.Transact(opts, "send", contractAddress, amount)
-}
-
-// Send is a paid mutator transaction binding the contract method 0xccc95e03.
-//
-// Solidity: function send(string contractAddress, uint256 amount) returns()
-func (_SimpleEscrowEvents *SimpleEscrowEventsSession) Send(contractAddress string, amount *big.Int) (*types.Transaction, error) {
-	return _SimpleEscrowEvents.Contract.Send(&_SimpleEscrowEvents.TransactOpts, contractAddress, amount)
-}
-
-// Send is a paid mutator transaction binding the contract method 0xccc95e03.
-//
-// Solidity: function send(string contractAddress, uint256 amount) returns()
-func (_SimpleEscrowEvents *SimpleEscrowEventsTransactorSession) Send(contractAddress string, amount *big.Int) (*types.Transaction, error) {
-	return _SimpleEscrowEvents.Contract.Send(&_SimpleEscrowEvents.TransactOpts, contractAddress, amount)
+// Solidity: function send(string destinationStellarAddress, string tokenContractAddress, uint256 tokenAmount) returns()
+func (_SimpleEscrowEvents *SimpleEscrowEventsTransactorSession) Send(destinationStellarAddress string, tokenContractAddress string, tokenAmount *big.Int) (*types.Transaction, error) {
+	return _SimpleEscrowEvents.Contract.Send(&_SimpleEscrowEvents.TransactOpts, destinationStellarAddress, tokenContractAddress, tokenAmount)
 }
 
 // SimpleEscrowEventsPaymentIterator is returned from FilterPayment and is used to iterate over the raw logs and unpacked data for Payment events raised by the SimpleEscrowEvents contract.
@@ -330,39 +298,48 @@ func (it *SimpleEscrowEventsPaymentIterator) Close() error {
 
 // SimpleEscrowEventsPayment represents a Payment event raised by the SimpleEscrowEvents contract.
 type SimpleEscrowEventsPayment struct {
-	ContractAddress common.Hash
-	Amount          *big.Int
-	Raw             types.Log // Blockchain specific contextual infos
+	DestinationStellarAddress common.Hash
+	TokenContractAddress      common.Hash
+	TokenAmount               *big.Int
+	Raw                       types.Log // Blockchain specific contextual infos
 }
 
-// FilterPayment is a free log retrieval operation binding the contract event 0x10bc7b26b8e5a9e4746a8ab34931348ab6bb1caeeb7f7d4aec1febe619194b0b.
+// FilterPayment is a free log retrieval operation binding the contract event 0xa65615f26a7f49d1df9b25d7019bf788d420564dbe08ad9c06d70ef5519c05ff.
 //
-// Solidity: event Payment(string indexed contractAddress, uint256 amount)
-func (_SimpleEscrowEvents *SimpleEscrowEventsFilterer) FilterPayment(opts *bind.FilterOpts, contractAddress []string) (*SimpleEscrowEventsPaymentIterator, error) {
+// Solidity: event Payment(string indexed destinationStellarAddress, string indexed tokenContractAddress, uint256 tokenAmount)
+func (_SimpleEscrowEvents *SimpleEscrowEventsFilterer) FilterPayment(opts *bind.FilterOpts, destinationStellarAddress []string, tokenContractAddress []string) (*SimpleEscrowEventsPaymentIterator, error) {
 
-	var contractAddressRule []interface{}
-	for _, contractAddressItem := range contractAddress {
-		contractAddressRule = append(contractAddressRule, contractAddressItem)
+	var destinationStellarAddressRule []interface{}
+	for _, destinationStellarAddressItem := range destinationStellarAddress {
+		destinationStellarAddressRule = append(destinationStellarAddressRule, destinationStellarAddressItem)
+	}
+	var tokenContractAddressRule []interface{}
+	for _, tokenContractAddressItem := range tokenContractAddress {
+		tokenContractAddressRule = append(tokenContractAddressRule, tokenContractAddressItem)
 	}
 
-	logs, sub, err := _SimpleEscrowEvents.contract.FilterLogs(opts, "Payment", contractAddressRule)
+	logs, sub, err := _SimpleEscrowEvents.contract.FilterLogs(opts, "Payment", destinationStellarAddressRule, tokenContractAddressRule)
 	if err != nil {
 		return nil, err
 	}
 	return &SimpleEscrowEventsPaymentIterator{contract: _SimpleEscrowEvents.contract, event: "Payment", logs: logs, sub: sub}, nil
 }
 
-// WatchPayment is a free log subscription operation binding the contract event 0x10bc7b26b8e5a9e4746a8ab34931348ab6bb1caeeb7f7d4aec1febe619194b0b.
+// WatchPayment is a free log subscription operation binding the contract event 0xa65615f26a7f49d1df9b25d7019bf788d420564dbe08ad9c06d70ef5519c05ff.
 //
-// Solidity: event Payment(string indexed contractAddress, uint256 amount)
-func (_SimpleEscrowEvents *SimpleEscrowEventsFilterer) WatchPayment(opts *bind.WatchOpts, sink chan<- *SimpleEscrowEventsPayment, contractAddress []string) (event.Subscription, error) {
+// Solidity: event Payment(string indexed destinationStellarAddress, string indexed tokenContractAddress, uint256 tokenAmount)
+func (_SimpleEscrowEvents *SimpleEscrowEventsFilterer) WatchPayment(opts *bind.WatchOpts, sink chan<- *SimpleEscrowEventsPayment, destinationStellarAddress []string, tokenContractAddress []string) (event.Subscription, error) {
 
-	var contractAddressRule []interface{}
-	for _, contractAddressItem := range contractAddress {
-		contractAddressRule = append(contractAddressRule, contractAddressItem)
+	var destinationStellarAddressRule []interface{}
+	for _, destinationStellarAddressItem := range destinationStellarAddress {
+		destinationStellarAddressRule = append(destinationStellarAddressRule, destinationStellarAddressItem)
+	}
+	var tokenContractAddressRule []interface{}
+	for _, tokenContractAddressItem := range tokenContractAddress {
+		tokenContractAddressRule = append(tokenContractAddressRule, tokenContractAddressItem)
 	}
 
-	logs, sub, err := _SimpleEscrowEvents.contract.WatchLogs(opts, "Payment", contractAddressRule)
+	logs, sub, err := _SimpleEscrowEvents.contract.WatchLogs(opts, "Payment", destinationStellarAddressRule, tokenContractAddressRule)
 	if err != nil {
 		return nil, err
 	}
@@ -394,9 +371,9 @@ func (_SimpleEscrowEvents *SimpleEscrowEventsFilterer) WatchPayment(opts *bind.W
 	}), nil
 }
 
-// ParsePayment is a log parse operation binding the contract event 0x10bc7b26b8e5a9e4746a8ab34931348ab6bb1caeeb7f7d4aec1febe619194b0b.
+// ParsePayment is a log parse operation binding the contract event 0xa65615f26a7f49d1df9b25d7019bf788d420564dbe08ad9c06d70ef5519c05ff.
 //
-// Solidity: event Payment(string indexed contractAddress, uint256 amount)
+// Solidity: event Payment(string indexed destinationStellarAddress, string indexed tokenContractAddress, uint256 tokenAmount)
 func (_SimpleEscrowEvents *SimpleEscrowEventsFilterer) ParsePayment(log types.Log) (*SimpleEscrowEventsPayment, error) {
 	event := new(SimpleEscrowEventsPayment)
 	if err := _SimpleEscrowEvents.contract.UnpackLog(event, "Payment", log); err != nil {
