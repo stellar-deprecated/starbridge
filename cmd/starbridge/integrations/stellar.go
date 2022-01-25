@@ -13,7 +13,6 @@ import (
 
 // TODO need to set the contract account, source account
 var sourceAccount = "GAEGI7MPXUMSFS2CHBU46LV6SFHHHYNONW5OM3MTGCRVIQCSSXOB5KOW" // var sourceSecretKey = "SASII4SLKZ3S2GD52BILLO5BC7P45C3RYKOH5BADLSIJWHCUTIAQHYSZ"
-var escrowAccount = "GBNV7CTQAJTSYJE4BTA76JF2GZ6UA6WRN3KN55GUY2K62XIYD4ZADID5" // var escrowSecretKey = "SABNONONIEROOG7JURODU56QHBBI4SYGYEZ7I432QPV4THZPHRSACIBF"
 
 // GetSourceAccount() fetches the source account
 func GetSourceAccount() string {
