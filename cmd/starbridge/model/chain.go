@@ -21,6 +21,7 @@ var (
 		NativeAsset: AssetStellar_XLM,
 		AddressMappings: map[string]*AssetInfo{
 			AssetEthereum_ETH.MapKey():  AssetStellar_ETH,
+			AssetEthereum_USDC.MapKey(): AssetStellar_WUSDC,
 			AssetEthereum_WXLM.MapKey(): AssetStellar_XLM,
 		},
 		nextNonceFn: nextStellarNonceFn,
@@ -29,10 +30,11 @@ var (
 		Name:        "Ethereum",
 		NativeAsset: AssetEthereum_ETH,
 		AddressMappings: map[string]*AssetInfo{
-			AssetStellar_ETH.MapKey(): AssetEthereum_ETH,
-			AssetStellar_XLM.MapKey(): AssetEthereum_WXLM,
+			AssetStellar_ETH.MapKey():   AssetEthereum_ETH,
+			AssetStellar_WUSDC.MapKey(): AssetEthereum_USDC,
+			AssetStellar_XLM.MapKey():   AssetEthereum_WXLM,
 		},
-		nextNonceFn: unsupportedNonceForChain,
+		nextNonceFn: unsupportedNonceForChain, // TODO we haven't had the time to add the logic to go from Stellar to Ethereum yet
 	}
 )
 

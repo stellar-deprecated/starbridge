@@ -47,14 +47,14 @@ var (
 	AssetStellar_ETH *AssetInfo = &AssetInfo{
 		// TODO need to set contract account and key correctly
 		Code:            "ETH",                                                      // Stellar assets will retain the original assetCode and will not have the W prefix
-		ContractAddress: "GB42JR56FDOVUR75LN2J2F6DARS7SDUYMYPETQ24TDGRBCCQCHS2M2Y7", // contractSecret: SAZGAQANN6UB3SM3GM7SF4PDF5EMC67LOHOYACK4O7VECYI2WTDI4F4P
+		ContractAddress: "GBNV7CTQAJTSYJE4BTA76JF2GZ6UA6WRN3KN55GUY2K62XIYD4ZADID5", // this is the escrow account
 		Decimals:        7,
 		mapKey:          stellarMapKey,
 	}
 	AssetStellar_WUSDC *AssetInfo = &AssetInfo{
 		// TODO need to set contract account and key correctly
 		Code:            "WUSDC",                                                    // since we have a USDC on Stellar, we add the "W" prefix for now
-		ContractAddress: "GB42JR56FDOVUR75LN2J2F6DARS7SDUYMYPETQ24TDGRBCCQCHS2M2Y7", // contractSecret: SAZGAQANN6UB3SM3GM7SF4PDF5EMC67LOHOYACK4O7VECYI2WTDI4F4P
+		ContractAddress: "GBNV7CTQAJTSYJE4BTA76JF2GZ6UA6WRN3KN55GUY2K62XIYD4ZADID5", // this is the escrow account
 		Decimals:        7,
 		mapKey:          stellarMapKey,
 	}

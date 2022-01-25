@@ -6,13 +6,14 @@ import (
 	"log"
 	"strings"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/stellar/starbridge/cmd/starbridge/model"
-	"github.com/stellar/starbridge/contracts/gen/Counter"
+	"github.com/stellar/starbridge/contracts/gen/SimpleEscrowEvents"
 )
 
 // FetchEthTxByHash returns a model.Transaction
@@ -47,41 +48,60 @@ func Ethereum2Transaction(conn *ethclient.Client, txReceipt *types.Receipt, tx *
 	if !IsMyContractAddress(tx.To().Hex()) {
 		return nil, fmt.Errorf("unsupported receiver address '%s'", tx.To().Hex())
 	}
-
 	fromAddress, e := getFromAddress(tx)
 	if e != nil {
 		return nil, fmt.Errorf("unable to get From address: %s", e)
 	}
 
-	counter, e := Counter.NewCounter(common.HexToAddress(MY_ETHEREUM_CONTRACT_ADDRESS), conn)
-	if e != nil {
-		return nil, fmt.Errorf("unable to construct counter: %s", e)
+	// pulled logic to read events from here: https://goethereumbook.org/event-read/ with many modifications to suit our smart contract
+	// filter log events by a query
+	query := ethereum.FilterQuery{
+		FromBlock: txReceipt.BlockNumber,
+		ToBlock:   txReceipt.BlockNumber,
+		Addresses: []common.Address{
+			common.HexToAddress(MY_ETHEREUM_CONTRACT_ADDRESS),
+		},
 	}
-	cValue, e := counter.GetCount(nil)
+	logs, e := conn.FilterLogs(context.Background(), query)
 	if e != nil {
-		return nil, fmt.Errorf("unable to invoke GetCall(): %s", e)
+		return nil, fmt.Errorf("unable to filter logs for contract address on block number %d", txReceipt.BlockNumber.Int64())
 	}
-	log.Printf("value of counter is %d", cValue.Int64())
 
-	myAbi, e := abi.JSON(strings.NewReader(Counter.CounterABI))
+	// parse filtered log events
+	var assetInfo *model.AssetInfo
+	var eventAmount uint64
+	myAbi, e := abi.JSON(strings.NewReader(string(SimpleEscrowEvents.SimpleEscrowEventsABI)))
 	if e != nil {
 		return nil, fmt.Errorf("unable to read ABI: %s", e)
 	}
-	// TODO trying to get SHA3, see new code added in my_ethereum_contract to map fuinction names to sha hash values (4 bytes) so we can select correctly using fn sigs
-	methodParams, e := myAbi.Unpack("incrementCounter", tx.Data()[4:])
-	if e != nil {
-		return nil, fmt.Errorf("unable to unpack ABI to get method params: %s", e)
+	if len(logs) == 0 {
+		return nil, fmt.Errorf("no event emitted for this tx hash")
+	} else if len(logs) > 1 {
+		return nil, fmt.Errorf("more than one event emitted for this tx hash")
 	}
-	log.Printf("method params sent in: %v", methodParams)
-
-	// TODO convert the contract address to the correct token info - in this example it should give us AssetEthereum_USDC
-	// ensure the contract exists in the list that we support
-	// assetInfo, ok := model.ChainEthereum.AddressMappings[txReceipt.ContractAddress.Hex()]
-	// if !ok {
-	// 	return nil, fmt.Errorf("unsupported contract address '%s' on Ethereum", txReceipt.ContractAddress.Hex())
-	// }
-	// set this manually for now
-	assetInfo := model.AssetEthereum_ETH
+	vLog := logs[0]
+	if len(vLog.Topics) != 2 {
+		return nil, fmt.Errorf("we expect 2 topic entries for each event, one for the event signature and the other for the ContractAddress")
+	}
+	event := PaymentEvent{}
+	e = myAbi.UnpackIntoInterface(&event, "Payment", vLog.Data)
+	if e != nil {
+		return nil, fmt.Errorf("unable to unpack event into event type Payment: %s", e)
+	}
+	// set values from log event
+	// TODO make this use the map in the Chain directly, need to store it by keccak256 hash value too
+	//     assetInfo, ok := model.ChainEthereum.AddressMappings[txReceipt.ContractAddress.Hex()]
+	eventContractAddress := vLog.Topics[1].Hex()
+	eventAmount = uint64(event.Amount.Int64())
+	if eventContractAddress == ethContractAddressHash {
+		log.Printf("DEBUG - found event with ethContractAddress at txhash (%s): Amount='%d'\n", vLog.TxHash.Hex(), event.Amount.Int64())
+		assetInfo = model.AssetEthereum_ETH
+	} else if eventContractAddress == usdcContractAddressHash {
+		log.Printf("DEBUG - found event with usdcContractAddress at txhash (%s): Amount='%d'\n", vLog.TxHash.Hex(), event.Amount.Int64())
+		assetInfo = model.AssetEthereum_USDC
+	} else {
+		return nil, fmt.Errorf("found event with an unsupported contractAddress: %s", eventContractAddress)
+	}
 
 	return &model.Transaction{
 		Chain:                model.ChainEthereum,
@@ -92,7 +112,7 @@ func Ethereum2Transaction(conn *ethclient.Client, txReceipt *types.Receipt, tx *
 		From:                 fromAddress,
 		To:                   tx.To().Hex(),
 		AssetInfo:            assetInfo,
-		Amount:               tx.Value().Uint64(),
+		Amount:               eventAmount,
 		OriginalTx:           tx,
 		AdditionalOriginalTx: []interface{}{txReceipt},
 	}, nil

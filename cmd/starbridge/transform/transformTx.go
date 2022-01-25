@@ -19,7 +19,7 @@ func MapTxToChain(tx *model.Transaction, destinationChain *model.Chain) (*model.
 
 	mappedAssetInfo, ok := destinationChain.AddressMappings[tx.AssetInfo.MapKey()]
 	if !ok {
-		return nil, fmt.Errorf("entry for input asset ('%s') did not exist, could not convert to mappedAssetInfo on destination chain", tx.AssetInfo.String())
+		return nil, fmt.Errorf("entry for input asset ('%s') did not exist, could not convert to mappedAssetInfo on destination chain with addressMappings: %+v", tx.AssetInfo.String(), destinationChain.AddressMappings)
 	}
 
 	nextNonce, e := destinationChain.NextNonce(integrations.GetSourceAccount())

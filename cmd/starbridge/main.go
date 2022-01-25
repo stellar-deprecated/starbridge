@@ -40,11 +40,13 @@ func main() {
 func run(args []string, logger *supportlog.Entry) error {
 	fs := flag.NewFlagSet("starbridge", flag.ExitOnError)
 
+	txHash := ""
 	seed := ""
 	portP2P := "0"
 	peers := ""
 	horizonURL := "https://horizon-testnet.stellar.org"
 
+	fs.StringVar(&txHash, "txHash", "", "txHash on Ethereum to be queried for conversion")
 	fs.StringVar(&seed, "seed", "", "Seed secret key for Stellar with which to sign transactions for this node")
 	fs.StringVar(&portP2P, "port-p2p", portP2P, "Port to accept P2P requests on (also via PORT_P2P)")
 	fs.StringVar(&peers, "peers", peers, "Comma-separated list of addresses of peers to connect to on start (also via PEERS)")
@@ -55,8 +57,11 @@ func run(args []string, logger *supportlog.Entry) error {
 		return err
 	}
 
+	if txHash == "" {
+		return fmt.Errorf("needs a valid 'txHash' command line option")
+	}
 	if seed == "" {
-		return fmt.Errorf("needs 'seed' command line option")
+		return fmt.Errorf("needs a valid 'seed' command line option")
 	}
 
 	logger.Info("Starting...")
@@ -130,7 +135,6 @@ func run(args []string, logger *supportlog.Entry) error {
 
 	time.Sleep(2 * time.Second)
 
-	txHash := "0x9a5ed1a2f961cbe3ddbf9ec083f662f0948924368bb8ea232b8abc5e1bfa70da"
 	modelTxEth, err := integrations.FetchEthTxByHash(txHash)
 	if err != nil {
 		return fmt.Errorf("fetching eth tx %s: %w", txHash, err)
@@ -153,12 +157,21 @@ func run(args []string, logger *supportlog.Entry) error {
 	}
 	fmt.Println(integrations.Stellar2String(stellarTx))
 
+	fmt.Println("")
 	fmt.Println("signing Stellar tx...")
 	signedStellarTx, err := signTxForStellar(stellarTx, seed)
 	if err != nil {
 		return fmt.Errorf("signing tx: %w", err)
 	}
 	fmt.Println(integrations.Stellar2String(signedStellarTx))
+
+	fmt.Println("")
+	fmt.Println("stellar tx base64 encoded:")
+	signedStellarTxBase64String, err := signedStellarTx.Base64()
+	if err != nil {
+		return fmt.Errorf("converting to base64 string: %w", err)
+	}
+	fmt.Println(signedStellarTxBase64String)
 
 	signedStellarGenTx := txnbuild.NewGenericTransactionWithTransaction(signedStellarTx)
 	err = sigShareStellar.Share(context.Background(), signedStellarGenTx)
