@@ -57,7 +57,7 @@ func Transaction2Stellar(tx *model.Transaction) (*txnbuild.Transaction, error) {
 				Sequence:  int64(tx.SeqNum),
 			},
 			BaseFee:              baseFee,
-			IncrementSequenceNum: true,
+			IncrementSequenceNum: false,
 			Operations:           ops,
 			Timebounds:           txnbuild.NewInfiniteTimeout(),
 		},
