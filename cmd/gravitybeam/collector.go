@@ -56,7 +56,7 @@ func (c *Collector) Collect() error {
 	if err != nil {
 		return err
 	}
-	c.logger.Infof("Subscribed to topic %s", c.listenTopic.String())
+	c.logger.WithField("topic", c.listenTopic.String()).Info("Subscribed")
 	ctx := context.Background()
 	for {
 		logger := c.logger
@@ -83,23 +83,23 @@ func (c *Collector) Collect() error {
 			return err
 		}
 		logger = logger.WithField("tx", hex.EncodeToString(hash[:]))
-		logger.Infof("tx received: sig count: %d", len(tx.Signatures()))
+		logger.Infof("Tx seen: sig count: %d", len(tx.Signatures()))
 
 		tx, err = c.store.StoreAndUpdate(hash, tx)
 		if err != nil {
 			return err
 		}
-		logger.Infof("tx stored: sig count: %d", len(tx.Signatures()))
+		logger.Infof("Tx stored: sig count: %d", len(tx.Signatures()))
 
 		txBytes, err = tx.MarshalBinary()
 		if err != nil {
 			return fmt.Errorf("marshaling tx %s: %w", hash, err)
 		}
 
-		logger.Infof("publishing aggregated")
 		err = c.publishTopic.Publish(ctx, txBytes)
 		if err != nil {
 			return fmt.Errorf("publishing tx %s: %w", hash, err)
 		}
+		logger.Infof("Tx published")
 	}
 }
