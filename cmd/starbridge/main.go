@@ -74,9 +74,7 @@ func run(args []string, logger *supportlog.Entry) error {
 		return err
 	}
 
-	host, err := libp2p.New(
-		libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/" + portP2P),
-	)
+	host, err := libp2p.New(libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/" + portP2P))
 	if err != nil {
 		return err
 	}
