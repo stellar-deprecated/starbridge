@@ -9,7 +9,6 @@ import (
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/stellar/go/clients/horizonclient"
-	"github.com/stellar/go/keypair"
 	supportlog "github.com/stellar/go/support/log"
 	"github.com/stellar/go/txnbuild"
 )
