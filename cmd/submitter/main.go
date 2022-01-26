@@ -9,13 +9,13 @@ import (
 
 	libp2p "github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
+	libp2pnetwork "github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 	ff "github.com/peterbourgon/ff/v3"
 	"github.com/sirupsen/logrus"
 	"github.com/stellar/go/clients/horizonclient"
-	"github.com/stellar/go/keypair"
 	supportlog "github.com/stellar/go/support/log"
 )
 
@@ -30,14 +30,12 @@ func main() {
 }
 
 func run(args []string, logger *supportlog.Entry) error {
-	fs := flag.NewFlagSet("stellarwallet", flag.ExitOnError)
+	fs := flag.NewFlagSet("submitter", flag.ExitOnError)
 
-	addressStr := ""
 	portP2P := "0"
 	peers := ""
 	horizonURL := "https://horizon-testnet.stellar.org"
 
-	fs.StringVar(&addressStr, "address", addressStr, "Stellar address this wallet is monitoring (also via ADDRESS)")
 	fs.StringVar(&portP2P, "port-p2p", portP2P, "Port to accept P2P requests on (also via PORT_P2P)")
 	fs.StringVar(&peers, "peers", peers, "Comma-separated list of addresses of peers to connect to on start (also via PEERS)")
 	fs.StringVar(&horizonURL, "horizon", horizonURL, "Horizon URL (also via HORIZON_URL)")
@@ -48,11 +46,6 @@ func run(args []string, logger *supportlog.Entry) error {
 	}
 
 	logger.Info("Starting...")
-
-	address, err := keypair.ParseAddress(addressStr)
-	if err != nil {
-		return err
-	}
 
 	horizonClient := &horizonclient.Client{HorizonURL: horizonURL}
 
@@ -65,6 +58,11 @@ func run(args []string, logger *supportlog.Entry) error {
 	if err != nil {
 		return err
 	}
+	host.Network().Notify(&libp2pnetwork.NotifyBundle{
+		ConnectedF: func(n libp2pnetwork.Network, c libp2pnetwork.Conn) {
+			logger.Infof("Connected to: %s", c.RemotePeer().Pretty())
+		},
+	})
 	hostAddrInfo := peer.AddrInfo{
 		ID:    host.ID(),
 		Addrs: host.Addrs(),
@@ -113,7 +111,6 @@ func run(args []string, logger *supportlog.Entry) error {
 
 	logger.Info("Subscribing to transactions...")
 	collector, err := NewCollector(CollectorConfig{
-		Address:           address,
 		NetworkPassphrase: networkDetails.NetworkPassphrase,
 		Logger:            logger,
 		HorizonClient:     horizonClient,
