@@ -56,10 +56,11 @@ func (c *Collector) Collect() error {
 	if err != nil {
 		return err
 	}
-	c.logger.WithField("topic", c.listenTopic.String()).Info("Subscribed")
+	logger := c.logger.WithField("topic", c.listenTopic.String())
+	logger.Info("Subscribed")
 	ctx := context.Background()
 	for {
-		logger := c.logger
+		logger := logger
 
 		msg, err := sub.Next(ctx)
 		if err != nil {
@@ -83,19 +84,22 @@ func (c *Collector) Collect() error {
 			return err
 		}
 		logger = logger.WithField("tx", hex.EncodeToString(hash[:]))
-		logger.Infof("Tx seen: sig count: %d", len(tx.Signatures()))
+		logger = logger.WithField("sigcount", len(tx.Signatures()))
+		logger.Infof("Tx seen")
 
 		tx, err = c.store.StoreAndUpdate(hash, tx)
 		if err != nil {
 			return err
 		}
-		logger.Infof("Tx stored: sig count: %d", len(tx.Signatures()))
+		logger = logger.WithField("sigcount", len(tx.Signatures()))
+		logger.Infof("Tx updated from store")
 
 		txBytes, err = tx.MarshalBinary()
 		if err != nil {
 			return fmt.Errorf("marshaling tx %s: %w", hash, err)
 		}
 
+		logger = logger.WithField("topic", c.publishTopic.String())
 		err = c.publishTopic.Publish(ctx, txBytes)
 		if err != nil {
 			return fmt.Errorf("publishing tx %s: %w", hash, err)

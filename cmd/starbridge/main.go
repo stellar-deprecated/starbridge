@@ -80,7 +80,8 @@ func run(args []string, logger *supportlog.Entry) error {
 	}
 	host.Network().Notify(&libp2pnetwork.NotifyBundle{
 		ConnectedF: func(n libp2pnetwork.Network, c libp2pnetwork.Conn) {
-			logger.Infof("Connected to: %s", c.RemotePeer().Pretty())
+			logger := logger.WithField("peer", c.RemotePeer().Pretty())
+			logger.Info("Connected to peer")
 		},
 	})
 	hostAddrInfo := peer.AddrInfo{
@@ -173,8 +174,7 @@ func run(args []string, logger *supportlog.Entry) error {
 	}
 	logger.Infof("stellar tx base64 encoded: %s", signedStellarTxBase64String)
 
-	signedStellarGenTx := txnbuild.NewGenericTransactionWithTransaction(signedStellarTx)
-	err = sigShareStellar.Share(context.Background(), signedStellarGenTx)
+	err = sigShareStellar.Share(context.Background(), signedStellarTx)
 	if err != nil {
 		return fmt.Errorf("sharing stellar tx: %w", err)
 	}
