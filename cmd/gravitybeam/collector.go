@@ -91,21 +91,11 @@ func (c *Collector) Collect() error {
 		}
 
 		for _, a := range Accounts(tx) {
-			err = func() error {
-				logger.Infof("publishing to topic for %s", a)
-				t, err := c.pubSub.Join("starbridge-stellar-transactions-signed-" + a)
-				if err != nil {
-					return fmt.Errorf("joining topic to publish tx %s for account %s: %w", hash, a, err)
-				}
-				defer t.Close()
-				err = t.Publish(ctx, txBytes)
-				if err != nil {
-					return fmt.Errorf("publishing tx %s for account %s: %w", hash, a, err)
-				}
-				return nil
-			}()
+			logger.Infof("publishing to topic for %s", a)
+			//nolint:staticcheck // SA1019 ignore this!
+			err = c.pubSub.Publish("starbridge-stellar-transactions-signed-"+a, txBytes)
 			if err != nil {
-				return err
+				return fmt.Errorf("publishing tx %s for account %s: %w", hash, a, err)
 			}
 		}
 	}
