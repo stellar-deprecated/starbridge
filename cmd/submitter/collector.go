@@ -46,7 +46,7 @@ func (c *Collector) Collect() error {
 	if err != nil {
 		return err
 	}
-	c.logger.Infof("Subscribed to topic %s", c.topic.String())
+	c.logger.WithField("topic", c.topic.String()).Info("Subscribed")
 	ctx := context.Background()
 	for {
 		logger := c.logger
@@ -76,23 +76,23 @@ func (c *Collector) Collect() error {
 
 		tx, err = AuthorizedTransaction(c.horizonClient, hash, tx)
 		if errors.Is(err, ErrNotAuthorized) {
-			logger.Infof("tx not yet authorized")
+			logger.Infof("Tx not yet authorized")
 			continue
 		} else if err != nil {
 			return err
 		}
-		logger.Infof("tx authorized: sig count: %d", len(tx.Signatures()))
+		logger.Infof("Tx authorized: sig count: %d", len(tx.Signatures()))
 
 		// Submit transaction.
 		go func() {
 			// TODO: Wrap in a fee bump transaction.
-			logger.Infof("tx submitting: sig count: %d", len(tx.Signatures()))
+			logger.Infof("Tx submitting: sig count: %d", len(tx.Signatures()))
 			txResp, err := c.horizonClient.SubmitTransaction(tx)
 			if err != nil {
 				logger.Error(err)
 				return
 			}
-			logger.Infof("tx submitted: successful: %t", txResp.Successful)
+			logger.Infof("Tx submitted: successful: %t", txResp.Successful)
 		}()
 	}
 }

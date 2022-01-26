@@ -45,7 +45,7 @@ func run(args []string, logger *supportlog.Entry) error {
 		return err
 	}
 
-	logger.Info("Starting...")
+	logger.Info("Starting")
 
 	horizonClient := &horizonclient.Client{HorizonURL: horizonURL}
 
@@ -60,7 +60,8 @@ func run(args []string, logger *supportlog.Entry) error {
 	}
 	host.Network().Notify(&libp2pnetwork.NotifyBundle{
 		ConnectedF: func(n libp2pnetwork.Network, c libp2pnetwork.Conn) {
-			logger.Infof("Connected to: %s", c.RemotePeer().Pretty())
+			logger := logger.WithField("peer", c.RemotePeer().Pretty())
+			logger.Info("Connected to peer")
 		},
 	})
 	hostAddrInfo := peer.AddrInfo{
@@ -72,7 +73,7 @@ func run(args []string, logger *supportlog.Entry) error {
 		return err
 	}
 	for _, a := range hostAddrs {
-		logger.Infof("Listening for p2p on... %v", a)
+		logger.WithField("addr", a).Info("Listening")
 	}
 
 	if peers != "" {
@@ -92,12 +93,10 @@ func run(args []string, logger *supportlog.Entry) error {
 					logger.Errorf("Error connecting to peer: %v", err)
 					return
 				}
-				logger.Info("Connected to peer")
 			}()
 		}
 	}
 
-	logger.Info("Using mdns to discover local peers...")
 	mdnsService := mdns.NewMdnsService(host, "starbridge", &mdnsNotifee{Host: host, Logger: logger})
 	err = mdnsService.Start()
 	if err != nil {
@@ -109,7 +108,6 @@ func run(args []string, logger *supportlog.Entry) error {
 		return fmt.Errorf("configuring pubsub: %v", err)
 	}
 
-	logger.Info("Subscribing to transactions...")
 	store := NewStore()
 	collector, err := NewCollector(CollectorConfig{
 		NetworkPassphrase: networkDetails.NetworkPassphrase,
@@ -138,7 +136,6 @@ func (n *mdnsNotifee) HandlePeerFound(pi peer.AddrInfo) {
 	if pi.ID == n.Host.ID() {
 		return
 	}
-	n.Logger.Infof("Connecting to peer discovered via mdns: %s", pi.ID.Pretty())
 	err := n.Host.Connect(context.Background(), pi)
 	if err != nil {
 		n.Logger.WithStack(err).Error(fmt.Errorf("Error connecting to peer %s: %w", pi.ID.Pretty(), err))
