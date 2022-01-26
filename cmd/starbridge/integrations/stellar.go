@@ -3,6 +3,7 @@ package integrations
 import (
 	"encoding/base64"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/stellar/go/txnbuild"
@@ -41,12 +42,14 @@ func Transaction2Stellar(tx *model.Transaction) (*txnbuild.Transaction, error) {
 	}
 
 	ops := []txnbuild.Operation{}
+	decimalStringFormat := fmt.Sprintf("%%.%df", tx.AssetInfo.Decimals)
+	amountAsDecimalString := fmt.Sprintf(decimalStringFormat, tx.Amount/uint64(math.Pow10(tx.AssetInfo.Decimals)))
 	ops = append(ops, &txnbuild.CreateClaimableBalance{
 		Destinations: []txnbuild.Claimant{
 			txnbuild.NewClaimant(tx.To, &txnbuild.UnconditionalPredicate),
 		},
 		Asset:         getStellarAsset(tx.AssetInfo),
-		Amount:        fmt.Sprintf("%d", tx.Amount),
+		Amount:        amountAsDecimalString,
 		SourceAccount: tx.From, // specify the account here since we use a different source account on the Stellar tx
 	})
 
