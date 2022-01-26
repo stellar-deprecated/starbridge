@@ -97,7 +97,7 @@ func (c *Collector) Collect() error {
 		}
 
 		logger.Infof("publishing aggregated")
-		err = c.pubSub.Publish("starbridge-stellar-transactions-signed-aggregated", txBytes)
+		err = c.publishTopic.Publish(ctx, txBytes)
 		if err != nil {
 			return fmt.Errorf("publishing tx %s: %w", hash, err)
 		}
