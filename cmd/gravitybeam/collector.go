@@ -93,7 +93,7 @@ func (c *Collector) Collect() error {
 		for _, a := range Accounts(tx) {
 			err = func() error {
 				logger.Infof("publishing to topic for %s", a)
-				//nolint:staticcheck // SA1004 ignore this!
+				//nolint:staticcheck // SA1019 ignore this!
 				err = c.pubSub.Publish("starbridge-stellar-transactions-signed-" + a, txBytes)
 				if err != nil {
 					return fmt.Errorf("publishing tx %s for account %s: %w", hash, a, err)
