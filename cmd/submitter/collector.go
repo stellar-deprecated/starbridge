@@ -22,7 +22,6 @@ type CollectorConfig struct {
 }
 
 type Collector struct {
-	address           *keypair.FromAddress
 	networkPassphrase string
 	logger            *supportlog.Entry
 	horizonClient     horizonclient.ClientInterface
