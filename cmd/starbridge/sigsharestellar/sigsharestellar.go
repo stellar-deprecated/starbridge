@@ -38,25 +38,26 @@ func (s *SigShareStellar) Close() error {
 	return s.topic.Close()
 }
 
-func (s *SigShareStellar) Share(ctx context.Context, tx *txnbuild.GenericTransaction) error {
+func (s *SigShareStellar) Share(ctx context.Context, tx *txnbuild.Transaction) error {
 	logger := s.logger.Ctx(ctx)
 
 	hash, err := tx.HashHex(s.networkPassphrase)
 	if err != nil {
 		return fmt.Errorf("hashing tx: %w", err)
 	}
-	logger = logger.WithField("stellartx", hash)
+	logger = logger.WithField("tx", hash)
+	logger = logger.WithField("sigcount", len(tx.Signatures()))
 
 	txBytes, err := tx.MarshalBinary()
 	if err != nil {
 		return fmt.Errorf("marshaling tx %s: %w", hash, err)
 	}
 
-	logger.Infof("Publishing stellar tx")
+	logger = logger.WithField("topic", s.topic.String())
 	err = s.topic.Publish(ctx, txBytes)
 	if err != nil {
 		return fmt.Errorf("publishing tx %s to topic: %w", hash, err)
 	}
-	logger.Infof("Published stellar tx")
+	logger.Infof("Tx published")
 	return nil
 }

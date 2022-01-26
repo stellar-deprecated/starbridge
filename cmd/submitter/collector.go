@@ -46,10 +46,11 @@ func (c *Collector) Collect() error {
 	if err != nil {
 		return err
 	}
-	c.logger.WithField("topic", c.topic.String()).Info("Subscribed")
+	logger := c.logger.WithField("topic", c.topic.String())
+	logger.Info("Subscribed")
 	ctx := context.Background()
 	for {
-		logger := c.logger
+		logger := logger
 
 		msg, err := sub.Next(ctx)
 		if err != nil {
@@ -73,6 +74,8 @@ func (c *Collector) Collect() error {
 			return err
 		}
 		logger = logger.WithField("tx", hex.EncodeToString(hash[:]))
+		logger = logger.WithField("sigcount", len(tx.Signatures()))
+		logger.Infof("Tx seen")
 
 		tx, err = AuthorizedTransaction(c.horizonClient, hash, tx)
 		if errors.Is(err, ErrNotAuthorized) {
@@ -81,7 +84,8 @@ func (c *Collector) Collect() error {
 		} else if err != nil {
 			return err
 		}
-		logger.Infof("Tx authorized: sig count: %d", len(tx.Signatures()))
+		logger = logger.WithField("sigcount", len(tx.Signatures()))
+		logger.Infof("Tx authorized")
 
 		// Submit transaction.
 		go func() {
