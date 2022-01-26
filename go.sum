@@ -1094,8 +1094,6 @@ github.com/spf13/viper v1.3.2/go.mod h1:ZiWeW+zYFKm7srdB9IoDzzZXaJaI5eL9QjNiN/DM
 github.com/src-d/envconfig v1.0.0/go.mod h1:Q9YQZ7BKITldTBnoxsE5gOeB5y66RyPXeue/R4aaNBc=
 github.com/status-im/keycard-go v0.0.0-20190316090335-8537d3370df4 h1:Gb2Tyox57NRNuZ2d3rmvB3pcmbu7O1RS3m8WRx7ilrg=
 github.com/status-im/keycard-go v0.0.0-20190316090335-8537d3370df4/go.mod h1:RZLeN1LMWmRsyYjvAu+I6Dm9QmlDaIIt+Y+4Kd7Tp+Q=
-github.com/stellar/go v0.0.0-20220121002512-4920b27104df h1:A5V6kIyKZsQ7B44NevNoZBw1mVsD/gn8SOlY6uNyNF8=
-github.com/stellar/go v0.0.0-20220121002512-4920b27104df/go.mod h1:ZjEIAKldwfIdxI1N/vNX1TqUGwwcLWAa5XO4JdiAUIc=
 github.com/stellar/go v0.0.0-20220121195101-cd93d3e009f0 h1:fQv9g3Ybc9M4rM0ufRoVp1A/06wsZSvdvKj71UP6KKA=
 github.com/stellar/go v0.0.0-20220121195101-cd93d3e009f0/go.mod h1:ZjEIAKldwfIdxI1N/vNX1TqUGwwcLWAa5XO4JdiAUIc=
 github.com/stellar/go-xdr v0.0.0-20211103144802-8017fc4bdfee h1:fbVs0xmXpBvVS4GBeiRmAE3Le70ofAqFMch1GTiq/e8=

@@ -10,6 +10,7 @@ import (
 
 	libp2p "github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
+	libp2pnetwork "github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
@@ -77,6 +78,11 @@ func run(args []string, logger *supportlog.Entry) error {
 	if err != nil {
 		return err
 	}
+	host.Network().Notify(&libp2pnetwork.NotifyBundle{
+		ConnectedF: func(n libp2pnetwork.Network, c libp2pnetwork.Conn) {
+			logger.Infof("Connected to: %s", c.RemotePeer().Pretty())
+		},
+	})
 	hostAddrInfo := peer.AddrInfo{
 		ID:    host.ID(),
 		Addrs: host.Addrs(),

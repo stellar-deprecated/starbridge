@@ -9,13 +9,11 @@ import (
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/stellar/go/clients/horizonclient"
-	"github.com/stellar/go/keypair"
 	supportlog "github.com/stellar/go/support/log"
 	"github.com/stellar/go/txnbuild"
 )
 
 type CollectorConfig struct {
-	Address           *keypair.FromAddress
 	NetworkPassphrase string
 	Logger            *supportlog.Entry
 	HorizonClient     horizonclient.ClientInterface
@@ -23,7 +21,6 @@ type CollectorConfig struct {
 }
 
 type Collector struct {
-	address           *keypair.FromAddress
 	networkPassphrase string
 	logger            *supportlog.Entry
 	horizonClient     horizonclient.ClientInterface
@@ -31,12 +28,11 @@ type Collector struct {
 }
 
 func NewCollector(config CollectorConfig) (*Collector, error) {
-	topic, err := config.PubSub.Join("starbridge-stellar-transactions-signed-" + config.Address.Address())
+	topic, err := config.PubSub.Join("starbridge-stellar-transactions-signed-aggregated")
 	if err != nil {
 		return nil, err
 	}
 	c := &Collector{
-		address:           config.Address,
 		networkPassphrase: config.NetworkPassphrase,
 		logger:            config.Logger,
 		horizonClient:     config.HorizonClient,
@@ -77,12 +73,6 @@ func (c *Collector) Collect() error {
 			return err
 		}
 		logger = logger.WithField("tx", hex.EncodeToString(hash[:]))
-
-		if !IsRecipient(tx, c.address) {
-			logger.Infof("tx does not have address as recipient, ignoring")
-			continue
-		}
-		logger.Infof("tx has address as recipient")
 
 		tx, err = AuthorizedTransaction(c.horizonClient, hash, tx)
 		if errors.Is(err, ErrNotAuthorized) {

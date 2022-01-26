@@ -25,12 +25,17 @@ type Collector struct {
 	logger            *supportlog.Entry
 	horizonClient     horizonclient.ClientInterface
 	pubSub            *pubsub.PubSub
-	topic             *pubsub.Topic
+	listenTopic       *pubsub.Topic
+	publishTopic      *pubsub.Topic
 	store             *Store
 }
 
 func NewCollector(config CollectorConfig) (*Collector, error) {
-	topic, err := config.PubSub.Join("starbridge-stellar-transactions-signed")
+	listenTopic, err := config.PubSub.Join("starbridge-stellar-transactions-signed")
+	if err != nil {
+		return nil, err
+	}
+	publishTopic, err := config.PubSub.Join("starbridge-stellar-transactions-signed-aggregated")
 	if err != nil {
 		return nil, err
 	}
@@ -40,17 +45,18 @@ func NewCollector(config CollectorConfig) (*Collector, error) {
 		horizonClient:     config.HorizonClient,
 		store:             config.Store,
 		pubSub:            config.PubSub,
-		topic:             topic,
+		listenTopic:       listenTopic,
+		publishTopic:      publishTopic,
 	}
 	return c, nil
 }
 
 func (c *Collector) Collect() error {
-	sub, err := c.topic.Subscribe()
+	sub, err := c.listenTopic.Subscribe()
 	if err != nil {
 		return err
 	}
-	c.logger.Infof("Subscribed to topic %s", c.topic.String())
+	c.logger.Infof("Subscribed to topic %s", c.listenTopic.String())
 	ctx := context.Background()
 	for {
 		logger := c.logger
@@ -90,13 +96,10 @@ func (c *Collector) Collect() error {
 			return fmt.Errorf("marshaling tx %s: %w", hash, err)
 		}
 
-		for _, a := range Accounts(tx) {
-			logger.Infof("publishing to topic for %s", a)
-			//nolint:staticcheck // SA1019 ignore this!
-			err = c.pubSub.Publish("starbridge-stellar-transactions-signed-"+a, txBytes)
-			if err != nil {
-				return fmt.Errorf("publishing tx %s for account %s: %w", hash, a, err)
-			}
+		logger.Infof("publishing aggregated")
+		err = c.publishTopic.Publish(ctx, txBytes)
+		if err != nil {
+			return fmt.Errorf("publishing tx %s: %w", hash, err)
 		}
 	}
 }
