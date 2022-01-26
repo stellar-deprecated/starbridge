@@ -43,7 +43,7 @@ func Transaction2Stellar(tx *model.Transaction) (*txnbuild.Transaction, error) {
 
 	ops := []txnbuild.Operation{}
 	decimalStringFormat := fmt.Sprintf("%%.%df", tx.AssetInfo.Decimals)
-	amountAsDecimalString := fmt.Sprintf(decimalStringFormat, tx.Amount/uint64(math.Pow10(tx.AssetInfo.Decimals)))
+	amountAsDecimalString := fmt.Sprintf(decimalStringFormat, float64(tx.Amount)/math.Pow10(tx.AssetInfo.Decimals))
 	ops = append(ops, &txnbuild.CreateClaimableBalance{
 		Destinations: []txnbuild.Claimant{
 			txnbuild.NewClaimant(tx.To, &txnbuild.UnconditionalPredicate),
