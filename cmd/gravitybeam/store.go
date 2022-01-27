@@ -1,49 +1,38 @@
 package main
 
 import (
-	"fmt"
+	"crypto/sha256"
 
-	"github.com/stellar/go/txnbuild"
+	"github.com/stellar/starbridge/p2p"
 )
 
-// TODO: Clear out transactions that are not needed anymore in the in-memory store
-// TODO: Support fee bump transactions.
+// TODO: Clear out messages that are not needed anymore in the in-memory store
 
 type Store struct {
-	transactions map[[32]byte]*txnbuild.Transaction
+	msgs map[[32]byte]p2p.MessageV0
 }
 
 func NewStore() *Store {
 	return &Store{
-		transactions: map[[32]byte]*txnbuild.Transaction{},
+		msgs: map[[32]byte]p2p.MessageV0{},
 	}
 }
 
-func (s *Store) StoreAndUpdate(txHash [32]byte, tx *txnbuild.Transaction) (*txnbuild.Transaction, error) {
-	storedTx := s.transactions[txHash]
-	if storedTx != nil {
+func (s *Store) StoreAndUpdate(m p2p.MessageV0) (p2p.MessageV0, error) {
+	hash := sha256.Sum256(m.Body)
+	storedMsg, ok := s.msgs[hash]
+	if ok {
 		sigsSeen := map[string]bool{}
-		for _, s := range tx.Signatures() {
-			b, err := s.MarshalBinary()
-			if err != nil {
-				return nil, fmt.Errorf("unexpected error marshaling sig %x: %w", txHash, err)
-			}
-			sigsSeen[string(b)] = true
+		for _, s := range m.Signatures {
+			sigsSeen[string(s)] = true
 		}
-		for _, s := range storedTx.Signatures() {
-			b, err := s.MarshalBinary()
-			if err != nil {
-				return nil, fmt.Errorf("unexpected error marshaling sig %x: %w", txHash, err)
-			}
-			if sigsSeen[string(b)] {
+		for _, s := range storedMsg.Signatures {
+			if sigsSeen[string(s)] {
 				continue
 			}
-			tx, err = tx.AddSignatureDecorated(s)
-			if err != nil {
-				return nil, fmt.Errorf("adding signature to tx %x: %w", txHash, err)
-			}
+			m.Signatures = append(m.Signatures, s)
 		}
 	}
-	s.transactions[txHash] = tx
-	return tx, nil
+	s.msgs[hash] = m
+	return m, nil
 }
