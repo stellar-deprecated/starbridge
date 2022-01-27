@@ -72,7 +72,11 @@ func New(ctx context.Context, c Config) (*pubsub.PubSub, error) {
 		})
 	}
 	_ = g.Wait()
-	logger.Errorf("Connected to %d peers", connected)
+	if connected > 0 {
+		logger.Infof("Connected to %d peers", connected)
+	} else {
+		logger.Warnf("Connected to %d peers", connected)
+	}
 
 	mdnsService := mdns.NewMdnsService(host, "starbridge", &mdnsNotifee{Host: host, Logger: logger})
 	err = mdnsService.Start()
