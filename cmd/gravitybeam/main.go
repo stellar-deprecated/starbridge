@@ -7,16 +7,11 @@ import (
 	"os"
 	"strings"
 
-	libp2p "github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-core/host"
-	libp2pnetwork "github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 	ff "github.com/peterbourgon/ff/v3"
 	"github.com/sirupsen/logrus"
 	"github.com/stellar/go/clients/horizonclient"
 	supportlog "github.com/stellar/go/support/log"
+	"github.com/stellar/starbridge/p2p"
 )
 
 func main() {
@@ -30,6 +25,8 @@ func main() {
 }
 
 func run(args []string, logger *supportlog.Entry) error {
+	ctx := context.Background()
+
 	fs := flag.NewFlagSet("gravitybeam", flag.ExitOnError)
 
 	portP2P := "0"
@@ -54,58 +51,13 @@ func run(args []string, logger *supportlog.Entry) error {
 		return err
 	}
 
-	host, err := libp2p.New(libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/" + portP2P))
-	if err != nil {
-		return err
-	}
-	host.Network().Notify(&libp2pnetwork.NotifyBundle{
-		ConnectedF: func(n libp2pnetwork.Network, c libp2pnetwork.Conn) {
-			logger := logger.WithField("peer", c.RemotePeer().Pretty())
-			logger.Info("Connected to peer")
-		},
+	pubSub, err := p2p.New(ctx, p2p.Config{
+		Logger: logger,
+		Port:   portP2P,
+		Peers:  strings.Split(peers, ","),
 	})
-	hostAddrInfo := peer.AddrInfo{
-		ID:    host.ID(),
-		Addrs: host.Addrs(),
-	}
-	hostAddrs, err := peer.AddrInfoToP2pAddrs(&hostAddrInfo)
 	if err != nil {
 		return err
-	}
-	for _, a := range hostAddrs {
-		logger.WithField("addr", a).Info("Listening")
-	}
-
-	if peers != "" {
-		peersArr := strings.Split(peers, ",")
-		for _, p := range peersArr {
-			p := p
-			go func() {
-				logger := logger.WithField("peer", p)
-				logger.Info("Connecting to peer...")
-				peerAddrInfo, err := peer.AddrInfoFromString(p)
-				if err != nil {
-					logger.Errorf("Error parsing peer address: %v", err)
-					return
-				}
-				err = host.Connect(context.Background(), *peerAddrInfo)
-				if err != nil {
-					logger.Errorf("Error connecting to peer: %v", err)
-					return
-				}
-			}()
-		}
-	}
-
-	mdnsService := mdns.NewMdnsService(host, "starbridge", &mdnsNotifee{Host: host, Logger: logger})
-	err = mdnsService.Start()
-	if err != nil {
-		return err
-	}
-
-	pubSub, err := pubsub.NewGossipSub(context.Background(), host)
-	if err != nil {
-		return fmt.Errorf("configuring pubsub: %v", err)
 	}
 
 	store := NewStore()
@@ -125,19 +77,4 @@ func run(args []string, logger *supportlog.Entry) error {
 	}
 
 	return nil
-}
-
-type mdnsNotifee struct {
-	Host   host.Host
-	Logger *supportlog.Entry
-}
-
-func (n *mdnsNotifee) HandlePeerFound(pi peer.AddrInfo) {
-	if pi.ID == n.Host.ID() {
-		return
-	}
-	err := n.Host.Connect(context.Background(), pi)
-	if err != nil {
-		n.Logger.WithStack(err).Error(fmt.Errorf("Error connecting to peer %s: %w", pi.ID.Pretty(), err))
-	}
 }
