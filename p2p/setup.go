@@ -3,6 +3,7 @@ package p2p
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync/atomic"
 
 	"github.com/libp2p/go-libp2p"
@@ -49,7 +50,10 @@ func New(ctx context.Context, c Config) (*pubsub.PubSub, error) {
 	connected := uint64(0)
 	g := errgroup.Group{}
 	for _, p := range c.Peers {
-		p := p
+		p := strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
 		g.Go(func() error {
 			logger := logger.WithField("peer", p)
 			logger.Info("Connecting to peer...")
