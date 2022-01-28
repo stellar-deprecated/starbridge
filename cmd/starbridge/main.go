@@ -126,7 +126,7 @@ func run(args []string, logger *supportlog.Entry) error {
 	}
 	logger.Infof("stellar tx base64 encoded: %s", signedStellarTxBase64String)
 
-	err = sigShareStellar.Share(context.Background(), signedStellarTx)
+	err = sigShareStellar.Share(context.Background(), stellarTx, signedStellarTx.Signatures()[0])
 	if err != nil {
 		return fmt.Errorf("sharing stellar tx: %w", err)
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -11,6 +12,8 @@ import (
 	"github.com/stellar/go/clients/horizonclient"
 	supportlog "github.com/stellar/go/support/log"
 	"github.com/stellar/go/txnbuild"
+	"github.com/stellar/go/xdr"
+	"github.com/stellar/starbridge/p2p"
 )
 
 type CollectorConfig struct {
@@ -52,51 +55,94 @@ func (c *Collector) Collect() error {
 	for {
 		logger := logger
 
-		msg, err := sub.Next(ctx)
+		raw, err := sub.Next(ctx)
 		if err != nil {
 			return err
 		}
 
-		txBytes := msg.Data
-		txB64 := base64.StdEncoding.EncodeToString(txBytes)
+		hash := sha256.Sum256(raw.Data)
+		hashHex := hex.EncodeToString(hash[:])
+		logger = logger.WithField("msghash", hashHex)
+
+		logger.Infof("Msg received")
+
+		msg := p2p.Message{}
+		err = msg.UnmarshalBinary(raw.Data)
+		if err != nil {
+			logger.Errorf("Unmarshaling message: %s", err)
+			continue
+		}
+
+		if msg.V != 0 {
+			logger.Errorf("Dropping message with unsupported version %d", msg.V)
+			continue
+		}
+
+		logger = logger.WithField("msgbodysize", len(msg.V0.Body))
+		logger = logger.WithField("msgsigcount", len(msg.V0.Signatures))
+
+		bodyHash := sha256.Sum256(msg.V0.Body)
+		bodyHashHex := hex.EncodeToString(bodyHash[:])
+		logger = logger.WithField("msgbodyhash", bodyHashHex)
+
+		logger.Infof("Msg unpacked")
+
+		txB64 := base64.StdEncoding.EncodeToString(msg.V0.Body)
 		txGeneric, err := txnbuild.TransactionFromXDR(txB64)
 		if err != nil {
-			return err
+			return fmt.Errorf("unmarshaling tx %s", txB64)
 		}
-		// TODO: Support all tx types.
 		tx, ok := txGeneric.Transaction()
 		if !ok {
 			return fmt.Errorf("unsupported tx type")
 		}
 
-		hash, err := tx.Hash(c.networkPassphrase)
+		txHash, err := tx.Hash(c.networkPassphrase)
 		if err != nil {
 			return err
 		}
-		logger = logger.WithField("tx", hex.EncodeToString(hash[:]))
-		logger = logger.WithField("sigcount", len(tx.Signatures()))
-		logger.Infof("Tx seen")
+		logger = logger.WithField("txhash", hex.EncodeToString(txHash[:]))
 
-		tx, err = AuthorizedTransaction(c.horizonClient, hash, tx)
+		logger.Infof("Tx unpacked")
+
+		sigs := make([]xdr.DecoratedSignature, len(msg.V0.Signatures))
+		for i, sigBytes := range msg.V0.Signatures {
+			err = sigs[i].UnmarshalBinary(sigBytes)
+			if err != nil {
+				return err
+			}
+		}
+		tx, err = tx.ClearSignatures()
+		if err != nil {
+			return err
+		}
+		tx, err = tx.AddSignatureDecorated(sigs...)
+		if err != nil {
+			return err
+		}
+
+		logger = logger.WithField("txsigcount", len(tx.Signatures()))
+		logger.Infof("Tx updated with all known sigs")
+
+		tx, err = AuthorizedTransaction(c.horizonClient, txHash, tx)
 		if errors.Is(err, ErrNotAuthorized) {
 			logger.Infof("Tx not yet authorized")
 			continue
 		} else if err != nil {
 			return err
 		}
-		logger = logger.WithField("sigcount", len(tx.Signatures()))
+		logger = logger.WithField("txsigcount", len(tx.Signatures()))
 		logger.Infof("Tx authorized")
 
 		// Submit transaction.
 		go func() {
-			// TODO: Wrap in a fee bump transaction.
-			logger.Infof("Tx submitting: sig count: %d", len(tx.Signatures()))
+			logger.Infof("Tx submitting")
 			txResp, err := c.horizonClient.SubmitTransaction(tx)
 			if err != nil {
 				logger.Error(err)
 				return
 			}
-			logger.Infof("Tx submitted: successful: %t", txResp.Successful)
+			logger.WithField("txsuccessful", txResp.Successful).Infof("Tx submitted")
 		}()
 	}
 }
