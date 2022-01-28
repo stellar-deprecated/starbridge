@@ -64,10 +64,6 @@ func (c *Collector) Collect() error {
 		hashHex := hex.EncodeToString(hash[:])
 		logger = logger.WithField("msghash", hashHex)
 
-		bodyHash := sha256.Sum256(raw.Data)
-		bodyHashHex := hex.EncodeToString(bodyHash[:])
-		logger = logger.WithField("msgbodyhash", bodyHashHex)
-
 		logger.Infof("Msg received")
 
 		msg := p2p.Message{}
@@ -84,6 +80,10 @@ func (c *Collector) Collect() error {
 
 		logger = logger.WithField("msgbodysize", len(msg.V0.Body))
 		logger = logger.WithField("msgsigcount", len(msg.V0.Signatures))
+
+		bodyHash := sha256.Sum256(msg.V0.Body)
+		bodyHashHex := hex.EncodeToString(bodyHash[:])
+		logger = logger.WithField("msgbodyhash", bodyHashHex)
 
 		logger.Infof("Msg unpacked")
 
