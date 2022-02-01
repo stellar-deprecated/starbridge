@@ -82,9 +82,7 @@ func (c *Collector) Collect() error {
 
 		logger.Infof("Msg unpacked")
 
-		logger.Warnf("TODO Send transaction to Ethereum")
-
-		// TODO:
+		logger.Warnf("TODO: Send transaction to Ethereum")
 
 		// n, err := client.BlockNumber(ctx)
 		// if err != nil {
