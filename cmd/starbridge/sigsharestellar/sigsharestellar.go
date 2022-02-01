@@ -26,7 +26,7 @@ type SigShareStellar struct {
 }
 
 func NewSigShareStellar(config SigShareStellarConfig) (*SigShareStellar, error) {
-	topic, err := config.PubSub.Join("starbridge-stellar-transactions-signed")
+	topic, err := config.PubSub.Join("starbridge-messages-signed")
 	if err != nil {
 		return nil, err
 	}
