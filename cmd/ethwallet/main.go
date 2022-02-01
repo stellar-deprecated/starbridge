@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	ff "github.com/peterbourgon/ff/v3"
 	"github.com/sirupsen/logrus"
@@ -33,12 +33,12 @@ func run(args []string, logger *supportlog.Entry) error {
 	portP2P := "0"
 	peers := ""
 	rpc := "http://localhost:8545"
-	addrStr := ""
+	skStr := ""
 
 	fs.StringVar(&portP2P, "port-p2p", portP2P, "Port to accept P2P requests on (also via PORT_P2P)")
 	fs.StringVar(&peers, "peers", peers, "Comma-separated list of addresses of peers to connect to on start (also via PEERS)")
 	fs.StringVar(&rpc, "rpc", rpc, "Ethereum client RPC (also via RPC)")
-	fs.StringVar(&addrStr, "addr", addrStr, "Ethereum address this wallet is listening to transactions about (also via ADDR)")
+	fs.StringVar(&skStr, "sk", skStr, "Ethereum secret key for this wallet (also via SK)")
 
 	err := ff.Parse(fs, args, ff.WithEnvVarNoPrefix())
 	if err != nil {
@@ -56,7 +56,10 @@ func run(args []string, logger *supportlog.Entry) error {
 		return err
 	}
 
-	addr := common.HexToAddress(addrStr)
+	sk, err := crypto.HexToECDSA(skStr)
+	if err != nil {
+		return err
+	}
 
 	client, err := ethclient.Dial(rpc)
 	if err != nil {
@@ -67,7 +70,7 @@ func run(args []string, logger *supportlog.Entry) error {
 		Logger:    logger,
 		PubSub:    pubSub,
 		EthClient: client,
-		Addr:      addr,
+		SecretKey: sk,
 	})
 	if err != nil {
 		return fmt.Errorf("creating collector: %v", err)

@@ -2,13 +2,18 @@ package main
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/hex"
+	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	supportlog "github.com/stellar/go/support/log"
+	"github.com/stellar/starbridge/contracts/gen/SimpleEscrowEvents"
 	"github.com/stellar/starbridge/p2p"
 )
 
@@ -16,13 +21,17 @@ type CollectorConfig struct {
 	Logger    *supportlog.Entry
 	PubSub    *pubsub.PubSub
 	EthClient *ethclient.Client
-	Addr      common.Address
+	SecretKey *ecdsa.PrivateKey
+	PublicKey *ecdsa.PublicKey
 }
 
 type Collector struct {
 	logger    *supportlog.Entry
 	topic     *pubsub.Topic
 	ethClient *ethclient.Client
+	secretKey *ecdsa.PrivateKey
+	publicKey *ecdsa.PublicKey
+	address   common.Address
 }
 
 func NewCollector(config CollectorConfig) (*Collector, error) {
@@ -33,8 +42,11 @@ func NewCollector(config CollectorConfig) (*Collector, error) {
 	}
 	c := &Collector{
 		logger:    config.Logger,
-		ethClient: config.EthClient,
 		topic:     topic,
+		ethClient: config.EthClient,
+		secretKey: config.SecretKey,
+		publicKey: &config.SecretKey.PublicKey,
+		address:   crypto.PubkeyToAddress(config.SecretKey.PublicKey),
 	}
 	return c, nil
 }
@@ -82,7 +94,34 @@ func (c *Collector) Collect() error {
 
 		logger.Infof("Msg unpacked")
 
-		logger.Warnf("TODO: Send transaction to Ethereum")
+		chainID, err := c.ethClient.ChainID(ctx)
+		if err != nil {
+			return err
+		}
+		nonce, err := c.ethClient.PendingNonceAt(ctx, c.address)
+		if err != nil {
+			return err
+		}
+		gasPrice, err := c.ethClient.SuggestGasPrice(ctx)
+		if err != nil {
+			return err
+		}
+
+		contract, err := SimpleEscrowEvents.NewSimpleEscrowEvents(c.address, c.ethClient)
+		if err != nil {
+			return err
+		}
+
+		transactOpts, err := bind.NewKeyedTransactorWithChainID(c.secretKey, chainID)
+		if err != nil {
+			return err
+		}
+		transactOpts.Nonce = big.NewInt(int64(nonce))
+		transactOpts.Value = big.NewInt(0)
+		transactOpts.GasLimit = 300000
+		transactOpts.GasPrice = gasPrice
+
+		contract.Send(opts *bind.TransactOpts, destinationStellarAddress string, tokenContractAddress string, tokenAmount *big.Int)
 
 		// n, err := client.BlockNumber(ctx)
 		// if err != nil {
@@ -90,25 +129,7 @@ func (c *Collector) Collect() error {
 		// }
 		// spew.Dump("n", n)
 
-		// sk, err := crypto.HexToECDSA("da1da8a2bb731e77b295acbf3f4a9e4a9eae9ea0735e8ca14334f1e31ad22ab8")
-		// if err != nil {
-		// 	return err
-		// }
-		// pk := sk.Public()
-		// pkECDSA, ok := pk.(*ecdsa.PublicKey)
-		// if !ok {
-		// 	return err
-		// }
-		// addr := crypto.PubkeyToAddress(*pkECDSA)
-		// nonce, err := client.PendingNonceAt(ctx, addr)
-		// if err != nil {
-		// 	return err
-		// }
 		// spew.Dump("nonce", nonce)
-		// gasPrice, err := client.SuggestGasPrice(ctx)
-		// if err != nil {
-		// 	return err
-		// }
 		// spew.Dump("gasPrice", gasPrice)
 		// tx := types.NewTx(types.DynamicFeeTx{
 		// 	ChainID: big.NewInt(1337),
