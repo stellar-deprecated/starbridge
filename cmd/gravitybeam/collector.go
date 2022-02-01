@@ -18,28 +18,36 @@ type CollectorConfig struct {
 }
 
 type Collector struct {
-	logger       *supportlog.Entry
-	pubSub       *pubsub.PubSub
-	listenTopic  *pubsub.Topic
-	publishTopic *pubsub.Topic
-	store        *Store
+	logger        *supportlog.Entry
+	pubSub        *pubsub.PubSub
+	listenTopic   *pubsub.Topic
+	publishTopics map[p2p.Chain]*pubsub.Topic
+	store         *Store
 }
 
 func NewCollector(config CollectorConfig) (*Collector, error) {
-	listenTopic, err := config.PubSub.Join("starbridge-stellar-transactions-signed")
+	listenTopic, err := config.PubSub.Join("starbridge-messages-signed")
 	if err != nil {
 		return nil, err
 	}
-	publishTopic, err := config.PubSub.Join("starbridge-stellar-transactions-signed-aggregated")
+	publishTopicStellar, err := config.PubSub.Join("starbridge-messages-signed-aggregated-stellar")
 	if err != nil {
 		return nil, err
+	}
+	publishTopicEthereum, err := config.PubSub.Join("starbridge-messages-signed-aggregated-ethereum")
+	if err != nil {
+		return nil, err
+	}
+	publishTopics := map[p2p.Chain]*pubsub.Topic{
+		p2p.ChainStellar:  publishTopicStellar,
+		p2p.ChainEthereum: publishTopicEthereum,
 	}
 	c := &Collector{
-		logger:       config.Logger,
-		store:        config.Store,
-		pubSub:       config.PubSub,
-		listenTopic:  listenTopic,
-		publishTopic: publishTopic,
+		logger:        config.Logger,
+		store:         config.Store,
+		pubSub:        config.PubSub,
+		listenTopic:   listenTopic,
+		publishTopics: publishTopics,
 	}
 	return c, nil
 }
@@ -99,8 +107,14 @@ func (c *Collector) Collect() error {
 			return err
 		}
 
-		logger = logger.WithField("topic", c.publishTopic.String())
-		err = c.publishTopic.Publish(ctx, msgBytes)
+		publishTopic, ok := c.publishTopics[msg.V0.Chain]
+		if !ok {
+			logger.Errorf("Dropping message with unsupported chain %d", msg.V0.Chain)
+			continue
+		}
+
+		logger = logger.WithField("topic", publishTopic.String())
+		err = publishTopic.Publish(ctx, msgBytes)
 		if err != nil {
 			return fmt.Errorf("publishing msg: %w", err)
 		}
