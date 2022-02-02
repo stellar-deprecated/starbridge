@@ -1,5 +1,11 @@
 package solidity
 
+// Generating go code for the solidity contracts requires that the following
+// tools be installed:
+//   - npm
+//   - jq
+//   - go
+
 //go:generate sh -c "cd ../solidity && npm clean-install && npm exec -- hardhat compile"
 
 //go:generate sh -c "jq '.abi' ../solidity/artifacts/contracts/Auth.sol/Auth.json | go run github.com/ethereum/go-ethereum/cmd/abigen@v1.10.15 --abi - --pkg solidityauth --type Auth --out ./solidityauth/auth.go"
