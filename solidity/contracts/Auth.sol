@@ -1,5 +1,5 @@
 // contracts/Auth.sol
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
