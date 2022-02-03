@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	supportlog "github.com/stellar/go/support/log"
-	"github.com/stellar/starbridge/contracts/gen/SimpleEscrowEvents"
 	"github.com/stellar/starbridge/p2p"
 )
 
@@ -94,48 +93,34 @@ func (c *Collector) Collect() error {
 
 		logger.Infof("Msg unpacked")
 
-		chainID, err := c.ethClient.ChainID(ctx)
-		if err != nil {
-			return err
-		}
-		nonce, err := c.ethClient.PendingNonceAt(ctx, c.address)
-		if err != nil {
-			return err
-		}
-		gasPrice, err := c.ethClient.SuggestGasPrice(ctx)
-		if err != nil {
-			return err
-		}
+		c.logger.Warnf("TODO: Check if message is sufficiently signed to be posted to chain.")
+		c.logger.Warnf("TODO: Call contract with message.")
 
-		contract, err := SimpleEscrowEvents.NewSimpleEscrowEvents(c.address, c.ethClient)
-		if err != nil {
-			return err
-		}
-
-		transactOpts, err := bind.NewKeyedTransactorWithChainID(c.secretKey, chainID)
-		if err != nil {
-			return err
-		}
-		transactOpts.Nonce = big.NewInt(int64(nonce))
-		transactOpts.Value = big.NewInt(0)
-		transactOpts.GasLimit = 300000
-		transactOpts.GasPrice = gasPrice
-
-		contract.Send(opts *bind.TransactOpts, destinationStellarAddress string, tokenContractAddress string, tokenAmount *big.Int)
-
-		// n, err := client.BlockNumber(ctx)
+		// chainID, err := c.ethClient.ChainID(ctx)
 		// if err != nil {
 		// 	return err
 		// }
-		// spew.Dump("n", n)
+		// nonce, err := c.ethClient.PendingNonceAt(ctx, c.address)
+		// if err != nil {
+		// 	return err
+		// }
+		// gasPrice, err := c.ethClient.SuggestGasPrice(ctx)
+		// if err != nil {
+		// 	return err
+		// }
 
-		// spew.Dump("nonce", nonce)
-		// spew.Dump("gasPrice", gasPrice)
-		// tx := types.NewTx(types.DynamicFeeTx{
-		// 	ChainID: big.NewInt(1337),
-		// 	Nonce:   nonce,
-		// })
-		// client.SendTransaction(ctx, tx)
+		// transactOpts, err := bind.NewKeyedTransactorWithChainID(c.secretKey, chainID)
+		// if err != nil {
+		// 	return err
+		// }
+		// transactOpts.Nonce = big.NewInt(int64(nonce))
+		// transactOpts.Value = big.NewInt(0)
+		// transactOpts.GasLimit = 300000
+		// transactOpts.GasPrice = gasPrice
 
+		// contract, err := soliditybridge.
+		// if err != nil {
+		// 	return err
+		// }
 	}
 }
