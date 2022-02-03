@@ -31,7 +31,7 @@ type Collector struct {
 }
 
 func NewCollector(config CollectorConfig) (*Collector, error) {
-	topic, err := config.PubSub.Join("starbridge-stellar-transactions-signed-aggregated")
+	topic, err := config.PubSub.Join("starbridge-messages-signed-aggregated-stellar")
 	if err != nil {
 		return nil, err
 	}
