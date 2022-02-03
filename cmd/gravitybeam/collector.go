@@ -119,5 +119,7 @@ func (c *Collector) Collect() error {
 			return fmt.Errorf("publishing msg: %w", err)
 		}
 		logger.Infof("Msg published")
+
+		logger.Warnf("TODO: Publish on topics for specific addresses involved in the transfer for ethwallet to listen.")
 	}
 }
