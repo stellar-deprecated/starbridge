@@ -120,6 +120,6 @@ func (c *Collector) Collect() error {
 		}
 		logger.Infof("Msg published")
 
-		logger.Warnf("TODO: Publish on topics for specific addresses involved in the transfer.")
+		logger.Warnf("TODO: Publish on topics for specific addresses involved in the transfer for ethwallet to listen.")
 	}
 }
