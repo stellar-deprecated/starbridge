@@ -1,0 +1,12 @@
+run:
+  modules-download-mode: readonly
+
+linters:
+  # Enable these linters in addition to the default linters that golangci-lint starts with.
+  enable:
+    - gofmt
+    - gofumpt
+
+linters-settings:
+  gofmt:
+    simplify: true
