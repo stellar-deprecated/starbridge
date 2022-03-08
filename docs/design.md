@@ -7,7 +7,7 @@ Each chain has local and foreign assets. A local asset is an asset that exists o
 The transfer of value is facilitated through four actions facilitating two different types of transfers:
 
 ### T1. Sending a local asset that may be used as a foreign asset
-![](diagrams/action-deposit-mint.png)
+![Diagram showing the actions involved in transferring a local asset to a foreign chain: deposit, and mint.](diagrams/action-deposit-mint.png)
 
 #### A1. Deposit
 A deposit occurs when the sender participant delivers an asset local to the sending chain to an escrow account or smart contract on the sending chain. The asset is locked-up, escrowed, and unavailable for use while it is usable on the other chain.
@@ -16,7 +16,7 @@ A deposit occurs when the sender participant delivers an asset local to the send
 Minting occurs when the receiver participant collects an asset, on the receiving chain, that was local to the sending chain. A foreign asset is minted or issued and available for use on the receiving chain.
 
 ### T2. Returning a foreign asset that unlocks the local asset
-![](diagrams/action-burn-withdraw.png)
+![Diagram showing the actions involved in returning a foreign asset that unlocks a local asset: burn, and withdraw.](diagrams/action-burn-withdraw.png)
 
 #### A3. Burn
 
@@ -28,13 +28,13 @@ A withdrawal occurs when the receiving participant collects an asset, on the rec
 ## Validators
 Validators observe state changes in both chains and produce signatures for messages that carry out the related inverse behavior that is expected on the other chain.
 
-![](diagrams/validator-overview.png)
+![Diagram showing an overview of the system with the validators, wallets, chains, and a payment being replicated across them.](diagrams/validator-overview.png)
 
 N validators are deployed and each hold one key for the m-of-n signer configuration. The signer configuration defines the control of the escrow account on Stellar and the control of withdrawals and minting in the smart contract.
 
 Validators are passive and take no action without user interaction. They are not observing events in real time as they occur, but observe them when they need to. When a user requests a validator to help them to affect a transfer, the user provides the validator with a reference to a transaction on the source chain that contains the relevant information to be affected inversely on the other chain.
 
-![](diagrams/validator-interactions.png)
+![Diagram showing a transaction being submitted by a wallet to the Stellar network, and another wallet requesting validators observe the transaction and sign a message providing proof for the Ethereum network.](diagrams/validator-interactions.png)
 
 ## Wallet Interactions
 Wallets interact with the bridge to send and receive:
@@ -42,7 +42,7 @@ Wallets interact with the bridge to send and receive:
 ### Send
 Wallets transfer the asset to the escrow account or contract including in the transaction or contract data information about the destination chain and destination address. Validators take no action as a result of this sent transfer by a wallet.
 
-![](diagrams/validator-send.png)
+![Diagram showing a wallet initiating a transfer by sending a transaction to either chain.](diagrams/validator-send.png)
 
 ### Receive
 Receivers ask the validators to produce a transaction or message native to the destination chain that the receiver can submit using their own details. In the case of Stellar this transaction is generated and submitted using their own sequence number.
@@ -53,12 +53,12 @@ When wallets request the inverse tx they are really requesting signatures for th
 
 Validators must protect against race conditions where-by both the receiver asks for two different inverse txs to be produced for the same transfer by ensuring that any signing for an observed event occurs serially for that event. It does not matter if different validators sign different inverse txs, following the above rules as long as none sign both, enough signatures will not be produced for both.
 
-![](diagrams/validator-receive.png)
+![Diagram showing a wallet receiving a transfer by requesting the validators observe the transfer on the sending chain and providing proof for the receiving chain.](diagrams/validator-receive.png)
 
 ### Refunds / Reversals
 It will be possible to support this by allowing validators to sign inverse messages on the source chain if the sender requests. This will be allowed as long as there is not a pending message that is still valid for the destination chain. Validators must protect against race conditions where-by both the original sender and the sender request an inverse tx at the same time.
 
-![](diagrams/validator-reverse.png)
+![Diagram showing a wallet sending a transfer and reversing the transfer by requesting the validators observe the transfer and sign an inverse transfer on the sending chain.](diagrams/validator-reverse.png)
 
 ### Replay Prevention
 Messages produced by validators contain unique data from the sending chain to ensure that two messages are unique, even if they are between the same participants for the same amounts.
