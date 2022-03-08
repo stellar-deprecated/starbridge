@@ -16,5 +16,6 @@ Starbridge is in early development.
 
 ## Get involved
 
+- [Docs](./docs)
 - [Discussions](https://github.com/stellar/starbridge/discussions)
 - More to come...
