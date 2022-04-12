@@ -7,12 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/rs/cors"
 	"github.com/stellar/go/support/errors"
+	stellarhttp "github.com/stellar/go/support/http"
 	"github.com/stellar/go/support/log"
 )
 
@@ -48,7 +47,7 @@ func NewServer(serverConfig ServerConfig) (*Server, error) {
 				Namespace: "starbridge", Subsystem: "http", Name: "requests_duration_seconds",
 				Help: "HTTP requests durations, sliding window = 10m",
 			},
-			[]string{"status", "route", "method"},
+			[]string{"status", "method"},
 		),
 	}
 
@@ -77,22 +76,13 @@ func NewServer(serverConfig ServerConfig) (*Server, error) {
 }
 
 func (s *Server) initMux() {
-	mux := chi.NewMux()
+	mux := stellarhttp.NewAPIMux(log.DefaultLogger)
 
 	// Public middlewares
 	mux.Use(middleware.StripSlashes)
 	mux.Use(middleware.NoCache)
-	mux.Use(middleware.RequestID)
-	mux.Use(loggerMiddleware(s.Metrics))
+	mux.Use(prometheusMiddleware(s.Metrics))
 	mux.Use(middleware.Timeout(10 * time.Second))
-	mux.Use(middleware.Recoverer)
-
-	c := cors.New(cors.Options{
-		AllowedOrigins: []string{"*"},
-		AllowedHeaders: []string{"*"},
-		ExposedHeaders: []string{"Date"},
-	})
-	mux.Use(c.Handler)
 
 	// Public routes
 	mux.Method(http.MethodGet, "/hello", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -103,13 +93,12 @@ func (s *Server) initMux() {
 }
 
 func (s *Server) initAdminMux() {
-	adminMux := chi.NewMux()
+	adminMux := stellarhttp.NewAPIMux(log.DefaultLogger)
 
 	// Admin middlewares
 	adminMux.Use(middleware.NoCache)
-	adminMux.Use(loggerMiddleware(s.Metrics))
+	adminMux.Use(prometheusMiddleware(s.Metrics))
 	adminMux.Use(middleware.Timeout(10 * time.Second))
-	adminMux.Use(middleware.Recoverer)
 
 	// Admin routes
 	adminMux.Get("/metrics", promhttp.HandlerFor(s.prometheusRegistry, promhttp.HandlerOpts{}).ServeHTTP)
@@ -125,14 +114,14 @@ func (s *Server) RegisterMetrics(registry *prometheus.Registry) {
 func (s *Server) Serve() error {
 	if s.adminServer != nil {
 		go func() {
-			log.Infof("Starting admin server on %s", s.adminServer.Addr)
+			log.Infof("starting admin server on %s", s.adminServer.Addr)
 			if err := s.adminServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 				log.Warn(errors.Wrap(err, "error in internalServer.ListenAndServe()"))
 			}
 		}()
 	}
 
-	log.Infof("Starting server on %s", s.server.Addr)
+	log.Infof("starting server on %s", s.server.Addr)
 	var err error
 	if s.tlsConfig != nil {
 		err = s.server.ListenAndServeTLS(s.tlsConfig.CertPath, s.tlsConfig.KeyPath)
