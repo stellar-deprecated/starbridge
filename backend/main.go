@@ -32,7 +32,7 @@ type Worker struct {
 func (w *Worker) Run() error {
 	w.log = log.WithField("service", "backend")
 
-	w.log.Info("starting worker")
+	w.log.Info("Starting worker")
 
 	for {
 		signatureRequests, err := w.Store.GetSignatureRequests()
@@ -68,8 +68,6 @@ func (w *Worker) Run() error {
 			}
 		}
 	}
-
-	return nil
 }
 
 func (w *Worker) processIncomingEthereumSignatureRequest(sr store.SignatureRequest) error {
@@ -93,10 +91,10 @@ func (w *Worker) processIncomingEthereumSignatureRequest(sr store.SignatureReque
 	// Ensure outgoing tx is not pending or success
 	if outgoingStellarTransaction.State == store.PendingState ||
 		outgoingStellarTransaction.State == store.SuccessState {
-		return errors.Errorf("outgoing transaction is in %s state", outgoingStellarTransaction.State)
+		return errors.Errorf("outgoing transaction is in `%s` state", outgoingStellarTransaction.State)
 	}
 
-	// All good: build and sign and persist outgoing transaction
+	// All good: build, sign and persist outgoing transaction
 	amountRat := new(big.Rat).SetInt(incomingEthereumTransaction.ValueWei)
 	amountRat.Quo(amountRat, weiInEth)
 
@@ -114,6 +112,7 @@ func (w *Worker) processIncomingEthereumSignatureRequest(sr store.SignatureReque
 		return errors.Wrap(err, "error signing outgoing stellar transaction")
 	}
 
+	// TODO, we need xdr.TransactionEnvelope.AppendSignature.
 	sigs := tx.Signatures()
 	tx.V1.Signatures = append(sigs, signature)
 
@@ -126,6 +125,8 @@ func (w *Worker) processIncomingEthereumSignatureRequest(sr store.SignatureReque
 		State:    store.PendingState,
 		Hash:     outgoingHash,
 		Envelope: txBase64,
+		// Overflow not possible because MaxTime is set by Starbridge
+		Expiration: time.Unix(int64(tx.V1.Tx.TimeBounds.MaxTime), 0),
 
 		IncomingType:                    sr.IncomingType,
 		IncomingEthereumTransactionHash: sr.IncomingEthereumTransactionHash,

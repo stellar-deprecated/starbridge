@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	github.com/go-chi/chi v4.0.3+incompatible
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.1
 )
 
@@ -20,7 +21,6 @@ require (
 	github.com/magiconair/properties v1.5.4 // indirect
 	github.com/manucorporat/sse v0.0.0-20160126180136-ee05b128a739 // indirect
 	github.com/mitchellh/mapstructure v0.0.0-20150613213606-2caf8efc9366 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rs/cors v0.0.0-20160617231935-a62a804a8a00 // indirect
 	github.com/rs/xhandler v0.0.0-20160618193221-ed27b6fd6521 // indirect

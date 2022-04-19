@@ -13,6 +13,11 @@ type Builder struct {
 
 func (b *Builder) BuildTransaction(txSource, destination, amount string) (xdr.TransactionEnvelope, error) {
 	client := horizonclient.DefaultTestNetClient
+
+	if txSource == b.BridgeAccount {
+		return xdr.TransactionEnvelope{}, errors.New("bridge account cannot be used as a transaction source")
+	}
+
 	sourceAccount, err := client.AccountDetail(horizonclient.AccountRequest{AccountID: txSource})
 	if err != nil {
 		return xdr.TransactionEnvelope{}, errors.Wrap(err, "error getting account details")

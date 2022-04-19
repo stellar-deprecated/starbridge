@@ -1,6 +1,9 @@
 package store
 
-import "database/sql"
+import (
+	"database/sql"
+	"time"
+)
 
 type OutgoingStellarTransactionState string
 
@@ -12,13 +15,20 @@ const (
 )
 
 type OutgoingStellarTransaction struct {
-	// State can only be updated by transaction streamer
-	State    OutgoingStellarTransactionState
-	Hash     string
-	Envelope string
+	State      OutgoingStellarTransactionState
+	Hash       string
+	Envelope   string
+	Expiration time.Time
 
 	IncomingType                    NetworkType
 	IncomingEthereumTransactionHash *string
+}
+
+func (m *Memory) GetOutgoingStellarTransactions() ([]OutgoingStellarTransaction, error) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	return m.outgoingStellarTransactions, nil
 }
 
 func (m *Memory) GetOutgoingStellarTransactionForEthereumByHash(hash string) (OutgoingStellarTransaction, error) {
@@ -32,6 +42,20 @@ func (m *Memory) GetOutgoingStellarTransactionForEthereumByHash(hash string) (Ou
 	}
 
 	return OutgoingStellarTransaction{}, sql.ErrNoRows
+}
+
+func (m *Memory) MarkOutgoingStellarTransactionExpired(expiredBefore time.Time) error {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	for i, tx := range m.outgoingStellarTransactions {
+		if tx.Expiration.Before(expiredBefore) {
+			tx.State = ExpiredState
+			m.outgoingStellarTransactions[i] = tx
+		}
+	}
+
+	return nil
 }
 
 func (m *Memory) UpsertOutgoingStellarTransaction(newtx OutgoingStellarTransaction) error {
