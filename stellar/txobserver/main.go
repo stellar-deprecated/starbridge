@@ -1,6 +1,7 @@
 package txobserver
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/stellar/go/clients/horizonclient"
@@ -13,24 +14,35 @@ type Observer struct {
 	Store  *store.Memory
 }
 
-func (o *Observer) Run() {
+func (o *Observer) Run() error {
 	log := slog.DefaultLogger.WithField("service", "stellar_txobserver")
 
-	ledgerSequence := uint32(40535038)
+	root, err := o.Client.Root()
+	if err != nil {
+		log.Fatal("Unable to access Horizon root resource")
+	}
+
+	ledgerSequence := uint32(root.HorizonSequence)
+
+	log.Infof("Starting Stellar observer from ledger: %d", ledgerSequence)
 
 LedgerLoop:
 	for {
 		// TODO: this can slow down catchup
 		time.Sleep(time.Second)
 
-		log.WithField("sequence", ledgerSequence).Info("Processing ledger...")
-
 		// Get ledger data first to ensure there are no gaps
 		ledger, err := o.Client.LedgerDetail(ledgerSequence)
 		if err != nil {
-			log.WithField("error", err).Error("Error getting ledger details")
+			if herr, ok := err.(*horizonclient.Error); ok && herr.Response.StatusCode == http.StatusNotFound {
+				log.WithField("sequence", ledgerSequence).Debug("Ledger not found, waiting...")
+			} else {
+				log.WithField("error", err).Error("Error getting ledger details")
+			}
 			continue
 		}
+
+		log.WithField("sequence", ledgerSequence).Info("Processing ledger...")
 
 		// Get latest list of hashes to observe
 		outgoingBridgeTransactions, err := o.Store.GetOutgoingStellarTransactions()
@@ -111,18 +123,24 @@ LedgerLoop:
 						}
 					}
 				}
+
+				cursor = tx.PagingToken()
 			}
 		}
 
 		// Mark all txs with expired time + buffer as expired.
 		expiredBefore := ledger.ClosedAt.Add(-time.Minute)
-		err = o.Store.MarkOutgoingStellarTransactionExpired(expiredBefore)
+		count, err := o.Store.MarkOutgoingStellarTransactionExpired(expiredBefore)
 		if err != nil {
 			log.WithField("error", err).Error("Error marking outgoing transactions as expired")
 			continue LedgerLoop
 		}
 
+		log.Infof("Marked %d txs are expired", count)
+
 		log.WithField("sequence", ledgerSequence).Info("Processed ledger")
 		ledgerSequence++
 	}
+
+	return nil
 }

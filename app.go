@@ -2,12 +2,14 @@ package main
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/network"
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/starbridge/backend"
 	"github.com/stellar/starbridge/httpx"
 	"github.com/stellar/starbridge/stellar/signer"
 	"github.com/stellar/starbridge/stellar/txbuilder"
+	"github.com/stellar/starbridge/stellar/txobserver"
 	"github.com/stellar/starbridge/store"
 )
 
@@ -15,6 +17,8 @@ type App struct {
 	httpServer *httpx.Server
 	worker     *backend.Worker
 	store      *store.Memory
+
+	stellarObserver *txobserver.Observer
 
 	prometheusRegistry *prometheus.Registry
 }
@@ -32,6 +36,7 @@ func NewApp(config Config) *App {
 
 	app.initHTTP(config)
 	app.initWorker()
+	app.initStellarTxObserver()
 	app.initLogger()
 	app.initPrometheus()
 
@@ -56,6 +61,13 @@ func (a *App) initWorker() {
 			NetworkPassphrase: network.TestNetworkPassphrase,
 			SecretKey:         "SAV3VE7CMIDIY5GWPZ3WPTMXCD342CGRVKP2SHX4FHAU5D35QW7HNJLS",
 		},
+	}
+}
+
+func (a *App) initStellarTxObserver() {
+	a.stellarObserver = &txobserver.Observer{
+		Store:  a.store,
+		Client: horizonclient.DefaultTestNetClient,
 	}
 }
 
@@ -86,5 +98,14 @@ func (a *App) RunBackendWorker() {
 	err := a.worker.Run()
 	if err != nil {
 		log.WithField("error", err).Error("error running backend worker")
+	}
+}
+
+// RunStellarTxObserver starts backend worker responsible for observing Stellar
+// transactions
+func (a *App) RunStellarTxObserver() {
+	err := a.stellarObserver.Run()
+	if err != nil {
+		log.WithField("error", err).Error("error running stellar tx observer")
 	}
 }

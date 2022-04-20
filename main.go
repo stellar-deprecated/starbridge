@@ -7,6 +7,7 @@ func main() {
 	})
 	go app.RunHTTPServer()
 	go app.RunBackendWorker()
+	go app.RunStellarTxObserver()
 	ch := make(chan bool)
 	<-ch
 }

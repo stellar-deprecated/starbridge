@@ -36,8 +36,9 @@ func (b *Builder) BuildTransaction(txSource, destination, amount string) (xdr.Tr
 						Issuer: b.BridgeAccount,
 					},
 				}},
-			BaseFee:    txnbuild.MinBaseFee,
-			Timebounds: txnbuild.NewTimeout(300),
+			BaseFee: txnbuild.MinBaseFee,
+			// TODO: one minute for faster debugging, change do 5m/10m
+			Timebounds: txnbuild.NewTimeout(60),
 		},
 	)
 	if err != nil {

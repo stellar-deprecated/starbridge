@@ -137,16 +137,5 @@ func (w *Worker) processIncomingEthereumSignatureRequest(sr store.SignatureReque
 		return errors.Wrap(err, "error upserting outgoing stellar transaction")
 	}
 
-	go func() {
-		<-time.After(10 * time.Second)
-		// After time seconds mark this tx as expired
-		outgoingTx.State = store.ExpiredState
-		err = w.Store.UpsertOutgoingStellarTransaction(outgoingTx)
-		if err != nil {
-			panic(err)
-		}
-		w.log.Info("deleted")
-	}()
-
 	return nil
 }

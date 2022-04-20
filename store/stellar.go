@@ -24,6 +24,7 @@ type OutgoingStellarTransaction struct {
 	IncomingEthereumTransactionHash *string
 }
 
+// TODO: this should select loaded transactions for update so other go routines wait
 func (m *Memory) GetOutgoingStellarTransactions() ([]OutgoingStellarTransaction, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
@@ -31,6 +32,7 @@ func (m *Memory) GetOutgoingStellarTransactions() ([]OutgoingStellarTransaction,
 	return m.outgoingStellarTransactions, nil
 }
 
+// TODO: this should select loaded transactions for update so other go routines wait
 func (m *Memory) GetOutgoingStellarTransactionForEthereumByHash(hash string) (OutgoingStellarTransaction, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
@@ -44,18 +46,20 @@ func (m *Memory) GetOutgoingStellarTransactionForEthereumByHash(hash string) (Ou
 	return OutgoingStellarTransaction{}, sql.ErrNoRows
 }
 
-func (m *Memory) MarkOutgoingStellarTransactionExpired(expiredBefore time.Time) error {
+func (m *Memory) MarkOutgoingStellarTransactionExpired(expiredBefore time.Time) (int, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
+	marked := 0
 	for i, tx := range m.outgoingStellarTransactions {
-		if tx.Expiration.Before(expiredBefore) {
+		if tx.Expiration.Before(expiredBefore) && tx.State != ExpiredState {
 			tx.State = ExpiredState
 			m.outgoingStellarTransactions[i] = tx
+			marked++
 		}
 	}
 
-	return nil
+	return marked, nil
 }
 
 func (m *Memory) UpsertOutgoingStellarTransaction(newtx OutgoingStellarTransaction) error {
