@@ -13,6 +13,8 @@ import (
 	"github.com/stellar/go/support/errors"
 	stellarhttp "github.com/stellar/go/support/http"
 	"github.com/stellar/go/support/log"
+	"github.com/stellar/starbridge/stellar/controllers"
+	"github.com/stellar/starbridge/store"
 )
 
 type ServerMetrics struct {
@@ -28,6 +30,7 @@ type ServerConfig struct {
 	AdminPort          uint16
 	TLSConfig          *TLSConfig
 	PrometheusRegistry *prometheus.Registry
+	Store              *store.Memory
 }
 
 type Server struct {
@@ -35,6 +38,8 @@ type Server struct {
 
 	server      *http.Server
 	adminServer *http.Server
+
+	store *store.Memory
 
 	tlsConfig          *TLSConfig
 	prometheusRegistry *prometheus.Registry
@@ -61,6 +66,8 @@ func NewServer(serverConfig ServerConfig) (*Server, error) {
 			Addr:        fmt.Sprintf(":%d", serverConfig.Port),
 			ReadTimeout: 5 * time.Second,
 		},
+
+		store: serverConfig.Store,
 	}
 	server.initMux()
 
@@ -88,6 +95,9 @@ func (s *Server) initMux() {
 	mux.Method(http.MethodGet, "/hello", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "world.")
 	}))
+	mux.Method(http.MethodGet, "/stellar/get_inverse_transaction/ethereum", &controllers.StellarGetInverseTransactionForEthereum{
+		Store: s.store,
+	})
 
 	s.server.Handler = mux
 }

@@ -5,5 +5,9 @@ func main() {
 		Port:      8000,
 		AdminPort: 6666,
 	})
-	app.Run()
+	go app.RunHTTPServer()
+	go app.RunBackendWorker()
+	go app.RunStellarTxObserver()
+	ch := make(chan bool)
+	<-ch
 }
