@@ -73,7 +73,6 @@ LedgerLoop:
 				Limit:         200,
 				IncludeFailed: true,
 			})
-
 			if err != nil {
 				log.WithFields(slog.F{
 					"error":  err,
@@ -141,6 +140,4 @@ LedgerLoop:
 		log.WithField("sequence", ledgerSequence).Info("Processed ledger")
 		ledgerSequence++
 	}
-
-	return nil
 }

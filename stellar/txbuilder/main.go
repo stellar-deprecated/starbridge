@@ -35,7 +35,8 @@ func (b *Builder) BuildTransaction(txSource, destination, amount string) (xdr.Tr
 						Code:   "ETH",
 						Issuer: b.BridgeAccount,
 					},
-				}},
+				},
+			},
 			BaseFee: txnbuild.MinBaseFee,
 			// TODO: one minute for faster debugging, change do 5m/10m
 			Timebounds: txnbuild.NewTimeout(60),

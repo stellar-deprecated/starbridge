@@ -36,7 +36,7 @@ func (c *StellarGetInverseTransactionForEthereum) ServeHTTP(w http.ResponseWrite
 	if err == nil &&
 		(outgoingTransaction.State == store.PendingState || outgoingTransaction.State == store.SuccessState) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(outgoingTransaction.Envelope))
+		_, _ = w.Write([]byte(outgoingTransaction.Envelope))
 		return
 	}
 
