@@ -18,8 +18,6 @@ type App struct {
 	worker     *backend.Worker
 	store      *store.Memory
 
-	stellarObserver *txobserver.Observer
-
 	prometheusRegistry *prometheus.Registry
 }
 
