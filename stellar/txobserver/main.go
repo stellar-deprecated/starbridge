@@ -1,6 +1,7 @@
 package txobserver
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -11,14 +12,14 @@ import (
 
 type Observer struct {
 	client *horizonclient.Client
-	store  *store.Memory
+	store  *store.DB
 	log    *slog.Entry
 
 	// TODO: this will be persisted in a DB
 	ledgerSequence uint32
 }
 
-func NewObserver(client *horizonclient.Client, store *store.Memory) *Observer {
+func NewObserver(client *horizonclient.Client, store *store.DB) *Observer {
 	o := &Observer{
 		client: client,
 		store:  store,
@@ -54,7 +55,7 @@ LedgerLoop:
 		o.log.WithField("sequence", o.ledgerSequence).Info("Processing ledger...")
 
 		// Get latest list of hashes to observe
-		outgoingBridgeTransactions, err := o.store.GetOutgoingStellarTransactions()
+		outgoingBridgeTransactions, err := o.store.GetOutgoingStellarTransactions(context.TODO())
 		if err != nil {
 			o.log.WithField("error", err).Error("Error getting outgoing bridge transactions")
 			time.Sleep(time.Second)
@@ -105,7 +106,7 @@ LedgerLoop:
 					} else {
 						otx.State = store.FailedState
 					}
-					err := o.store.UpsertOutgoingStellarTransaction(otx)
+					err := o.store.UpsertOutgoingStellarTransaction(context.TODO(), otx)
 					if err != nil {
 						o.log.WithFields(slog.F{
 							"error": err,
@@ -124,7 +125,7 @@ LedgerLoop:
 						} else {
 							otx.State = store.FailedState
 						}
-						err := o.store.UpsertOutgoingStellarTransaction(otx)
+						err := o.store.UpsertOutgoingStellarTransaction(context.TODO(), otx)
 						if err != nil {
 							o.log.WithFields(slog.F{
 								"error": err,
@@ -142,7 +143,7 @@ LedgerLoop:
 
 		// Mark all txs with expired time + buffer as expired.
 		expiredBefore := ledger.ClosedAt.Add(-time.Minute)
-		count, err := o.store.MarkOutgoingStellarTransactionExpired(expiredBefore)
+		count, err := o.store.MarkOutgoingStellarTransactionExpired(context.TODO(), expiredBefore)
 		if err != nil {
 			o.log.WithField("error", err).Error("Error marking outgoing transactions as expired")
 			time.Sleep(time.Second)

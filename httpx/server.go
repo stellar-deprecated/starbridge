@@ -30,7 +30,7 @@ type ServerConfig struct {
 	AdminPort          uint16
 	TLSConfig          *TLSConfig
 	PrometheusRegistry *prometheus.Registry
-	Store              *store.Memory
+	Store              *store.DB
 }
 
 type Server struct {
@@ -39,7 +39,7 @@ type Server struct {
 	server      *http.Server
 	adminServer *http.Server
 
-	store *store.Memory
+	store *store.DB
 
 	tlsConfig          *TLSConfig
 	prometheusRegistry *prometheus.Registry
@@ -92,9 +92,6 @@ func (s *Server) initMux() {
 	mux.Use(middleware.Timeout(10 * time.Second))
 
 	// Public routes
-	mux.Method(http.MethodGet, "/hello", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "world.")
-	}))
 	mux.Method(http.MethodGet, "/stellar/get_inverse_transaction/ethereum", &controllers.StellarGetInverseTransactionForEthereum{
 		Store: s.store,
 	})

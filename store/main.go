@@ -1,10 +1,9 @@
 package store
 
-import "sync"
+import (
+	"github.com/stellar/go/support/db"
+)
 
-type Memory struct {
-	mutex sync.Mutex
-
-	signatureRequests           []SignatureRequest
-	outgoingStellarTransactions []OutgoingStellarTransaction
+type DB struct {
+	Session *db.Session
 }

@@ -4,6 +4,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/network"
+	"github.com/stellar/go/support/db"
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/starbridge/backend"
 	"github.com/stellar/starbridge/httpx"
@@ -16,7 +17,7 @@ import (
 type App struct {
 	httpServer *httpx.Server
 	worker     *backend.Worker
-	store      *store.Memory
+	store      *store.DB
 
 	prometheusRegistry *prometheus.Registry
 }
@@ -28,12 +29,13 @@ type Config struct {
 
 func NewApp(config Config) *App {
 	app := &App{
-		store:              &store.Memory{},
+		store:              &store.DB{},
 		prometheusRegistry: prometheus.NewRegistry(),
 	}
 
 	app.initHTTP(config)
 	app.initWorker()
+	app.initStore()
 	app.initLogger()
 	app.initPrometheus()
 
@@ -46,6 +48,15 @@ func (a *App) initPrometheus() {
 
 func (a *App) initLogger() {
 	log.SetLevel(log.InfoLevel)
+}
+
+func (a *App) initStore() {
+	session, err := db.Open("postgres", "postgres://localhost:5432/starbridge?sslmode=disable")
+	if err != nil {
+		log.Fatalf("cannot open DB: %v", err)
+	}
+
+	a.store.Session = session
 }
 
 func (a *App) initWorker() {

@@ -3,7 +3,9 @@ module github.com/stellar/starbridge
 go 1.17
 
 require (
+	github.com/Masterminds/squirrel v1.5.0
 	github.com/go-chi/chi v4.0.3+incompatible
+	github.com/guregu/null v2.1.3-0.20151024101046-79c5bd36b615+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.1
 )
@@ -15,9 +17,13 @@ require (
 	github.com/go-errors/errors v0.0.0-20150906023321-a41850380601 // indirect
 	github.com/gorilla/schema v1.1.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/jmoiron/sqlx v1.2.0 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.3 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/kr/text v0.1.0 // indirect
+	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
+	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
+	github.com/lib/pq v1.2.0 // indirect
 	github.com/magiconair/properties v1.5.4 // indirect
 	github.com/manucorporat/sse v0.0.0-20160126180136-ee05b128a739 // indirect
 	github.com/mitchellh/mapstructure v0.0.0-20150613213606-2caf8efc9366 // indirect
