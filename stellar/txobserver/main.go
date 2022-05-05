@@ -10,51 +10,61 @@ import (
 )
 
 type Observer struct {
-	Client *horizonclient.Client
-	Store  *store.Memory
+	client *horizonclient.Client
+	store  *store.Memory
+	log    *slog.Entry
+
+	// TODO: this will be persisted in a DB
+	ledgerSequence uint32
 }
 
-func (o *Observer) Run() error {
-	log := slog.DefaultLogger.WithField("service", "stellar_txobserver")
-
-	root, err := o.Client.Root()
-	if err != nil {
-		log.Fatal("Unable to access Horizon root resource")
+func NewObserver(client *horizonclient.Client, store *store.Memory) *Observer {
+	o := &Observer{
+		client: client,
+		store:  store,
+		log:    slog.DefaultLogger.WithField("service", "stellar_txobserver"),
 	}
 
-	ledgerSequence := uint32(root.HorizonSequence)
+	root, err := o.client.Root()
+	if err != nil {
+		o.log.Fatal("Unable to access Horizon root resource")
+	}
 
-	log.Infof("Starting Stellar observer from ledger: %d", ledgerSequence)
+	o.ledgerSequence = uint32(root.HorizonSequence)
 
+	return o
+}
+
+func (o *Observer) ProcessNewLedgers() {
 LedgerLoop:
 	for {
-		// TODO: this can slow down catchup
-		time.Sleep(time.Second)
-
 		// Get ledger data first to ensure there are no gaps
-		ledger, err := o.Client.LedgerDetail(ledgerSequence)
+		ledger, err := o.client.LedgerDetail(o.ledgerSequence)
 		if err != nil {
 			if herr, ok := err.(*horizonclient.Error); ok && herr.Response.StatusCode == http.StatusNotFound {
-				log.WithField("sequence", ledgerSequence).Debug("Ledger not found, waiting...")
+				// Ledger not found means we reached the latest ledger
+				return
 			} else {
-				log.WithField("error", err).Error("Error getting ledger details")
+				o.log.WithField("error", err).Error("Error getting ledger details")
 			}
+			time.Sleep(time.Second)
 			continue
 		}
 
-		log.WithField("sequence", ledgerSequence).Info("Processing ledger...")
+		o.log.WithField("sequence", o.ledgerSequence).Info("Processing ledger...")
 
 		// Get latest list of hashes to observe
-		outgoingBridgeTransactions, err := o.Store.GetOutgoingStellarTransactions()
+		outgoingBridgeTransactions, err := o.store.GetOutgoingStellarTransactions()
 		if err != nil {
-			log.WithField("error", err).Error("Error getting outgoing bridge transactions")
+			o.log.WithField("error", err).Error("Error getting outgoing bridge transactions")
+			time.Sleep(time.Second)
 			continue
 		}
 
 		// If no transactions to observe, skip to next ledger.
 		if len(outgoingBridgeTransactions) == 0 {
-			log.WithField("sequence", ledgerSequence).Info("No outgoing bridge transactions, skiping to next ledger")
-			ledgerSequence++
+			o.log.WithField("sequence", o.ledgerSequence).Info("No outgoing bridge transactions, skiping to next ledger")
+			o.ledgerSequence++
 			continue
 		}
 
@@ -67,18 +77,19 @@ LedgerLoop:
 		// Process transactions
 		cursor := ""
 		for {
-			txs, err := o.Client.Transactions(horizonclient.TransactionRequest{
-				ForLedger:     uint(ledgerSequence),
+			txs, err := o.client.Transactions(horizonclient.TransactionRequest{
+				ForLedger:     uint(o.ledgerSequence),
 				Cursor:        cursor,
 				Limit:         200,
 				IncludeFailed: true,
 			})
 			if err != nil {
-				log.WithFields(slog.F{
+				o.log.WithFields(slog.F{
 					"error":  err,
-					"ledger": ledgerSequence,
+					"ledger": o.ledgerSequence,
 					"cursor": cursor,
 				}).Error("Error getting transactions")
+				time.Sleep(time.Second)
 				continue LedgerLoop
 			}
 
@@ -94,12 +105,13 @@ LedgerLoop:
 					} else {
 						otx.State = store.FailedState
 					}
-					err := o.Store.UpsertOutgoingStellarTransaction(otx)
+					err := o.store.UpsertOutgoingStellarTransaction(otx)
 					if err != nil {
-						log.WithFields(slog.F{
+						o.log.WithFields(slog.F{
 							"error": err,
 							"hash":  otx.Hash,
 						}).Error("Error upserting outgoing transactions")
+						time.Sleep(time.Second)
 						continue LedgerLoop
 					}
 				}
@@ -112,12 +124,13 @@ LedgerLoop:
 						} else {
 							otx.State = store.FailedState
 						}
-						err := o.Store.UpsertOutgoingStellarTransaction(otx)
+						err := o.store.UpsertOutgoingStellarTransaction(otx)
 						if err != nil {
-							log.WithFields(slog.F{
+							o.log.WithFields(slog.F{
 								"error": err,
 								"hash":  otx.Hash,
 							}).Error("Error upserting outgoing transactions")
+							time.Sleep(time.Second)
 							continue LedgerLoop
 						}
 					}
@@ -129,15 +142,16 @@ LedgerLoop:
 
 		// Mark all txs with expired time + buffer as expired.
 		expiredBefore := ledger.ClosedAt.Add(-time.Minute)
-		count, err := o.Store.MarkOutgoingStellarTransactionExpired(expiredBefore)
+		count, err := o.store.MarkOutgoingStellarTransactionExpired(expiredBefore)
 		if err != nil {
-			log.WithField("error", err).Error("Error marking outgoing transactions as expired")
+			o.log.WithField("error", err).Error("Error marking outgoing transactions as expired")
+			time.Sleep(time.Second)
 			continue LedgerLoop
 		}
 
-		log.Infof("Marked %d txs are expired", count)
+		o.log.Infof("Marked %d txs are expired", count)
 
-		log.WithField("sequence", ledgerSequence).Info("Processed ledger")
-		ledgerSequence++
+		o.log.WithField("sequence", o.ledgerSequence).Info("Processed ledger")
+		o.ledgerSequence++
 	}
 }

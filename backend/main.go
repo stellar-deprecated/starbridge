@@ -10,6 +10,7 @@ import (
 	"github.com/stellar/go/xdr"
 	"github.com/stellar/starbridge/stellar/signer"
 	"github.com/stellar/starbridge/stellar/txbuilder"
+	"github.com/stellar/starbridge/stellar/txobserver"
 	"github.com/stellar/starbridge/store"
 )
 
@@ -23,8 +24,9 @@ var (
 type Worker struct {
 	Store *store.Memory
 
-	StellarBuilder *txbuilder.Builder
-	StellarSigner  *signer.Signer
+	StellarBuilder  *txbuilder.Builder
+	StellarSigner   *signer.Signer
+	StellarObserver *txobserver.Observer
 
 	log *log.Entry
 }
@@ -35,6 +37,9 @@ func (w *Worker) Run() error {
 	w.log.Info("Starting worker")
 
 	for {
+		// Process all new ledgers before processing signature requests
+		w.StellarObserver.ProcessNewLedgers()
+
 		signatureRequests, err := w.Store.GetSignatureRequests()
 		if err != nil {
 			if err == sql.ErrNoRows {
