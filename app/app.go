@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
@@ -90,4 +90,8 @@ func (a *App) RunBackendWorker() {
 	if err != nil {
 		log.WithField("error", err).Error("error running backend worker")
 	}
+}
+
+func (a *App) Close() {
+	// TODO
 }

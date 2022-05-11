@@ -12,7 +12,9 @@ type Builder struct {
 }
 
 func (b *Builder) BuildTransaction(txSource, destination, amount string) (xdr.TransactionEnvelope, error) {
-	client := horizonclient.DefaultTestNetClient
+	client := &horizonclient.Client{
+		HorizonURL: "http://192.168.99.100:8000",
+	}
 
 	if txSource == b.BridgeAccount {
 		return xdr.TransactionEnvelope{}, errors.New("bridge account cannot be used as a transaction source")
@@ -39,7 +41,7 @@ func (b *Builder) BuildTransaction(txSource, destination, amount string) (xdr.Tr
 			},
 			BaseFee: txnbuild.MinBaseFee,
 			// TODO: one minute for faster debugging, change do 5m/10m
-			Timebounds: txnbuild.NewTimeout(60),
+			Preconditions: txnbuild.Preconditions{TimeBounds: txnbuild.NewTimeout(60)},
 		},
 	)
 	if err != nil {

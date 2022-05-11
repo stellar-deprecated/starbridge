@@ -2,7 +2,6 @@ package store
 
 import (
 	"database/sql"
-	"errors"
 )
 
 type NetworkType string
@@ -23,7 +22,8 @@ func (m *Memory) InsertSignatureRequestForIncomingEthereumTransaction(hash strin
 	for _, sr := range m.signatureRequests {
 		if sr.IncomingEthereumTransactionHash != nil &&
 			*sr.IncomingEthereumTransactionHash == hash {
-			return errors.New("signature request for this transaction already exists")
+			// signature request for this transaction already exists
+			return nil
 		}
 	}
 
