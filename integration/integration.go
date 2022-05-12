@@ -30,6 +30,10 @@ const (
 	StandaloneNetworkPassphrase = "Standalone Network ; February 2017"
 )
 
+var (
+	dockerHost = "localhost"
+)
+
 type Config struct {
 	Servers int
 }
@@ -63,6 +67,10 @@ func NewIntegrationTest(t *testing.T, config Config) *Test {
 		t.Skip("skipping integration test: STARBRIDGE_INTEGRATION_TESTS_ENABLED not set")
 	}
 
+	if host := os.Getenv("STARBRIDGE_INTEGRATION_TESTS_DOCKER_HOST"); host != "" {
+		dockerHost = host
+	}
+
 	test := &Test{
 		t:           t,
 		composePath: findDockerComposePath(t),
@@ -70,7 +78,7 @@ func NewIntegrationTest(t *testing.T, config Config) *Test {
 
 		client: &http.Client{},
 		horizonClient: &horizonclient.Client{
-			HorizonURL: "http://192.168.99.100:8000",
+			HorizonURL: fmt.Sprintf("http://%s:8000", dockerHost),
 		},
 	}
 
@@ -228,6 +236,7 @@ func (i *Test) waitForHorizon() {
 		i.t.Log("Waiting for ingestion and protocol upgrade...")
 		root, err := i.horizonClient.Root()
 		if err != nil {
+			i.t.Log(err)
 			continue
 		}
 
@@ -251,7 +260,8 @@ func (i *Test) waitForFriendbot() {
 		time.Sleep(time.Second)
 
 		i.t.Log("Waiting for friendbot...")
-		resp, err := http.Get("http://192.168.99.100:8000/friendbot")
+		url := fmt.Sprintf("http://%s:8000/friendbot", dockerHost)
+		resp, err := http.Get(url)
 		if err != nil {
 			continue
 		}
@@ -356,7 +366,8 @@ func (i *Test) CreateAccounts(count int) ([]*keypair.Full, []txnbuild.Account) {
 			pair, _ := keypair.Random()
 			pairs[j] = pair
 
-			resp, err := http.Get("http://192.168.99.100:8000/friendbot?addr=" + pair.Address())
+			url := fmt.Sprintf("http://%s:8000/friendbot?addr=%s", dockerHost, pair.Address())
+			resp, err := http.Get(url)
 			if err != nil {
 				return err
 			}
