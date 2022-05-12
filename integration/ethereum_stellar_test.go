@@ -1,65 +1,93 @@
 package integration
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"testing"
 	"time"
 
-	"github.com/stellar/go/keypair"
+	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/txnbuild"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 func TestEthereumStellarDeposit(t *testing.T) {
-	itest := NewTest(t)
+	const servers int = 3
 
-	keys, accounts := itest.CreateAccounts(1)
-	key, account := keys[0], accounts[0]
+	itest := NewIntegrationTest(t, Config{
+		Servers: servers,
+	})
 
-	clientKey := keypair.MustParseFull("SBEICGMVMPF2WWIYV34IP7ON2Q6BUOT7F7IGHOTUMYUIG5K4IWIOUQC3")
+	txs := make([]string, servers)
 
-	// Configure Starbridge account
-	ops := []txnbuild.Operation{
-		&txnbuild.CreateAccount{
-			SourceAccount: account.GetAccountID(),
-			Destination:   "GATBFH6GV7GMWNI5RXH546BB2MDSNO3DPLGPT4EAFS5ICLRZT3D7F4YS",
-			Amount:        "100",
-		},
-		&txnbuild.ChangeTrust{
-			SourceAccount: "GATBFH6GV7GMWNI5RXH546BB2MDSNO3DPLGPT4EAFS5ICLRZT3D7F4YS",
-			Line: txnbuild.ChangeTrustAssetWrapper{
-				Asset: txnbuild.CreditAsset{
-					Code:   "ETH",
-					Issuer: account.GetAccountID(),
-				},
-			},
-		},
+	g := new(errgroup.Group)
+	for i := 0; i < servers; i++ {
+		i := i
+		g.Go(func() error {
+			port := 9000 + i
+		loop:
+			for {
+				time.Sleep(time.Second)
+				url := fmt.Sprintf("http://localhost:%d/stellar/get_inverse_transaction/ethereum", port)
+				resp, err := itest.Client().Get(url)
+				require.NoError(t, err)
+				switch resp.StatusCode {
+				case http.StatusAccepted:
+					t.Log("Signing request accepted, waiting...")
+					continue loop
+				case http.StatusOK:
+					t.Log("Signing request processed")
+				default:
+					return errors.Errorf("Unknown status code: %s", resp.Status)
+				}
+				body, err := ioutil.ReadAll(resp.Body)
+				require.NoError(t, err)
+				txEnvelope := string(body)
+				txs[i] = txEnvelope
+
+				// Try to submit tx with just one signature
+				_, err = itest.HorizonClient().SubmitTransactionXDR(txEnvelope)
+				require.Error(t, err)
+
+				return nil
+			}
+		})
 	}
 
-	itest.MustSubmitMultiSigOperations(account, []*keypair.Full{key, clientKey}, ops...)
-
-	var txEnvelope string
-
-loop:
-	for {
-		time.Sleep(time.Second)
-		resp, err := itest.Client().Get("http://localhost:8001/stellar/get_inverse_transaction/ethereum")
-		require.NoError(t, err)
-		switch resp.StatusCode {
-		case http.StatusAccepted:
-			t.Log("Signing request accepted, waiting...")
-			continue loop
-		case http.StatusOK:
-			t.Log("Signing request processed")
-		default:
-			require.Failf(t, "Unknown status code", "Response code: %s", resp.Status)
-		}
-		body, err := ioutil.ReadAll(resp.Body)
-		require.NoError(t, err)
-		txEnvelope = string(body)
-		break
+	if err := g.Wait(); err != nil {
+		t.Fatal(err)
 	}
 
-	t.Log(txEnvelope)
+	// Concat signatures
+	gtx, err := txnbuild.TransactionFromXDR(txs[0])
+	require.NoError(t, err)
+	mainTx, ok := gtx.Transaction()
+	require.True(t, ok)
+
+	expectedSeqNum := mainTx.SequenceNumber()
+
+	// Add as many sigs as needed and not a single more
+	for i := 1; i < servers/2+1; i++ {
+		gtx, err := txnbuild.TransactionFromXDR(txs[i])
+		require.NoError(t, err)
+		tx, ok := gtx.Transaction()
+		require.True(t, ok)
+
+		assert.Equal(t, expectedSeqNum, tx.SequenceNumber())
+
+		sig := tx.Signatures()
+
+		mainTx, err = mainTx.AddSignatureDecorated(sig...)
+		require.NoError(t, err)
+	}
+
+	// ...and add client signature (because it's tx source)
+	mainTx, err = mainTx.Sign(StandaloneNetworkPassphrase, itest.clientKey)
+	require.NoError(t, err)
+
+	_, err = itest.HorizonClient().SubmitTransaction(mainTx)
+	require.NoError(t, err)
 }

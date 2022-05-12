@@ -27,6 +27,8 @@ func (b *Builder) BuildTransaction(txSource, destination, amount string) (xdr.Tr
 
 	tx, err := txnbuild.NewTransaction(
 		txnbuild.TransactionParams{
+			IncrementSequenceNum: true,
+
 			SourceAccount: &sourceAccount,
 			Operations: []txnbuild.Operation{
 				&txnbuild.Payment{

@@ -11,9 +11,7 @@ import (
 
 type Signer struct {
 	NetworkPassphrase string
-	SecretKey         string
-
-	kp *keypair.Full
+	Signer            *keypair.Full
 }
 
 // Sign signs an envelope.
@@ -23,11 +21,7 @@ func (s *Signer) Sign(envelope xdr.TransactionEnvelope) (string, xdr.DecoratedSi
 		return "", xdr.DecoratedSignature{}, errors.Wrap(err, "failed to hash transaction")
 	}
 
-	if s.kp == nil {
-		s.kp = keypair.MustParseFull(s.SecretKey)
-	}
-
-	sig, err := s.kp.SignDecorated(hash[:])
+	sig, err := s.Signer.SignDecorated(hash[:])
 	if err != nil {
 		return "", xdr.DecoratedSignature{}, errors.Wrap(err, "failed to sign transaction")
 	}

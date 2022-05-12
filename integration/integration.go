@@ -30,6 +30,10 @@ const (
 	StandaloneNetworkPassphrase = "Standalone Network ; February 2017"
 )
 
+type Config struct {
+	Servers int
+}
+
 type Test struct {
 	t *testing.T
 
@@ -38,23 +42,28 @@ type Test struct {
 	client        *http.Client
 	horizonClient *horizonclient.Client
 
-	app           *app.App
+	app           []*app.App
 	appStopped    chan struct{}
 	shutdownOnce  sync.Once
 	shutdownCalls []func()
 	masterKey     *keypair.Full
 	passPhrase    string
+
+	mainKey     *keypair.Full
+	signerKeys  []*keypair.Full
+	clientKey   *keypair.Full
+	mainAccount txnbuild.Account
 }
 
-// NewTest starts a new environment for integration test.
+// NewIntegrationTest starts a new environment for integration test.
 //
 // WARNING: This requires Docker Compose installed.
-func NewTest(t *testing.T) *Test {
+func NewIntegrationTest(t *testing.T, config Config) *Test {
 	if os.Getenv("STARBRIDGE_INTEGRATION_TESTS_ENABLED") == "" {
 		t.Skip("skipping integration test: STARBRIDGE_INTEGRATION_TESTS_ENABLED not set")
 	}
 
-	i := &Test{
+	test := &Test{
 		t:           t,
 		composePath: findDockerComposePath(t),
 		passPhrase:  StandaloneNetworkPassphrase,
@@ -65,19 +74,73 @@ func NewTest(t *testing.T) *Test {
 		},
 	}
 
-	i.runComposeCommand("up", "--detach", "--quiet-pull", "--no-color", "starbridge-postgres")
-	i.runComposeCommand("up", "--detach", "--quiet-pull", "--no-color", "quickstart")
-	i.prepareShutdownHandlers()
-	i.waitForHorizon()
-	i.waitForFriendbot()
+	test.runComposeCommand("up", "--detach", "--quiet-pull", "--no-color", "starbridge-postgres")
+	test.runComposeCommand("up", "--detach", "--quiet-pull", "--no-color", "quickstart")
+	test.prepareShutdownHandlers()
+	test.waitForHorizon()
+	test.waitForFriendbot()
 
-	if innerErr := i.StartStarbridge(); innerErr != nil {
-		t.Fatalf("Failed to start Starbridge: %v", innerErr)
+	if config.Servers == 0 {
+		config.Servers = 1
 	}
 
-	i.WaitForStarbridge()
+	// Create main account
+	keys, accounts := test.CreateAccounts(1)
+	test.mainKey, test.mainAccount = keys[0], accounts[0]
 
-	return i
+	test.app = make([]*app.App, config.Servers)
+	test.signerKeys = make([]*keypair.Full, config.Servers)
+
+	for i := 0; i < config.Servers; i++ {
+		if innerErr := test.StartStarbridge(i); innerErr != nil {
+			t.Fatalf("Failed to start Starbridge: %v", innerErr)
+		}
+	}
+
+	test.waitForStarbridge(config.Servers)
+
+	// Configure main account signers and configure client key
+	test.clientKey = keypair.MustParseFull("SBEICGMVMPF2WWIYV34IP7ON2Q6BUOT7F7IGHOTUMYUIG5K4IWIOUQC3")
+
+	threshold := txnbuild.Threshold(config.Servers/2) + 1
+	ops := []txnbuild.Operation{
+		&txnbuild.CreateAccount{
+			Destination: "GATBFH6GV7GMWNI5RXH546BB2MDSNO3DPLGPT4EAFS5ICLRZT3D7F4YS",
+			Amount:      "100",
+		},
+		&txnbuild.ChangeTrust{
+			SourceAccount: "GATBFH6GV7GMWNI5RXH546BB2MDSNO3DPLGPT4EAFS5ICLRZT3D7F4YS",
+			Line: txnbuild.ChangeTrustAssetWrapper{
+				Asset: txnbuild.CreditAsset{
+					Code:   "ETH",
+					Issuer: test.mainKey.Address(),
+				},
+			},
+		},
+		&txnbuild.SetOptions{
+			MasterWeight:    txnbuild.NewThreshold(0),
+			LowThreshold:    txnbuild.NewThreshold(threshold),
+			MediumThreshold: txnbuild.NewThreshold(threshold),
+			HighThreshold:   txnbuild.NewThreshold(txnbuild.Threshold(config.Servers)),
+		},
+	}
+
+	for i := 0; i < config.Servers; i++ {
+		ops = append(ops, &txnbuild.SetOptions{
+			Signer: &txnbuild.Signer{
+				Address: test.signerKeys[i].Address(),
+				Weight:  txnbuild.Threshold(1),
+			},
+		})
+	}
+
+	test.MustSubmitMultiSigOperations(
+		test.mainAccount,
+		[]*keypair.Full{test.mainKey, test.clientKey},
+		ops...,
+	)
+
+	return test
 }
 
 // Runs a docker-compose command applied to the above configs
@@ -101,9 +164,9 @@ func (i *Test) runComposeCommand(args ...string) {
 func (i *Test) prepareShutdownHandlers() {
 	i.shutdownCalls = append(i.shutdownCalls,
 		func() {
-			if i.app != nil {
-				i.app.Close()
-			}
+			// if i.app != nil {
+			// 	i.app.Close()
+			// }
 			i.runComposeCommand("rm", "-fvs", "quickstart")
 			i.runComposeCommand("rm", "-fvs", "starbridge-postgres")
 		},
@@ -135,15 +198,22 @@ func (i *Test) Shutdown() {
 	})
 }
 
-func (i *Test) StartStarbridge() error {
-	i.app = app.NewApp(app.Config{
-		Port: 8001,
+func (i *Test) StartStarbridge(id int) error {
+	i.signerKeys[id] = keypair.MustRandom()
+
+	i.app[id] = app.NewApp(app.Config{
+		Port: 9000 + uint16(id),
+
+		MainAccountID: i.mainKey.Address(),
+		SignerKey:     i.signerKeys[id],
+
+		NetworkPassphrase: StandaloneNetworkPassphrase,
 	})
 
 	done := make(chan struct{})
 	go func() {
-		go i.app.RunHTTPServer()
-		i.app.RunBackendWorker()
+		go i.app[id].RunHTTPServer()
+		i.app[id].RunBackendWorker()
 		close(done)
 	}()
 	i.appStopped = done
@@ -196,20 +266,33 @@ func (i *Test) waitForFriendbot() {
 	i.t.Fatal("Friendbot not working...")
 }
 
-func (i *Test) WaitForStarbridge() {
-	for t := 60; t >= 0; t -= 1 {
-		time.Sleep(time.Second)
+func (it *Test) waitForStarbridge(count int) {
+	g := new(errgroup.Group)
 
-		i.t.Log("Waiting for Starbridge...")
-		_, err := http.Get("http://localhost:8001")
-		if err != nil {
-			continue
-		}
+	for i := 0; i < count; i++ {
+		i := i
+		g.Go(func() error {
+			for t := 60; t >= 0; t -= 1 {
+				time.Sleep(time.Second)
 
-		return
+				port := 9000 + i
+				it.t.Logf("Waiting for Starbridge at port %d...", port)
+				url := fmt.Sprintf("http://localhost:%d", port)
+				_, err := http.Get(url)
+				if err != nil {
+					continue
+				}
+
+				return nil
+			}
+
+			return errors.New("Starbridge not responding...")
+		})
 	}
 
-	i.t.Fatal("Starbridge not responding...")
+	if err := g.Wait(); err != nil {
+		it.t.Fatal(err)
+	}
 }
 
 // HorizonClient returns horizon.Client connected to started Horizon instance.
@@ -223,14 +306,14 @@ func (i *Test) Client() *http.Client {
 }
 
 // StopHorizon shuts down the running Horizon process
-func (i *Test) StopStarbridge() {
-	i.app.Close()
+// func (i *Test) StopStarbridge() {
+// 	i.app.Close()
 
-	// Wait for Horizon to shut down completely.
-	<-i.appStopped
+// 	// Wait for Horizon to shut down completely.
+// 	<-i.appStopped
 
-	i.app = nil
-}
+// 	i.app = nil
+// }
 
 // Master returns a keypair of the network masterKey account.
 func (i *Test) Master() *keypair.Full {
@@ -296,8 +379,7 @@ func (i *Test) CreateAccounts(count int) ([]*keypair.Full, []txnbuild.Account) {
 	}
 
 	if err := g.Wait(); err != nil {
-		i.t.Log(err)
-		i.t.FailNow()
+		i.t.Fatal(err)
 	}
 
 	return pairs, accounts
@@ -438,8 +520,7 @@ func (i *Test) LogFailedTx(txResponse proto.Transaction, horizonResult error) {
 // Cluttering code with if err != nil is absolute nonsense.
 func (i *Test) panicIf(err error) {
 	if err != nil {
-		i.t.Log(err)
-		i.t.FailNow()
+		i.t.Fatal(err)
 	}
 }
 
@@ -450,8 +531,7 @@ func findDockerComposePath(t *testing.T) string {
 	directoryContainsFilename := func(dir string, filename string) bool {
 		files, innerErr := ioutil.ReadDir(dir)
 		if innerErr != nil {
-			t.Log(innerErr)
-			t.FailNow()
+			t.Fatal(innerErr)
 		}
 
 		for _, file := range files {
@@ -465,8 +545,7 @@ func findDockerComposePath(t *testing.T) string {
 
 	current, err := os.Getwd()
 	if err != nil {
-		t.Log(err)
-		t.FailNow()
+		t.Fatal(err)
 	}
 
 	//
@@ -495,16 +574,4 @@ func findDockerComposePath(t *testing.T) string {
 
 	// Directly jump down to the folder that should contain the configs
 	return filepath.Join(current, "integration")
-}
-
-// MergeMaps returns a new map which contains the keys and values of *all* input
-// maps, overwriting earlier values with later values on duplicate keys.
-func MergeMaps(maps ...map[string]string) map[string]string {
-	merged := map[string]string{}
-	for _, m := range maps {
-		for k, v := range m {
-			merged[k] = v
-		}
-	}
-	return merged
 }
