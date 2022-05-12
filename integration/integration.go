@@ -30,9 +30,7 @@ const (
 	StandaloneNetworkPassphrase = "Standalone Network ; February 2017"
 )
 
-var (
-	dockerHost = "localhost"
-)
+var dockerHost = "localhost"
 
 type Config struct {
 	Servers int
