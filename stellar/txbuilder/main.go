@@ -13,7 +13,7 @@ type Builder struct {
 
 func (b *Builder) BuildTransaction(txSource, destination, amount string) (xdr.TransactionEnvelope, error) {
 	client := &horizonclient.Client{
-		HorizonURL: "http://192.168.99.100:8000",
+		HorizonURL: "http://localhost:8000",
 	}
 
 	if txSource == b.BridgeAccount {
