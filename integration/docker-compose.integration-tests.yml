@@ -1,0 +1,18 @@
+version: '3'
+services:
+  starbridge-postgres:
+    image: postgres:9.6.17-alpine
+    restart: on-failure
+    environment:
+      - POSTGRES_PASSWORD=mysecretpassword
+      - POSTGRES_DB=starbridge
+    ports:
+      - "5641:5641"
+    command: ["-p", "5641"]
+  quickstart:
+    # platform: linux/amd64
+    image: stellar/quickstart
+    restart: on-failure
+    ports:
+      - "8000:8000"
+    command: ["--standalone"]

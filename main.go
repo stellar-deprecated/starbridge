@@ -1,7 +1,9 @@
 package main
 
+import "github.com/stellar/starbridge/app"
+
 func main() {
-	app := NewApp(Config{
+	app := app.NewApp(app.Config{
 		Port:      8000,
 		AdminPort: 6666,
 	})

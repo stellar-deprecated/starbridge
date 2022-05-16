@@ -16,8 +16,10 @@ type IncomingEthereumTransaction struct {
 
 func (m *Memory) GetIncomingEthereumTransactionByHash(hash string) (IncomingEthereumTransaction, error) {
 	return IncomingEthereumTransaction{
-		Hash:           hash,
-		ValueWei:       big.NewInt(627836782638726),
-		StellarAddress: "GD6DBPOQ5EFMDEJ6X2PTRTKM2ZNGJCINC3U3BE7BHMM3C6D75JDLP2KX",
+		Hash:     hash,
+		ValueWei: big.NewInt(627836782638726),
+		// Public Key	GATBFH6GV7GMWNI5RXH546BB2MDSNO3DPLGPT4EAFS5ICLRZT3D7F4YS
+		// Secret Key	SBEICGMVMPF2WWIYV34IP7ON2Q6BUOT7F7IGHOTUMYUIG5K4IWIOUQC3
+		StellarAddress: "GATBFH6GV7GMWNI5RXH546BB2MDSNO3DPLGPT4EAFS5ICLRZT3D7F4YS",
 	}, nil
 }
