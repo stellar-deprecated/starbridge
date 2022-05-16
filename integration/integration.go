@@ -364,14 +364,9 @@ func (i *Test) CreateAccounts(count int) ([]*keypair.Full, []txnbuild.Account) {
 			pair, _ := keypair.Random()
 			pairs[j] = pair
 
-			url := fmt.Sprintf("http://%s:8000/friendbot?addr=%s", dockerHost, pair.Address())
-			resp, err := http.Get(url)
+			_, err := i.horizonClient.Fund(pair.Address())
 			if err != nil {
 				return err
-			}
-
-			if resp.StatusCode != http.StatusOK {
-				return errors.Errorf("Friendbot returned: %s", resp.Status)
 			}
 
 			i.t.Logf("Funded %s (%s)\n", pair.Seed(), pair.Address())

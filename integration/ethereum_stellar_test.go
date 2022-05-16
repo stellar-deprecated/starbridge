@@ -76,6 +76,7 @@ func TestEthereumStellarDeposit(t *testing.T) {
 		tx, ok := gtx.Transaction()
 		require.True(t, ok)
 
+		// TODO timebound time should be provided in HTTP request and checked by Starbridge
 		assert.Equal(t, expectedSeqNum, tx.SequenceNumber())
 
 		sig := tx.Signatures()
