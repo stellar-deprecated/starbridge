@@ -8,6 +8,9 @@ require (
 	github.com/guregu/null v2.1.3-0.20151024101046-79c5bd36b615+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.12.1
+	github.com/rubenv/sql-migrate v0.0.0-20190717103323-87ce952f7079
+	github.com/stretchr/testify v1.7.0
+	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
 )
 
 require (
@@ -39,8 +42,8 @@ require (
 	github.com/spf13/viper v0.0.0-20150621231900-db7ff930a189 // indirect
 	github.com/stellar/go-xdr v0.0.0-20211103144802-8017fc4bdfee // indirect
 	github.com/stretchr/objx v0.3.0 // indirect
-	github.com/stretchr/testify v1.7.0 // indirect
-	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 // indirect
+	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
+	gopkg.in/gorp.v1 v1.7.1 // indirect
 	gopkg.in/tylerb/graceful.v1 v1.2.13 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
@@ -54,7 +57,7 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
-	github.com/stellar/go v0.0.0-20220415110628-8be872a16ddf
-	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
+	github.com/stellar/go v0.0.0-20220503173257-bcbfa048e935
+	golang.org/x/sys v0.0.0-20220227234510-4e6760a101f9 // indirect
 	google.golang.org/protobuf v1.26.0 // indirect
 )

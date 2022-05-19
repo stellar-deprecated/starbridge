@@ -8,11 +8,15 @@ import (
 )
 
 type Builder struct {
+	HorizonURL    string
 	BridgeAccount string
 }
 
 func (b *Builder) BuildTransaction(txSource, destination, amount string) (xdr.TransactionEnvelope, error) {
-	client := horizonclient.DefaultTestNetClient
+	// TODO remove seqnum fetch from here. it should be provided by the user
+	client := &horizonclient.Client{
+		HorizonURL: b.HorizonURL,
+	}
 
 	if txSource == b.BridgeAccount {
 		return xdr.TransactionEnvelope{}, errors.New("bridge account cannot be used as a transaction source")
@@ -25,6 +29,8 @@ func (b *Builder) BuildTransaction(txSource, destination, amount string) (xdr.Tr
 
 	tx, err := txnbuild.NewTransaction(
 		txnbuild.TransactionParams{
+			IncrementSequenceNum: true,
+
 			SourceAccount: &sourceAccount,
 			Operations: []txnbuild.Operation{
 				&txnbuild.Payment{
@@ -39,7 +45,7 @@ func (b *Builder) BuildTransaction(txSource, destination, amount string) (xdr.Tr
 			},
 			BaseFee: txnbuild.MinBaseFee,
 			// TODO: one minute for faster debugging, change do 5m/10m
-			Timebounds: txnbuild.NewTimeout(60),
+			Preconditions: txnbuild.Preconditions{TimeBounds: txnbuild.NewTimeout(60)},
 		},
 	)
 	if err != nil {

@@ -1,3 +1,4 @@
+-- +migrate Up
 CREATE TABLE signature_requests (
     incoming_type character varying(40) NOT NULL,
     incoming_ethereum_transaction_hash text NOT NULL
@@ -15,3 +16,7 @@ CREATE TABLE outgoing_stellar_transactions (
 );
 
 CREATE UNIQUE INDEX outgoing_stellar_ethereum_type_hash ON outgoing_stellar_transactions USING BTREE(incoming_type, incoming_ethereum_transaction_hash);
+
+-- +migrate Down
+drop table outgoing_stellar_ethereum_type_hash cascade;
+drop table signature_requests cascade;

@@ -1,9 +1,9 @@
-package main
+package app
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stellar/go/clients/horizonclient"
-	"github.com/stellar/go/network"
+	"github.com/stellar/go/keypair"
 	"github.com/stellar/go/support/db"
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/starbridge/backend"
@@ -25,6 +25,14 @@ type App struct {
 type Config struct {
 	Port      uint16
 	AdminPort uint16
+
+	PostgresDSN string
+
+	HorizonURL        string
+	NetworkPassphrase string
+
+	MainAccountID string
+	SignerKey     *keypair.Full
 }
 
 func NewApp(config Config) *App {
@@ -34,8 +42,8 @@ func NewApp(config Config) *App {
 	}
 
 	app.initHTTP(config)
-	app.initWorker()
-	app.initStore()
+	app.initWorker(config)
+	app.initStore(config)
 	app.initLogger()
 	app.initPrometheus()
 
@@ -50,24 +58,29 @@ func (a *App) initLogger() {
 	log.SetLevel(log.InfoLevel)
 }
 
-func (a *App) initStore() {
-	session, err := db.Open("postgres", "postgres://localhost:5432/starbridge?sslmode=disable")
+func (a *App) initStore(config Config) {
+	session, err := db.Open("postgres", config.PostgresDSN)
 	if err != nil {
 		log.Fatalf("cannot open DB: %v", err)
 	}
 
 	a.store.Session = session
+	err = a.store.InitSchema()
+	if err != nil {
+		log.Fatalf("cannot init DB: %v", err)
+	}
 }
 
-func (a *App) initWorker() {
+func (a *App) initWorker(config Config) {
 	a.worker = &backend.Worker{
 		Store: a.store,
 		StellarBuilder: &txbuilder.Builder{
-			BridgeAccount: "GBMULMDOT22YJ6SFUCADW7OQCQUBE5LMMHN6GXJ4A5P5IBOK56YYUK6M",
+			HorizonURL:    config.HorizonURL,
+			BridgeAccount: config.MainAccountID,
 		},
 		StellarSigner: &signer.Signer{
-			NetworkPassphrase: network.TestNetworkPassphrase,
-			SecretKey:         "SAV3VE7CMIDIY5GWPZ3WPTMXCD342CGRVKP2SHX4FHAU5D35QW7HNJLS",
+			NetworkPassphrase: config.NetworkPassphrase,
+			Signer:            config.SignerKey,
 		},
 		StellarObserver: txobserver.NewObserver(horizonclient.DefaultTestNetClient, a.store),
 	}
@@ -101,4 +114,8 @@ func (a *App) RunBackendWorker() {
 	if err != nil {
 		log.WithField("error", err).Error("error running backend worker")
 	}
+}
+
+func (a *App) Close() {
+	// TODO
 }

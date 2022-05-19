@@ -134,7 +134,7 @@ func (w *Worker) processIncomingEthereumSignatureRequest(sr store.SignatureReque
 		Hash:     outgoingHash,
 		Envelope: txBase64,
 		// Overflow not possible because MaxTime is set by Starbridge
-		Expiration: time.Unix(int64(tx.V1.Tx.TimeBounds.MaxTime), 0),
+		Expiration: time.Unix(int64(tx.V1.Tx.Cond.TimeBounds.MaxTime), 0),
 
 		IncomingType:                    sr.IncomingType,
 		IncomingEthereumTransactionHash: &sr.IncomingEthereumTransactionHash.String,

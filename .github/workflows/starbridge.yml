@@ -1,0 +1,43 @@
+name: Starbridge
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+
+  integration:
+    name: Integration tests
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        go: [1.18]
+        protocol-version: [19]
+    runs-on: ${{ matrix.os }}
+    env:
+      STARBRIDGE_INTEGRATION_TESTS_ENABLED: true
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        # For pull requests, build and test the PR head not a merge of the PR with the destination.
+        ref: ${{ github.event.pull_request.head.sha || github.ref }}
+        # We need to full history for git-restore-mtime to know what modification dates to use.
+        # Otherwise, the Go test cache will fail (due to the modification time of fixtures changing).
+        fetch-depth: '0'
+
+    # In order to debug the integration tests, run 'touch continue' once you connect to the ssh session
+    #
+    # - name: Setup upterm session
+    #  uses: lhotari/action-upterm@d23c2722bdab893785c9fbeae314cbf080645bd7
+    #  with:
+    #    ## limits ssh access and adds the ssh public key for the user which triggered the workflow
+    #    limit-access-to-actor: true
+    #    ## limits ssh access and adds the ssh public keys of the listed GitHub users
+    #    limit-access-to-users: <yourGithubUser>
+
+    - uses: ./.github/actions/setup-go
+      with:
+        go-version: ${{ matrix.go }}
+
+    - run: go test -race -timeout 25m -v ./integration/...

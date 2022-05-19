@@ -3,6 +3,7 @@ package controllers
 import (
 	"database/sql"
 	"net/http"
+	"strings"
 
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/starbridge/store"
@@ -47,9 +48,12 @@ func (c *StellarGetInverseTransactionForEthereum) ServeHTTP(w http.ResponseWrite
 	// Duplicate requests for the same signatures are not allowed but the error is ignored.
 	err = c.Store.InsertSignatureRequestForIncomingEthereumTransaction(r.Context(), ethereumTransactionHash)
 	if err != nil {
-		log.WithField("error", err).Error("Error inserting a signature request")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		// Ignore duplicate violations
+		if !strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+			log.WithField("error", err).Error("Error inserting a signature request")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	}
 
 	w.WriteHeader(http.StatusAccepted)
