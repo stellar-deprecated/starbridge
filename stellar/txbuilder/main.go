@@ -8,13 +8,14 @@ import (
 )
 
 type Builder struct {
+	HorizonURL    string
 	BridgeAccount string
 }
 
 func (b *Builder) BuildTransaction(txSource, destination, amount string) (xdr.TransactionEnvelope, error) {
 	// TODO remove seqnum fetch from here. it should be provided by the user
 	client := &horizonclient.Client{
-		HorizonURL: "http://localhost:8000",
+		HorizonURL: b.HorizonURL,
 	}
 
 	if txSource == b.BridgeAccount {

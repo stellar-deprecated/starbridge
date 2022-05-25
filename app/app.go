@@ -4,6 +4,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/keypair"
+	"github.com/stellar/go/support/db"
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/starbridge/backend"
 	"github.com/stellar/starbridge/httpx"
@@ -16,7 +17,7 @@ import (
 type App struct {
 	httpServer *httpx.Server
 	worker     *backend.Worker
-	store      *store.Memory
+	store      *store.DB
 
 	prometheusRegistry *prometheus.Registry
 }
@@ -25,6 +26,9 @@ type Config struct {
 	Port      uint16
 	AdminPort uint16
 
+	PostgresDSN string
+
+	HorizonURL        string
 	NetworkPassphrase string
 
 	MainAccountID string
@@ -33,12 +37,13 @@ type Config struct {
 
 func NewApp(config Config) *App {
 	app := &App{
-		store:              &store.Memory{},
+		store:              &store.DB{},
 		prometheusRegistry: prometheus.NewRegistry(),
 	}
 
 	app.initHTTP(config)
 	app.initWorker(config)
+	app.initStore(config)
 	app.initLogger()
 	app.initPrometheus()
 
@@ -53,10 +58,24 @@ func (a *App) initLogger() {
 	log.SetLevel(log.InfoLevel)
 }
 
+func (a *App) initStore(config Config) {
+	session, err := db.Open("postgres", config.PostgresDSN)
+	if err != nil {
+		log.Fatalf("cannot open DB: %v", err)
+	}
+
+	a.store.Session = session
+	err = a.store.InitSchema()
+	if err != nil {
+		log.Fatalf("cannot init DB: %v", err)
+	}
+}
+
 func (a *App) initWorker(config Config) {
 	a.worker = &backend.Worker{
 		Store: a.store,
 		StellarBuilder: &txbuilder.Builder{
+			HorizonURL:    config.HorizonURL,
 			BridgeAccount: config.MainAccountID,
 		},
 		StellarSigner: &signer.Signer{

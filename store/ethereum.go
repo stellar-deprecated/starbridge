@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"math/big"
 	"time"
 )
@@ -14,7 +15,7 @@ type IncomingEthereumTransaction struct {
 	TransactionBlob string
 }
 
-func (m *Memory) GetIncomingEthereumTransactionByHash(hash string) (IncomingEthereumTransaction, error) {
+func (m *DB) GetIncomingEthereumTransactionByHash(ctx context.Context, hash string) (IncomingEthereumTransaction, error) {
 	return IncomingEthereumTransaction{
 		Hash:     hash,
 		ValueWei: big.NewInt(627836782638726),

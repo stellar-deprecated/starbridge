@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"sync"
 	"syscall"
 	"testing"
@@ -209,6 +210,9 @@ func (i *Test) StartStarbridge(id int) error {
 
 	i.app[id] = app.NewApp(app.Config{
 		Port: 9000 + uint16(id),
+
+		HorizonURL:  fmt.Sprintf("http://%s:8000/", dockerHost),
+		PostgresDSN: fmt.Sprintf("postgres://postgres:mysecretpassword@%s:5641/starbridge%d?sslmode=disable", dockerHost, id),
 
 		MainAccountID: i.mainKey.Address(),
 		SignerKey:     i.signerKeys[id],
@@ -524,6 +528,7 @@ func (i *Test) LogFailedTx(txResponse proto.Transaction, horizonResult error) {
 // Cluttering code with if err != nil is absolute nonsense.
 func (i *Test) panicIf(err error) {
 	if err != nil {
+		debug.PrintStack()
 		i.t.Fatal(err)
 	}
 }
