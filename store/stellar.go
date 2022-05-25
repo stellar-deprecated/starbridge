@@ -22,8 +22,8 @@ type OutgoingStellarTransaction struct {
 	Envelope   string                          `db:"envelope"`
 	Expiration time.Time                       `db:"expiration"`
 
-	IncomingType                    NetworkType `db:"incoming_type"`
-	IncomingEthereumTransactionHash *string     `db:"incoming_ethereum_transaction_hash"`
+	IncomingType            NetworkType `db:"incoming_type"`
+	IncomingTransactionHash string      `db:"incoming_transaction_hash"`
 }
 
 // TODO: this should select loaded transactions for update so other go routines wait
@@ -43,8 +43,8 @@ func (m *DB) GetOutgoingStellarTransactions(ctx context.Context) ([]OutgoingStel
 // but will be fixed in another PR by running worker and observer in the same go routine.
 func (m *DB) GetOutgoingStellarTransactionForEthereumByHash(ctx context.Context, hash string) (OutgoingStellarTransaction, error) {
 	sql := sq.Select("*").From("outgoing_stellar_transactions").Where(map[string]interface{}{
-		"incoming_type":                      Ethereum,
-		"incoming_ethereum_transaction_hash": hash,
+		"incoming_type":             Ethereum,
+		"incoming_transaction_hash": hash,
 	})
 
 	var result OutgoingStellarTransaction
@@ -71,12 +71,12 @@ func (m *DB) MarkOutgoingStellarTransactionExpired(ctx context.Context, expiredB
 func (m *DB) UpsertOutgoingStellarTransaction(ctx context.Context, newtx OutgoingStellarTransaction) error {
 	query := sq.Insert("outgoing_stellar_transactions").
 		SetMap(map[string]interface{}{
-			"state":                              newtx.State,
-			"hash":                               newtx.Hash,
-			"envelope":                           newtx.Envelope,
-			"expiration":                         newtx.Expiration,
-			"incoming_type":                      newtx.IncomingType,
-			"incoming_ethereum_transaction_hash": newtx.IncomingEthereumTransactionHash,
+			"state":                     newtx.State,
+			"hash":                      newtx.Hash,
+			"envelope":                  newtx.Envelope,
+			"expiration":                newtx.Expiration,
+			"incoming_type":             newtx.IncomingType,
+			"incoming_transaction_hash": newtx.IncomingTransactionHash,
 		}).
 		Suffix("ON CONFLICT (hash) DO UPDATE SET state=EXCLUDED.state")
 

@@ -60,17 +60,17 @@ func (w *Worker) Run() error {
 			case store.Ethereum:
 				err := w.processIncomingEthereumSignatureRequest(sr)
 				if err != nil {
-					w.log.WithFields(log.F{"err": err, "hash": sr.IncomingEthereumTransactionHash.String}).
+					w.log.WithFields(log.F{"err": err, "hash": sr.IncomingTransactionHash}).
 						Error("Cannot process signature request")
 				}
 
-				w.log.WithField("hash", sr.IncomingEthereumTransactionHash.String).
+				w.log.WithField("hash", sr.IncomingTransactionHash).
 					WithField("network", sr.IncomingType).
 					Info("Processed signature request successfully")
 
-				err = w.Store.DeleteSignatureRequestForIncomingEthereumTransaction(context.TODO(), sr.IncomingEthereumTransactionHash.String)
+				err = w.Store.DeleteSignatureRequestForIncomingEthereumTransaction(context.TODO(), sr.IncomingTransactionHash)
 				if err != nil {
-					w.log.WithFields(log.F{"err": err, "hash": sr.IncomingEthereumTransactionHash.String}).
+					w.log.WithFields(log.F{"err": err, "hash": sr.IncomingTransactionHash}).
 						Error("Error removing signature request")
 				}
 			}
@@ -79,7 +79,7 @@ func (w *Worker) Run() error {
 }
 
 func (w *Worker) processIncomingEthereumSignatureRequest(sr store.SignatureRequest) error {
-	hash := sr.IncomingEthereumTransactionHash.String
+	hash := sr.IncomingTransactionHash
 
 	incomingEthereumTransaction, err := w.Store.GetIncomingEthereumTransactionByHash(context.TODO(), hash)
 	if err != nil {
@@ -136,8 +136,8 @@ func (w *Worker) processIncomingEthereumSignatureRequest(sr store.SignatureReque
 		// Overflow not possible because MaxTime is set by Starbridge
 		Expiration: time.Unix(int64(tx.V1.Tx.Cond.TimeBounds.MaxTime), 0),
 
-		IncomingType:                    sr.IncomingType,
-		IncomingEthereumTransactionHash: &sr.IncomingEthereumTransactionHash.String,
+		IncomingType:            sr.IncomingType,
+		IncomingTransactionHash: sr.IncomingTransactionHash,
 	}
 
 	err = w.Store.UpsertOutgoingStellarTransaction(context.TODO(), outgoingTx)
