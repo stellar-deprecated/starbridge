@@ -17,17 +17,17 @@ const (
 )
 
 type OutgoingStellarTransaction struct {
-	State      OutgoingStellarTransactionState `db:"state"`
-	Hash       string                          `db:"hash"`
-	Envelope   string                          `db:"envelope"`
-	Expiration time.Time                       `db:"expiration"`
+	State          OutgoingStellarTransactionState `db:"state"`
+	Source         string                          `db:"source"`
+	SequenceNumber int64                           `db:"sequence_number"`
+	Hash           string                          `db:"hash"`
+	Envelope       string                          `db:"envelope"`
+	Expiration     time.Time                       `db:"expiration"`
 
 	IncomingType            NetworkType `db:"incoming_type"`
 	IncomingTransactionHash string      `db:"incoming_transaction_hash"`
 }
 
-// TODO: this should select loaded transactions for update so other go routines wait
-// but will be fixed in another PR by running worker and observer in the same go routine.
 func (m *DB) GetOutgoingStellarTransactions(ctx context.Context) ([]OutgoingStellarTransaction, error) {
 	sql := sq.Select("*").From("outgoing_stellar_transactions")
 
@@ -72,13 +72,15 @@ func (m *DB) UpsertOutgoingStellarTransaction(ctx context.Context, newtx Outgoin
 	query := sq.Insert("outgoing_stellar_transactions").
 		SetMap(map[string]interface{}{
 			"state":                     newtx.State,
+			"source":                    newtx.Source,
+			"sequence_number":           newtx.SequenceNumber,
 			"hash":                      newtx.Hash,
 			"envelope":                  newtx.Envelope,
 			"expiration":                newtx.Expiration,
 			"incoming_type":             newtx.IncomingType,
 			"incoming_transaction_hash": newtx.IncomingTransactionHash,
 		}).
-		Suffix("ON CONFLICT (hash) DO UPDATE SET state=EXCLUDED.state")
+		Suffix("ON CONFLICT (hash) DO UPDATE SET state=EXCLUDED.state, source=EXCLUDED.source, sequence_number=EXCLUDED.sequence_number, envelope=EXCLUDED.envelope, expiration=EXCLUDED.expiration")
 
 	_, err := m.Session.Exec(ctx, query)
 	return err

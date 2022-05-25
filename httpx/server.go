@@ -14,6 +14,7 @@ import (
 	stellarhttp "github.com/stellar/go/support/http"
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/starbridge/stellar/controllers"
+	"github.com/stellar/starbridge/stellar/txobserver"
 	"github.com/stellar/starbridge/store"
 )
 
@@ -31,6 +32,7 @@ type ServerConfig struct {
 	TLSConfig          *TLSConfig
 	PrometheusRegistry *prometheus.Registry
 	Store              *store.DB
+	StellarObserver    *txobserver.Observer
 }
 
 type Server struct {
@@ -39,7 +41,8 @@ type Server struct {
 	server      *http.Server
 	adminServer *http.Server
 
-	store *store.DB
+	store           *store.DB
+	stellarObserver *txobserver.Observer
 
 	tlsConfig          *TLSConfig
 	prometheusRegistry *prometheus.Registry
@@ -67,7 +70,8 @@ func NewServer(serverConfig ServerConfig) (*Server, error) {
 			ReadTimeout: 5 * time.Second,
 		},
 
-		store: serverConfig.Store,
+		store:           serverConfig.Store,
+		stellarObserver: serverConfig.StellarObserver,
 	}
 	server.initMux()
 
@@ -92,7 +96,11 @@ func (s *Server) initMux() {
 	mux.Use(middleware.Timeout(10 * time.Second))
 
 	// Public routes
-	mux.Method(http.MethodGet, "/stellar/get_inverse_transaction/ethereum", &controllers.StellarGetInverseTransactionForEthereum{
+	mux.Method(http.MethodPost, "/stellar/get_inverse_transaction/ethereum", &controllers.StellarGetInverseTransactionForEthereum{
+		Store:           s.store,
+		StellarObserver: s.stellarObserver,
+	})
+	mux.Method(http.MethodPost, "/stellar/get_cancel_transaction/ethereum", &controllers.StellarGetCancelTransactionForEthereum{
 		Store: s.store,
 	})
 

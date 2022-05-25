@@ -1,6 +1,8 @@
 package app
 
 import (
+	"net/http"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/keypair"
@@ -15,9 +17,10 @@ import (
 )
 
 type App struct {
-	httpServer *httpx.Server
-	worker     *backend.Worker
-	store      *store.DB
+	httpServer      *httpx.Server
+	worker          *backend.Worker
+	store           *store.DB
+	stellarObserver *txobserver.Observer
 
 	prometheusRegistry *prometheus.Registry
 }
@@ -41,9 +44,16 @@ func NewApp(config Config) *App {
 		prometheusRegistry: prometheus.NewRegistry(),
 	}
 
+	client := &horizonclient.Client{
+		HorizonURL: config.HorizonURL,
+		// TODO set proper timeouts
+		HTTP: http.DefaultClient,
+	}
+
+	app.initStore(config)
+	app.stellarObserver = txobserver.NewObserver(client, app.store)
 	app.initHTTP(config)
 	app.initWorker(config)
-	app.initStore(config)
 	app.initLogger()
 	app.initPrometheus()
 
@@ -82,7 +92,7 @@ func (a *App) initWorker(config Config) {
 			NetworkPassphrase: config.NetworkPassphrase,
 			Signer:            config.SignerKey,
 		},
-		StellarObserver: txobserver.NewObserver(horizonclient.DefaultTestNetClient, a.store),
+		StellarObserver: a.stellarObserver,
 	}
 }
 
@@ -92,6 +102,7 @@ func (a *App) initHTTP(config Config) {
 		AdminPort:          config.AdminPort,
 		PrometheusRegistry: a.prometheusRegistry,
 		Store:              a.store,
+		StellarObserver:    a.stellarObserver,
 	})
 	if err != nil {
 		log.Fatal("unable to create http server", err)

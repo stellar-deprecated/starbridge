@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -31,8 +33,11 @@ func TestEthereumStellarDeposit(t *testing.T) {
 		loop:
 			for {
 				time.Sleep(time.Second)
+				postData := url.Values{
+					"tx_expiration_timestamp": {strconv.FormatInt(time.Now().Add(time.Minute).Unix(), 10)},
+				}
 				url := fmt.Sprintf("http://localhost:%d/stellar/get_inverse_transaction/ethereum", port)
-				resp, err := itest.Client().Get(url)
+				resp, err := itest.Client().PostForm(url, postData)
 				require.NoError(t, err)
 				switch resp.StatusCode {
 				case http.StatusAccepted:

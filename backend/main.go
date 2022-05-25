@@ -91,6 +91,23 @@ func (w *Worker) processIncomingEthereumSignatureRequest(sr store.SignatureReque
 		return errors.New("transaction withdraw time expired")
 	}
 
+	// Check TxExpirationTimestamp
+	lastLedgerCloseTime, err := w.StellarObserver.GetLastLedgerCloseTime()
+	if err != nil {
+		return errors.Wrap(err, "error getting last ledger close time")
+	}
+
+	txExpirationTime := time.Unix(sr.TxExpirationTimestamp, 0)
+
+	if txExpirationTime.Before(lastLedgerCloseTime) {
+		return errors.New("tx expiration timestamp in the past")
+	}
+
+	// TODO 10m below should be configurable
+	if txExpirationTime.After(lastLedgerCloseTime.Add(10 * time.Minute)) {
+		return errors.New("tx expiration timestamp too far in the future")
+	}
+
 	outgoingStellarTransaction, err := w.Store.GetOutgoingStellarTransactionForEthereumByHash(context.TODO(), hash)
 	if err != nil && err != sql.ErrNoRows {
 		return errors.Wrap(err, "error getting outgoing stellar transaction")
@@ -110,6 +127,7 @@ func (w *Worker) processIncomingEthereumSignatureRequest(sr store.SignatureReque
 		incomingEthereumTransaction.StellarAddress,
 		incomingEthereumTransaction.StellarAddress,
 		amountRat.FloatString(7),
+		sr.TxExpirationTimestamp,
 	)
 	if err != nil {
 		return errors.Wrap(err, "error building outgoing stellar transaction")

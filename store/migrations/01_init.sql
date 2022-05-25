@@ -1,13 +1,16 @@
 -- +migrate Up
 CREATE TABLE signature_requests (
     incoming_type character varying(40) NOT NULL,
-    incoming_transaction_hash text NOT NULL
+    incoming_transaction_hash text NOT NULL,
+    tx_expiration_timestamp bigint NOT NULL
 );
 
 CREATE UNIQUE INDEX type_hash ON signature_requests USING BTREE(incoming_type, incoming_transaction_hash);
 
 CREATE TABLE outgoing_stellar_transactions (
     state character varying(20) NOT NULL,
+    source character varying(56) NOT NULL,
+    sequence_number bigint NOT NULL,
     hash character varying(64) NOT NULL PRIMARY KEY,
     envelope text NOT NULL,
     expiration timestamp without time zone NOT NULL,
