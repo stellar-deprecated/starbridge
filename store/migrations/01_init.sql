@@ -18,5 +18,5 @@ CREATE TABLE outgoing_stellar_transactions (
 CREATE UNIQUE INDEX outgoing_stellar_type_hash ON outgoing_stellar_transactions USING BTREE(incoming_type, incoming_transaction_hash);
 
 -- +migrate Down
-drop table outgoing_stellar_ethereum_type_hash cascade;
+drop table outgoing_stellar_transactions cascade;
 drop table signature_requests cascade;
