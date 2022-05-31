@@ -84,7 +84,9 @@ func (o *Observer) processSingleLedger(ledger horizon.Ledger) error {
 		return errors.Wrap(err, "error starting a transaction")
 	}
 
-	defer o.store.Session.Rollback()
+	defer func() {
+		_ = o.store.Session.Rollback()
+	}()
 
 	// Get latest list of hashes to observe
 	outgoingBridgeTransactions, err := o.store.GetOutgoingStellarTransactions(context.TODO())
