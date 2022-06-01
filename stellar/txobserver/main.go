@@ -186,9 +186,8 @@ func (o *Observer) processSingleLedger(ledger horizon.Ledger) error {
 		}
 	}
 
-	// Mark all expired time + buffer and irrevocably invalid txs as expired.
-	expiredBefore := ledger.ClosedAt.Add(-time.Minute)
-	count, err := o.store.MarkOutgoingStellarTransactionExpired(context.TODO(), expiredBefore)
+	// Mark all expired txs as expired.
+	count, err := o.store.MarkOutgoingStellarTransactionExpired(context.TODO(), ledger.ClosedAt)
 	if err != nil {
 		return errors.Wrap(err, "error marking outgoing transactions as expired")
 	}
