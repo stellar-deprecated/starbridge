@@ -23,6 +23,8 @@ var (
 )
 
 type Worker struct {
+	Ctx context.Context
+
 	Store *store.DB
 
 	StellarBuilder  *txbuilder.Builder
@@ -38,6 +40,10 @@ func (w *Worker) Run() error {
 	w.log.Info("Starting worker")
 
 	for {
+		if w.Ctx.Err() != nil {
+			return nil
+		}
+
 		// Process all new ledgers before processing signature requests
 		w.StellarObserver.ProcessNewLedgers()
 
