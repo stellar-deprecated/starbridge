@@ -1,7 +1,13 @@
 package main
 
-import "github.com/stellar/starbridge/cmd"
+import (
+	"github.com/stellar/go/support/log"
+	"github.com/stellar/starbridge/cmd"
+)
 
 func main() {
-	cmd.RootCmd.Execute()
+	err := cmd.RootCmd.Execute()
+	if err != nil {
+		log.Fatal(err)
+	}
 }

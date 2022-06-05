@@ -134,9 +134,9 @@ func (s *Server) Serve() error {
 	go func() {
 		<-s.ctx.Done()
 		if s.adminServer != nil {
-			s.adminServer.Shutdown(context.Background())
+			_ = s.adminServer.Shutdown(context.Background())
 		}
-		s.server.Shutdown(context.Background())
+		_ = s.server.Shutdown(context.Background())
 	}()
 
 	if s.adminServer != nil {

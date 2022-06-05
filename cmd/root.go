@@ -1,10 +1,9 @@
 package cmd
 
 import (
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/stellar/go/support/config"
-	"github.com/stellar/go/support/log"
+	"github.com/stellar/go/support/errors"
 	"github.com/stellar/starbridge/app"
 )
 
@@ -25,9 +24,9 @@ var (
 			if err != nil {
 				switch cause := errors.Cause(err).(type) {
 				case *config.InvalidConfigError:
-					log.Fatal("config file: ", cause)
+					return errors.Wrap(cause, "config file")
 				default:
-					log.Fatal(err)
+					return err
 				}
 			}
 
