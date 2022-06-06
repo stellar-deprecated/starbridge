@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/cors"
 	"github.com/stellar/go/support/errors"
 	stellarhttp "github.com/stellar/go/support/http"
 	"github.com/stellar/go/support/log"
@@ -27,6 +28,7 @@ type TLSConfig struct {
 }
 
 type ServerConfig struct {
+	Ctx                context.Context
 	Port               uint16
 	AdminPort          uint16
 	TLSConfig          *TLSConfig
@@ -37,6 +39,8 @@ type ServerConfig struct {
 
 type Server struct {
 	Metrics *ServerMetrics
+
+	ctx context.Context
 
 	server      *http.Server
 	adminServer *http.Server
@@ -61,6 +65,8 @@ func NewServer(serverConfig ServerConfig) (*Server, error) {
 
 	server := &Server{
 		Metrics: metrics,
+
+		ctx: serverConfig.Ctx,
 
 		prometheusRegistry: serverConfig.PrometheusRegistry,
 		tlsConfig:          serverConfig.TLSConfig,
@@ -91,6 +97,12 @@ func (s *Server) initMux() {
 
 	// Public middlewares
 	mux.Use(middleware.StripSlashes)
+	c := cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedHeaders: []string{"*"},
+		ExposedHeaders: []string{"Date"},
+	})
+	mux.Use(c.Handler)
 	mux.Use(middleware.NoCache)
 	mux.Use(prometheusMiddleware(s.Metrics))
 	mux.Use(middleware.Timeout(10 * time.Second))
@@ -127,6 +139,14 @@ func (s *Server) RegisterMetrics(registry *prometheus.Registry) {
 }
 
 func (s *Server) Serve() error {
+	go func() {
+		<-s.ctx.Done()
+		if s.adminServer != nil {
+			_ = s.adminServer.Shutdown(context.Background())
+		}
+		_ = s.server.Shutdown(context.Background())
+	}()
+
 	if s.adminServer != nil {
 		go func() {
 			log.Infof("starting admin server on %s", s.adminServer.Addr)
@@ -143,6 +163,11 @@ func (s *Server) Serve() error {
 	} else {
 		err = s.server.ListenAndServe()
 	}
+
+	if err == http.ErrServerClosed {
+		return nil
+	}
+
 	return err
 }
 

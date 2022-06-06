@@ -14,6 +14,8 @@ import (
 )
 
 type Observer struct {
+	ctx context.Context
+
 	client *horizonclient.Client
 	store  *store.DB
 	log    *slog.Entry
@@ -24,8 +26,9 @@ type Observer struct {
 	ledgerCloseTime time.Time
 }
 
-func NewObserver(client *horizonclient.Client, store *store.DB) *Observer {
+func NewObserver(ctx context.Context, client *horizonclient.Client, store *store.DB) *Observer {
 	o := &Observer{
+		ctx:    ctx,
 		client: client,
 		store:  store,
 		log:    slog.DefaultLogger.WithField("service", "stellar_txobserver"),
@@ -50,6 +53,10 @@ func (o *Observer) GetLastLedgerCloseTime() (time.Time, error) {
 
 func (o *Observer) ProcessNewLedgers() {
 	for {
+		if o.ctx.Err() != nil {
+			return
+		}
+
 		// Get ledger data first to ensure there are no gaps
 		ledger, err := o.client.LedgerDetail(o.ledgerSequence)
 		if err != nil {
@@ -96,7 +103,7 @@ func (o *Observer) processSingleLedger(ledger horizon.Ledger) error {
 
 	// If no transactions to observe, skip to next ledger.
 	if len(outgoingBridgeTransactions) == 0 {
-		o.log.WithField("sequence", o.ledgerSequence).Info("No outgoing bridge transactions, skiping to next ledger")
+		o.log.WithField("sequence", o.ledgerSequence).Info("No outgoing bridge transactions, skipping to next ledger")
 		return nil
 	}
 

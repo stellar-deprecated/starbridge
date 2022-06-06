@@ -1,16 +1,13 @@
 package main
 
-import "github.com/stellar/starbridge/app"
+import (
+	"github.com/stellar/go/support/log"
+	"github.com/stellar/starbridge/cmd"
+)
 
 func main() {
-	app := app.NewApp(app.Config{
-		Port:      8000,
-		AdminPort: 6666,
-
-		PostgresDSN: "postgres://localhost:5432/starbridge?sslmode=disable",
-	})
-	go app.RunHTTPServer()
-	go app.RunBackendWorker()
-	ch := make(chan bool)
-	<-ch
+	err := cmd.RootCmd.Execute()
+	if err != nil {
+		log.Fatal(err)
+	}
 }

@@ -1,7 +1,12 @@
 package app
 
 import (
+	"context"
 	"net/http"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stellar/go/clients/horizonclient"
@@ -17,6 +22,9 @@ import (
 )
 
 type App struct {
+	appCtx    context.Context
+	cancelCtx context.CancelFunc
+
 	httpServer      *httpx.Server
 	worker          *backend.Worker
 	store           *store.DB
@@ -26,16 +34,16 @@ type App struct {
 }
 
 type Config struct {
-	Port      uint16
-	AdminPort uint16
+	Port      uint16 `valid:"-"`
+	AdminPort uint16 `toml:"admin_port" valid:"-"`
 
-	PostgresDSN string
+	PostgresDSN string `toml:"postgres_dsn" valid:"-"`
 
-	HorizonURL        string
-	NetworkPassphrase string
+	HorizonURL        string `toml:"horizon_url" valid:"-"`
+	NetworkPassphrase string `toml:"network_passphrase" valid:"-"`
 
-	MainAccountID string
-	SignerKey     *keypair.Full
+	MainAccountID   string `toml:"main_account_id" valid:"stellar_accountid"`
+	SignerSecretKey string `toml:"signer_secret_key" valid:"optional,stellar_seed"`
 }
 
 func NewApp(config Config) *App {
@@ -51,13 +59,31 @@ func NewApp(config Config) *App {
 	}
 
 	app.initStore(config)
-	app.stellarObserver = txobserver.NewObserver(client, app.store)
+	app.initGracefulShutdown()
+	app.stellarObserver = txobserver.NewObserver(app.appCtx, client, app.store)
 	app.initHTTP(config)
 	app.initWorker(config)
 	app.initLogger()
 	app.initPrometheus()
 
 	return app
+}
+
+func (a *App) initGracefulShutdown() {
+	a.appCtx, a.cancelCtx = context.WithCancel(context.Background())
+
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		select {
+		case <-signalChan:
+			log.Info("Shutdown signal received...")
+			a.Close()
+		case <-a.appCtx.Done():
+			return
+		}
+	}()
 }
 
 func (a *App) initPrometheus() {
@@ -82,7 +108,19 @@ func (a *App) initStore(config Config) {
 }
 
 func (a *App) initWorker(config Config) {
+	var (
+		signerKey *keypair.Full
+		err       error
+	)
+	if config.SignerSecretKey != "" {
+		signerKey, err = keypair.ParseFull(config.SignerSecretKey)
+		if err != nil {
+			log.Fatalf("cannot pase signer secret key: %v", err)
+		}
+	}
+
 	a.worker = &backend.Worker{
+		Ctx:   a.appCtx,
 		Store: a.store,
 		StellarBuilder: &txbuilder.Builder{
 			HorizonURL:    config.HorizonURL,
@@ -90,7 +128,7 @@ func (a *App) initWorker(config Config) {
 		},
 		StellarSigner: &signer.Signer{
 			NetworkPassphrase: config.NetworkPassphrase,
-			Signer:            config.SignerKey,
+			Signer:            signerKey,
 		},
 		StellarObserver: a.stellarObserver,
 	}
@@ -98,6 +136,7 @@ func (a *App) initWorker(config Config) {
 
 func (a *App) initHTTP(config Config) {
 	httpServer, err := httpx.NewServer(httpx.ServerConfig{
+		Ctx:                a.appCtx,
 		Port:               config.Port,
 		AdminPort:          config.AdminPort,
 		PrometheusRegistry: a.prometheusRegistry,
@@ -108,6 +147,26 @@ func (a *App) initHTTP(config Config) {
 		log.Fatal("unable to create http server", err)
 	}
 	a.httpServer = httpServer
+}
+
+// Run starts all services and block until they are gracefully shut down.
+func (a *App) Run() {
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		a.RunHTTPServer()
+		wg.Done()
+	}()
+
+	wg.Add(1)
+	go func() {
+		a.RunBackendWorker()
+		wg.Done()
+	}()
+
+	wg.Wait()
+	log.Info("Bye")
 }
 
 // RunHTTPServer starts http server
@@ -121,12 +180,9 @@ func (a *App) RunHTTPServer() {
 // RunBackendWorker starts backend worker responsible for building and signing
 // transactions
 func (a *App) RunBackendWorker() {
-	err := a.worker.Run()
-	if err != nil {
-		log.WithField("error", err).Error("error running backend worker")
-	}
+	a.worker.Run()
 }
 
 func (a *App) Close() {
-	// TODO
+	a.cancelCtx()
 }
