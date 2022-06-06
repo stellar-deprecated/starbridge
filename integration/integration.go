@@ -214,8 +214,8 @@ func (i *Test) StartStarbridge(id int) error {
 		HorizonURL:  fmt.Sprintf("http://%s:8000/", dockerHost),
 		PostgresDSN: fmt.Sprintf("postgres://postgres:mysecretpassword@%s:5641/starbridge%d?sslmode=disable", dockerHost, id),
 
-		MainAccountID: i.mainKey.Address(),
-		SignerKey:     i.signerKeys[id],
+		MainAccountID:   i.mainKey.Address(),
+		SignerSecretKey: i.signerKeys[id].Seed(),
 
 		NetworkPassphrase: StandaloneNetworkPassphrase,
 	})
