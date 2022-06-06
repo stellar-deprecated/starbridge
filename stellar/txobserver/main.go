@@ -3,7 +3,6 @@ package txobserver
 import (
 	"context"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -20,7 +19,6 @@ type Observer struct {
 	store  *store.DB
 	log    *slog.Entry
 
-	mutex sync.RWMutex
 	// TODO: last ledgerSequence will be persisted in a DB
 	ledgerSequence  uint32
 	ledgerCloseTime time.Time
@@ -45,18 +43,11 @@ func NewObserver(ctx context.Context, client *horizonclient.Client, store *store
 }
 
 func (o *Observer) GetLastLedgerCloseTime() (time.Time, error) {
-	// TODO error if not synced?
-	o.mutex.RLock()
-	defer o.mutex.RUnlock()
 	return o.ledgerCloseTime, nil
 }
 
 func (o *Observer) ProcessNewLedgers() {
-	for {
-		if o.ctx.Err() != nil {
-			return
-		}
-
+	for o.ctx.Err() == nil {
 		// Get ledger data first to ensure there are no gaps
 		ledger, err := o.client.LedgerDetail(o.ledgerSequence)
 		if err != nil {
@@ -73,10 +64,8 @@ func (o *Observer) ProcessNewLedgers() {
 			if err != nil {
 				o.log.WithFields(slog.F{"error": err, "sequence": o.ledgerSequence}).Error("Error processing a single ledger details")
 			} else {
-				o.mutex.Lock()
 				o.ledgerSequence++
 				o.ledgerCloseTime = ledger.ClosedAt
-				o.mutex.Unlock()
 				continue // without time.Sleep
 			}
 		}

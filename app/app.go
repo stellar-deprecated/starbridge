@@ -141,7 +141,6 @@ func (a *App) initHTTP(config Config) {
 		AdminPort:          config.AdminPort,
 		PrometheusRegistry: a.prometheusRegistry,
 		Store:              a.store,
-		StellarObserver:    a.stellarObserver,
 	})
 	if err != nil {
 		log.Fatal("unable to create http server", err)

@@ -8,13 +8,11 @@ import (
 	"time"
 
 	"github.com/stellar/go/support/log"
-	"github.com/stellar/starbridge/stellar/txobserver"
 	"github.com/stellar/starbridge/store"
 )
 
 type StellarGetInverseTransactionForEthereum struct {
-	Store           *store.DB
-	StellarObserver *txobserver.Observer
+	Store *store.DB
 }
 
 func (c *StellarGetInverseTransactionForEthereum) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -58,12 +56,8 @@ func (c *StellarGetInverseTransactionForEthereum) ServeHTTP(w http.ResponseWrite
 	}
 
 	// Check TxExpirationTimestamp
-	lastLedgerCloseTime, err := c.StellarObserver.GetLastLedgerCloseTime()
-	if err != nil {
-		log.WithField("error", err).Error("Error getting last ledger close time")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	// TODO - replace with last ledger close time persisted in a DB
+	lastLedgerCloseTime := time.Now().UTC()
 
 	if txExpirationTime.Before(lastLedgerCloseTime) {
 		log.Error("tx expiration timestamp in the past")
