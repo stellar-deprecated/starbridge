@@ -34,16 +34,12 @@ type Worker struct {
 	log *log.Entry
 }
 
-func (w *Worker) Run() error {
+func (w *Worker) Run() {
 	w.log = log.WithField("service", "backend")
 
 	w.log.Info("Starting worker")
 
-	for {
-		if w.Ctx.Err() != nil {
-			return nil
-		}
-
+	for w.Ctx.Err() == nil {
 		// Process all new ledgers before processing signature requests
 		w.StellarObserver.ProcessNewLedgers()
 

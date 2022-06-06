@@ -170,10 +170,7 @@ func (a *App) RunHTTPServer() {
 // RunBackendWorker starts backend worker responsible for building and signing
 // transactions
 func (a *App) RunBackendWorker() {
-	err := a.worker.Run()
-	if err != nil {
-		log.WithField("error", err).Error("error running backend worker")
-	}
+	a.worker.Run()
 }
 
 func (a *App) Close() {
