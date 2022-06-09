@@ -7,5 +7,7 @@ COPY . ./
 RUN go install github.com/stellar/starbridge
 
 FROM ubuntu:20.04
+RUN apt-get update
+RUN apt-get install -y ca-certificates
 COPY --from=builder /go/bin/starbridge ./
 ENTRYPOINT ["./starbridge"]
