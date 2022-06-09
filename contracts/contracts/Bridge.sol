@@ -33,6 +33,8 @@ uint8 constant PAUSE_WITHDRAWALS =  1 << 1;
 contract Bridge is Auth {
     uint8 public paused;
 
+    event SetPaused(uint8 value);
+
     constructor(address[] memory _signers, uint8 _minThreshold) Auth(_signers, _minThreshold) {}
 
     event DepositERC20(
@@ -165,6 +167,7 @@ contract Bridge is Auth {
         // ensure the same setPaused() transaction cannot be used more than once
         verifyRequest(requestHash, requestHash, expiration, signatures, indexes);
         paused = value;
+        emit SetPaused(value);
     }
 
     function registerStellarAsset(
