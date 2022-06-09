@@ -27,7 +27,12 @@ struct CreateStellarAssetRequest {
     string symbol;
 }
 
+uint8 constant PAUSE_DEPOSITS = 1 << 0;
+uint8 constant PAUSE_WITHDRAWALS =  1 << 1;
+
 contract Bridge is Auth {
+    uint8 public paused;
+
     constructor(address[] memory _signers, uint8 _minThreshold) Auth(_signers, _minThreshold) {}
 
     event DepositERC20(
@@ -78,6 +83,7 @@ contract Bridge is Auth {
         uint256 destination,
         uint256 amount
     ) external {
+        require((paused & PAUSE_DEPOSITS) == 0, "deposits are paused");
         require(amount > 0);
         if (isStellarAsset[token]) {
             StellarAsset(token).burn(msg.sender, amount);
@@ -93,6 +99,7 @@ contract Bridge is Auth {
     }
 
     function depositETH(uint256 destination) external payable {
+        require((paused & PAUSE_DEPOSITS) == 0, "deposits are paused");
         require(msg.value > 0);
         emit DepositETH(msg.sender, destination, msg.value);
     }
@@ -102,6 +109,7 @@ contract Bridge is Auth {
         bytes[] calldata signatures,
         uint8[] calldata indexes
     ) external {
+        require((paused & PAUSE_WITHDRAWALS) == 0, "withdrawals are paused");
         verifyRequest(
             keccak256(abi.encode(version, request)),
             request.id,
@@ -132,6 +140,7 @@ contract Bridge is Auth {
         bytes[] calldata signatures,
         uint8[] calldata indexes
     ) external {
+        require((paused & PAUSE_WITHDRAWALS) == 0, "withdrawals are paused");
         verifyRequest(
             keccak256(abi.encode(version, request)),
             request.id, 
@@ -142,6 +151,20 @@ contract Bridge is Auth {
         (bool success, ) = request.recipient.call{value: request.amount}("");
         require(success, "ETH transfer failed");
         emit WithdrawETH(request.id, request.recipient, request.amount);
+    }
+
+    function setPaused(
+        uint8 value,
+        uint256 nonce, // used to make each request unique
+        uint256 expiration, // allow requests to be short lived
+        bytes[] calldata signatures,
+        uint8[] calldata indexes
+    ) external {
+        require(value == 0 || value == PAUSE_WITHDRAWALS || value == PAUSE_DEPOSITS, "invalid paused value");
+        bytes32 requestHash = keccak256(abi.encode(version, keccak256("setPaused"), value, nonce, expiration));
+        // ensure the same setPaused() transaction cannot be used more than once
+        verifyRequest(requestHash, requestHash, expiration, signatures, indexes);
+        paused = value;
     }
 
     function registerStellarAsset(
