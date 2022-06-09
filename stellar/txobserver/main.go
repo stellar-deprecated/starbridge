@@ -31,7 +31,7 @@ func NewObserver(ctx context.Context, client *horizonclient.Client, store *store
 
 	root, err := o.client.Root()
 	if err != nil {
-		o.log.Fatal("Unable to access Horizon root resource")
+		o.log.Fatalf("Unable to access Horizon (%s) root resource: %v", client.HorizonURL, err)
 	}
 
 	o.ledgerSequence = uint32(root.HorizonSequence)
