@@ -65,7 +65,7 @@ Messages produced by validators contain unique data from the sending chain to en
 
 Messages accepted by the Ethereum contract are hashed and the hash of the message are stored on the chain when successfully processed. Messages are rejected if they are seen a second time.
 
-Transactions generated for Stellar have replay prevention like all Stellar transactions, however due to the possibility that transactions fail during validation or apply which can require multiple transactions to be generated for a single transfer.
+Transactions generated for Stellar have replay prevention like all Stellar transactions. However, a user can request a new signed transaction from the bridge should the previous one fail (for example, if the sequence number was too low). Thus, multiple transactions can be generated for a single transfer and the bridge validators must ensure that this does not allow to withdraw more funds than have been deposited.
 
 <!-- outdated -->
 ~~For both Ethereum and Stellar validators generate messages/transactions that are range bound to a set of ledgers, making it only valid for that set of ledgers. If the message/transaction is not seen successfully on the destination chain during those ledgers, the receiving wallet can ask for a replay and validators can generate a new message.~~
