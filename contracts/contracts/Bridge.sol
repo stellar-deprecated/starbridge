@@ -103,7 +103,7 @@ contract Bridge is Auth {
         uint8[] calldata indexes
     ) external {
         verifyRequest(
-            keccak256(abi.encode(request)),
+            keccak256(abi.encode(version, request)),
             request.id,
             request.expiration,
             signatures,
@@ -133,7 +133,7 @@ contract Bridge is Auth {
         uint8[] calldata indexes
     ) external {
         verifyRequest(
-            keccak256(abi.encode(request)), 
+            keccak256(abi.encode(version, request)),
             request.id, 
             request.expiration, 
             signatures,
@@ -150,6 +150,7 @@ contract Bridge is Auth {
         uint8[] calldata indexes
     ) external {
         bytes32 requestHash = keccak256(abi.encode(
+            version,
             request.decimals,
             keccak256(bytes(request.name)),
             keccak256(bytes(request.symbol))

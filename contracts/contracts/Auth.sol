@@ -9,7 +9,7 @@ contract Auth {
     uint8 public minThreshold;
      // every time the validator set is updated, the version is incremented.
      // increasing version numbers ensure that updateSigners() signatures cannot be reused
-    uint256 public nextVersion;
+    uint256 public version;
     event RegisterSigners(uint256 version, address[] signers, uint8 minThreshold);
 
     mapping(bytes32 => bool) private fulfilledrequests;
@@ -17,10 +17,9 @@ contract Auth {
 
     constructor(address[] memory _signers, uint8 _minThreshold) {
         _updateSigners(0, _signers, _minThreshold);
-        nextVersion = 1;
     }
 
-    function _updateSigners(uint256 curVersion, address[] memory _signers, uint8 _minThreshold) internal {
+    function _updateSigners(uint256 newVersion, address[] memory _signers, uint8 _minThreshold) internal {
         require(_signers.length > 0, "too few signers");
         require(_signers.length < 256, "too many signers");
         require(_minThreshold > _signers.length / 2, "min threshold is too low");
@@ -33,7 +32,7 @@ contract Auth {
         
         signers = _signers;
         minThreshold = _minThreshold;
-        emit RegisterSigners(curVersion, _signers, _minThreshold);
+        emit RegisterSigners(newVersion, _signers, _minThreshold);
     }
 
     function updateSigners(
@@ -42,10 +41,10 @@ contract Auth {
         bytes[] calldata signatures, 
         uint8[] calldata indexes
     ) external {
-        uint256 curVersion = nextVersion++;
-        bytes32 h = keccak256(abi.encode(curVersion, _signers, _minThreshold));
+        uint256 newVersion = ++version;
+        bytes32 h = keccak256(abi.encode(newVersion-1, _signers, _minThreshold));
         verifySignatures(h, signatures, indexes);
-        _updateSigners(curVersion, _signers, _minThreshold);
+        _updateSigners(newVersion, _signers, _minThreshold);
     }
 
     function verifySignatures(bytes32 h, bytes[] memory signatures, uint8[] memory indexes)
