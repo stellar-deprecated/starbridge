@@ -1,4 +1,4 @@
-const requiredSigs = 1;
+const requiredSigs = 2;
 
 var validatorUrls = [
     "https://starbridge1.prototypes.kube001.services.stellar-ops.com",
@@ -6,12 +6,30 @@ var validatorUrls = [
     "https://starbridge3.prototypes.kube001.services.stellar-ops.com"
 ];
 
+function genRandomHash() {
+    const hex = '0123456789abcdef';
+    let output = '';
+    for (let i = 0; i < 64; ++i) {
+        output += hex.charAt(Math.floor(Math.random() * hex.length));
+    }
+    return output;
+}
+
 document.getElementById("deposit").onclick = function() {
+    hash = genRandomHash()
     var form = new FormData();
+    form.append("hash", hash);
     form.append("stellar_address", document.getElementById("stellar_address").value);
 
-    axios.post(validatorUrls[0]+"/deposit", form).then(response => {
-        document.getElementById("eth_hash").textContent = response.data
+    var promises = [];
+
+    for (var i = 0; i < validatorUrls.length; i++) {
+        promises[i] = axios.post(validatorUrls[i]+"/deposit", form);
+    }
+
+    Promise.all(promises).then(results => {
+        document.getElementById("eth_hash").textContent = hash;
+        document.getElementById("transaction_hash").value = hash;
     });
 }
 
