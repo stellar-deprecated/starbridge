@@ -1,10 +1,9 @@
 const requiredSigs = 1;
 
 var validatorUrls = [
-    "http://localhost:8000"
-    // "https://starbridge1.prototypes.kube001.services.stellar-ops.com",
-    // "https://starbridge2.prototypes.kube001.services.stellar-ops.com",
-    // "https://starbridge3.prototypes.kube001.services.stellar-ops.com"
+    "https://starbridge1.prototypes.kube001.services.stellar-ops.com",
+    "https://starbridge2.prototypes.kube001.services.stellar-ops.com",
+    "https://starbridge3.prototypes.kube001.services.stellar-ops.com"
 ];
 
 document.getElementById("deposit").onclick = function() {
