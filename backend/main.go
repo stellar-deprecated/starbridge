@@ -112,6 +112,7 @@ func (w *Worker) processIncomingEthereumSignatureRequest(sr store.SignatureReque
 		incomingEthereumTransaction.StellarAddress,
 		incomingEthereumTransaction.StellarAddress,
 		amountRat.FloatString(7),
+		sr.TxExpirationTimestamp,
 	)
 	if err != nil {
 		return errors.Wrap(err, "error building outgoing stellar transaction")

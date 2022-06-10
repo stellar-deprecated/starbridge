@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/starbridge/store"
@@ -49,9 +51,18 @@ type StellarGetInverseTransactionForEthereum struct {
 
 func (c *StellarGetInverseTransactionForEthereum) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ethereumTransactionHash := r.PostFormValue("transaction_hash")
+	txExpirationTimestamp := r.PostFormValue("tx_expiration_timestamp")
+	txExpirationTimestampInt, err := strconv.ParseInt(txExpirationTimestamp, 10, 64)
+	if err != nil {
+		log.WithField("error", err).Error("error parsing tx_expiration_timestamp")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	txExpirationTime := time.Unix(txExpirationTimestampInt, 0)
 
 	// Ensure incoming transaction exists
-	_, err := c.Store.GetIncomingEthereumTransactionByHash(r.Context(), ethereumTransactionHash)
+	_, err = c.Store.GetIncomingEthereumTransactionByHash(r.Context(), ethereumTransactionHash)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			w.WriteHeader(http.StatusNotFound)
@@ -59,6 +70,23 @@ func (c *StellarGetInverseTransactionForEthereum) ServeHTTP(w http.ResponseWrite
 			log.WithField("error", err).Error("Error getting an incoming ethereum transaction")
 			w.WriteHeader(http.StatusInternalServerError)
 		}
+		return
+	}
+
+	// Check TxExpirationTimestamp
+	// TODO - replace with last ledger close time persisted in a DB
+	lastLedgerCloseTime := time.Now().UTC()
+
+	if txExpirationTime.Before(lastLedgerCloseTime) {
+		log.Error("tx expiration timestamp in the past")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// TODO 10m below should be configurable
+	if txExpirationTime.After(lastLedgerCloseTime.Add(10 * time.Minute)) {
+		log.Error("tx expiration timestamp too far in the future")
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -80,7 +108,7 @@ func (c *StellarGetInverseTransactionForEthereum) ServeHTTP(w http.ResponseWrite
 
 	// Outgoing Stellar transaction does not exist so create signature request.
 	// Duplicate requests for the same signatures are not allowed but the error is ignored.
-	err = c.Store.InsertSignatureRequestForIncomingEthereumTransaction(r.Context(), ethereumTransactionHash)
+	err = c.Store.InsertSignatureRequestForIncomingEthereumTransaction(r.Context(), ethereumTransactionHash, txExpirationTimestampInt)
 	if err != nil {
 		// Ignore duplicate violations
 		if !strings.Contains(err.Error(), "duplicate key value violates unique constraint") {

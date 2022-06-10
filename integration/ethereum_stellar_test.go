@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -42,7 +43,8 @@ func TestEthereumStellarDeposit(t *testing.T) {
 	g := new(errgroup.Group)
 
 	postData := url.Values{
-		"transaction_hash": {incomingTx.Hash},
+		"transaction_hash":        {incomingTx.Hash},
+		"tx_expiration_timestamp": {strconv.FormatInt(time.Now().Add(time.Minute).Unix(), 10)},
 	}
 
 	for i := 0; i < servers; i++ {
