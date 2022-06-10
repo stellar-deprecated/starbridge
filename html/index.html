@@ -5,11 +5,14 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.0.0-alpha.1/axios.min.js" integrity="sha512-xIPqqrfvUAc/Cspuj7Bq0UtHNo/5qkdyngx6Vwt+tmbvTLDszzXM0G6c91LXmGrRx8KEPulT+AfOOez+TeVylg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     </head>
     <body>
+        <h4>Step 1</h4>
         Deposit Stellar Account: <input type="text" id="stellar_address" /><br />
+        The account needs to exist in testnet and have a trustline to <code>ETH/GDETROQ66HV64N2VXXA5FKFI6YETG4ZQTTXPXREG6UL2QUTK5W627O6O</code>.<br />
         <button id="deposit">Deposit</button><br />
         <code id="eth_hash"></code>
         <hr />
 
+        <h4>Step 2</h4>
         Ethereum Transaction Hash: <input type="text" id="transaction_hash" /><br />
         <button id="withdraw">Withdraw</button>
 
