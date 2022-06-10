@@ -1,76 +1,36 @@
 # Starbridge Protocol
 
-## Participants
-- W1, W2 = Wallets
-- A = Asset (Local asset)
-- wA = Wrapped asset (Foreign asset)
-- Vn = Validators
-- T, T1, T2 = Transaction or Message native to the chain it is generated
-- B = Bridge account on Stellar, or contract on Ethereum.
-- N = Next sequence number for the source.
+Parameters:
+* The *withdrawal window* determines how much time the user has to withdraw the wrapped asset on Stellar.
 
-## Actions
+Bridge validator state:
+* `last_ledger`, the last Stellar ledger known to the bridge validator.
 
-### 1. Action: Sending a local asset that may be used as a foreign asset
+## Transferring an Ethereum-native asset to Stellar
 
-#### i. Transfer
-- W1 pays A to Bs, annotated with dest=W2.
-- W2 requests Vn to sign T.
-- Vn observes, produces T, signs T, and broadcasts T.
-- W2 observes T with signatures.
-- W2 submits T (or calls B with T).
-- B mints wA, and pays wA to W2.
+### Withdrawing the funds on Stellar
 
-### ii. Tx Fails in Anyway
-- W1 pays A to Bs, annotated with dest=W2.
-- W2 requests Vn to sign T1.
-- Vn observes, produces T1, signs T1, and broadcasts T1.
-- W2 observes T1 with signatures.
-- W2 submits T1 (or calls B with T1).
-- T1 fails.
-- W2 waits for T1 ledger bounds to expire.
-- W2 requests Vn to sign T2.
-- Vn observes, produces T2, signs T2, and broadcasts T2.
-- W2 observes T2 with signatures.
-- W2 submits T2 (or calls B with T2).
-- B mints wA, and pays wA to W2.
+Steps:
+1. The user initiates a transfer by sending some count `N` of `T` tokens from their account on Ethereum (the *sending account*) to the bridge account on Ethereum, also specifying the *destination account* on Stellar. A unique *deposit identifier* identifies this operation. Let `t` be the timestamp of the Ethereum block in which this operation is executed.
+2. The user creates a *withdraw transaction* and sends a *signature request* to each bridge validator, including the deposit identifier.
+3. Every bridge validator does the following:
+  1. Check that no withdraw transaction for the same deposit identifier has been executed on Stellar as of ledger `last_ledger`, and return an error if not.
+  2. Else, sign the withdraw transaction provided by the user, provided that:
+    1. its transferring a count `N` of `wT` tokens, where `wT` is the wrapped counterpart of `T` on Stellar, from the bridge account to the destination account,
+    2. it has a time bound of `t` plus the withdraw window,
+    3. it has a sequence number of 1 plus the sequence number of the receiving account as of `last_ledger`,
+    4. the source account is the destination account,
+    5. the memo contains the deposit identifier.
+4. Once the user has collected enough validator signatures, it submits the withdraw transaction on Stellar to receive the funds.
+5. The withdraw transaction might fail, for example if the sequence number of the receiving account does not correspond to the sequence number of the withdraw transaction.
+6. The user can submit signature requests as many times as they want. Bridge validators process each signature request as in point 3 above.
 
-### iii. Reversal/Refund
-- W1 pays A to Bs, annotated with dest=W2.
-- W1 requests Vn to sign T.
-- Vn observes, produces T, signs T, and broadcasts T.
-- W1 observes T with signatures.
-- W1 submits T (or calls B with T).
-- B unlocks A, and pays A to W1.
+### Cancelling the transfer of an Ethereum-native asset to Stellar
 
-## 2. Action: Returning a foreign asset that may be used as a local asset
-
-### i. Transfer
-- W1 pays wA to Bs, annotated with dest=W2.
-- W2 requests Vn to sign T.
-- Vn observes, produces T, signs T, and broadcasts T.
-- W2 observes T with signatures.
-- W2 submits T (or calls B with T).
-- B unlocks A, and pays A to W2.
-
-### ii. Tx Fails in Anyway
-- W1 pays wA to Bs, annotated with dest=W2.
-- W2 requests Vn to sign T1.
-- Vn observes, produces T1, signs T1, and broadcasts T1.
-- W2 observes T1 with signatures.
-- W2 submits T1 (or calls B with T1).
-- T1 fails.
-- W2 waits for T1 ledger bounds to expire.
-- W2 requests Vn to sign T2.
-- Vn observes, produces T2, signs T2, and broadcasts T2.
-- W2 observes T2 with signatures.
-- W2 submits T2 (or calls B with T2).
-- B unlocks A, and pays A to W2.
-
-### iii. Reversal/Refund
-- W1 pays wA to Bs, annotated with dest=W2.
-- W1 requests Vn to sign T.
-- Vn observes, produces T, signs T, and broadcasts T.
-- W1 observes T with signatures.
-- W1 submits T (or calls B with T).
-- B mints wA, and pays wA to W1.
+Steps:
+1. The user sends a refund request to every bridge validator, providing the deposit identifier. This request must be signed by the key of the sending account.
+2. Every bridge validator does the following:
+  1. Check that the close time of `last_ledger` is strictly greater than `t` plus the withdrawal window, and return an error if not.
+  2. Check that no withdraw transaction for the same deposit identifier has been executed on Stellar as of ledger `last_ledger`, and return an error if not.
+  3. Sign a *refund approval* and return it to the user.
+3. Once the user has collected enough signed refund approvals, they call the bridge contract on Ethereum to receive their refund.
