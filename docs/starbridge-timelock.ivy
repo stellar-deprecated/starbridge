@@ -6,9 +6,10 @@
 # (referred to as the bridge). For simplicity we do not model addresses,
 # amounts, hashes, etc.
 
-# Instead we focus on the core ideas: a) the refund timelock and b) the idea of
-# using the successor of the current sequence number of the receiving account
-# as the sequence number of a withdrawal transaction.
+# Instead we focus on the core ideas:
+# a) the refund timelock and
+# b) the idea of using the successor of the current sequence number of the
+# receiving account as the sequence number of a withdrawal transaction.
 
 # Include the order module from standard Ivy library (ivy/include/1.7/order.ivy):
 
@@ -135,9 +136,11 @@ export action restart = {
     bridge_receiving_seqnum := 0
 }
 
-# The bridge signs a withdraw transaction if a) it has not been executed
+# The bridge signs a withdraw transaction if:
+# a) it has not been executed
 # according to the bridge's view of Stellar (so, before or in ledger
-# `bridge_ledger`), b) `max_time` is before the end of the withdraw period, and
+# `bridge_ledger`),
+# b) `max_time` is before the end of the withdraw period, and
 # c) the sequence number of the transaction is equal to the receiving account's
 # sequence number. TODO: it should be the sucessor of that.
 
@@ -159,10 +162,13 @@ export action refund = {
 # Safety proof
 # ============
 
-# Ivy checks that the invariants given are together inductive. This means that
-# a) they hold in the initial state and b) if they hold in a state s and we
-# execute an exported action to obtain s', then the invariants also hold in s';
-# thus, by induction, the invariants hold in every reachable state.
+# Ivy checks that the invariants given are together inductive. This means that:
+# a) they hold in the initial state and
+# b) if they hold in a state s and we execute an exported action to obtain s',
+# then the invariants also hold in s'.
+#
+# Note that if those two conditions hold then, by induction, the invariants
+# hold in every reachable state.
 
 # A withdrawal cannot be both executed and refunded:
 # --------------------------------------------------
@@ -172,7 +178,6 @@ invariant ~(refunded & exists T, TX. executed(T,TX))
 # Supporting invariants:
 
 # no withdrawals are executed after the end of the withdraw period:
-
 invariant executed(T,TX) -> T <= end_withdraw_period
 # refunds only happend after the withdraw period:
 invariant refunded -> t > end_withdraw_period
