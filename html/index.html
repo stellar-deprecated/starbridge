@@ -1,0 +1,31 @@
+<html>
+    <head>
+        <title>Starbridge</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-sdk/10.1.2/stellar-sdk.js" integrity="sha512-dTggOXJHJsqpd6s3kQfGcglZEHVwD6u6n2dGQT7LhsS8b4IMKKtvGu22cH2D+0iWyNOXzuhqLCy3pMwz7pBVMA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.0.0-alpha.1/axios.min.js" integrity="sha512-xIPqqrfvUAc/Cspuj7Bq0UtHNo/5qkdyngx6Vwt+tmbvTLDszzXM0G6c91LXmGrRx8KEPulT+AfOOez+TeVylg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    </head>
+    <body>
+        Deposit Stellar Account: <input type="text" id="stellar_address" /><br />
+        <button id="deposit">Deposit</button><br />
+        <code id="eth_hash"></code>
+        <hr />
+
+        Ethereum Transaction Hash: <input type="text" id="transaction_hash" /><br />
+        <button id="withdraw">Withdraw</button>
+
+        <div id="validators" style="display: none;">
+            <div>Validator 1 <span id="status0"></span></div>
+            <div>Validator 2 <span id="status1"></span></div>
+            <div>Validator 3 <span id="status2"></span></div>
+        </div>
+
+        <div id="signed" style="display: none;">
+            Transaction signed!<br />
+            <code id="signed_tx" style="overflow-wrap: break-word;"></code><br />
+            <a href="#" target="_blank" id="signed_link">Sign in Laboratory!</button>
+        </div>
+
+
+        <script src="./main.js"></script>
+    </body>
+</html>
