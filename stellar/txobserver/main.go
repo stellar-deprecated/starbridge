@@ -11,6 +11,8 @@ import (
 )
 
 type Observer struct {
+	ctx context.Context
+
 	client *horizonclient.Client
 	store  *store.DB
 	log    *slog.Entry
@@ -19,8 +21,9 @@ type Observer struct {
 	ledgerSequence uint32
 }
 
-func NewObserver(client *horizonclient.Client, store *store.DB) *Observer {
+func NewObserver(ctx context.Context, client *horizonclient.Client, store *store.DB) *Observer {
 	o := &Observer{
+		ctx:    ctx,
 		client: client,
 		store:  store,
 		log:    slog.DefaultLogger.WithField("service", "stellar_txobserver"),
@@ -28,7 +31,7 @@ func NewObserver(client *horizonclient.Client, store *store.DB) *Observer {
 
 	root, err := o.client.Root()
 	if err != nil {
-		o.log.Fatal("Unable to access Horizon root resource")
+		o.log.Fatalf("Unable to access Horizon (%s) root resource: %v", client.HorizonURL, err)
 	}
 
 	o.ledgerSequence = uint32(root.HorizonSequence)
@@ -39,6 +42,10 @@ func NewObserver(client *horizonclient.Client, store *store.DB) *Observer {
 func (o *Observer) ProcessNewLedgers() {
 LedgerLoop:
 	for {
+		if o.ctx.Err() != nil {
+			return
+		}
+
 		// Get ledger data first to ensure there are no gaps
 		ledger, err := o.client.LedgerDetail(o.ledgerSequence)
 		if err != nil {
