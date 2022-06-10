@@ -66,9 +66,9 @@ bytes32 constant SET_PAUSED_ID = keccak256("setPaused");
 // REGISTER_STELLAR_ASSET_ID is used to distinguish registerStellarAsset() signatures from signatures for other bridge functions.
 bytes32 constant REGISTER_STELLAR_ASSET_ID = keccak256("registerStellarAsset");
 // WITHDRAW_ETH_ID is used to distinguish withdrawETH() signatures from signatures for other bridge functions.
-bytes32 constant WITHDRAW_ETH_ID = keccak256("withdrawETH()");
+bytes32 constant WITHDRAW_ETH_ID = keccak256("withdrawETH");
 // WITHDRAW_ERC20_ID is used to distinguish withdrawERC20() signatures from signatures for other bridge functions.
-bytes32 constant WITHDRAW_ERC20_ID = keccak256("withdrawERC20()");
+bytes32 constant WITHDRAW_ERC20_ID = keccak256("withdrawERC20");
 
 contract Bridge is Auth {
     // paused is a bitmask which determines whether deposits / withdrawals are enabled on the bridge
