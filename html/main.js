@@ -21,42 +21,42 @@ document.getElementById("withdraw").onclick = function() {
     var promises = [];
 
     for (var i = 0; i < validatorUrls.length; i++) {
-        var j = i;
-        
-        promises[j] = new Promise(async (resolve, reject) => {
-            var form = new FormData();
-            form.append("transaction_hash", document.getElementById("transaction_hash").value);
-            form.append("tx_expiration_timestamp", Math.ceil(Date.now()/1000)+5*60);
+        promises[i] = function(j) {
+            return new Promise(async (resolve, reject) => {
+                var form = new FormData();
+                form.append("transaction_hash", document.getElementById("transaction_hash").value);
+                form.append("tx_expiration_timestamp", Math.ceil(Date.now()/1000)+5*60);
 
-            var status = document.getElementById("status"+j)
-            status.textContent = "Sending request..."
-            while (true) {
-                const response = await axios.post(
-                    validatorUrls[j]+"/stellar/get_inverse_transaction/ethereum",
-                    form,
-                    {validateStatus: null}
-                );
-                switch (response.status) {
-                    case 202: // Accepted
-                        status.textContent = "Signing request sent, waiting..."
-                        break;
-                    case 404: // NotFound
-                        status.textContent = "Tx not found"
-                        resolve(response);
-                        return;
-                    case 200: // OK
-                        status.textContent = "Signature received!"
-                        resolve(response);
-                        return
-                    default: // Error
-                        status.textContent = "Unknown error"
-                        resolve(response);
-                        return
+                var status = document.getElementById("status"+j)
+                status.textContent = "Sending request..."
+                while (true) {
+                    const response = await axios.post(
+                        validatorUrls[j]+"/stellar/get_inverse_transaction/ethereum",
+                        form,
+                        {validateStatus: null}
+                    );
+                    switch (response.status) {
+                        case 202: // Accepted
+                            status.textContent = "Signing request sent, waiting..."
+                            break;
+                        case 404: // NotFound
+                            status.textContent = "Tx not found"
+                            resolve(response);
+                            return;
+                        case 200: // OK
+                            status.textContent = "Signature received!"
+                            resolve(response);
+                            return
+                        default: // Error
+                            status.textContent = "Unknown error"
+                            resolve(response);
+                            return
+                    }
+
+                    await sleep(1000);
                 }
-
-                await sleep(1000);
-            }
-        });
+            });
+        }(i);
     }
 
     Promise.all(promises).then(results => {
