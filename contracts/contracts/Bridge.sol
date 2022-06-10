@@ -29,6 +29,7 @@ struct CreateStellarAssetRequest {
 
 uint8 constant PAUSE_DEPOSITS = 1 << 0;
 uint8 constant PAUSE_WITHDRAWALS =  1 << 1;
+uint8 constant PAUSE_DEPOSITS_AND_WITHDRAWALS = PAUSE_DEPOSITS | PAUSE_WITHDRAWALS;
 
 contract Bridge is Auth {
     uint8 public paused;
@@ -162,7 +163,7 @@ contract Bridge is Auth {
         bytes[] calldata signatures,
         uint8[] calldata indexes
     ) external {
-        require(value == 0 || value == PAUSE_WITHDRAWALS || value == PAUSE_DEPOSITS, "invalid paused value");
+        require(value <= PAUSE_DEPOSITS_AND_WITHDRAWALS, "invalid paused value");
         bytes32 requestHash = keccak256(abi.encode(version, keccak256("setPaused"), value, nonce, expiration));
         // ensure the same setPaused() transaction cannot be used more than once
         verifyRequest(requestHash, requestHash, expiration, signatures, indexes);
