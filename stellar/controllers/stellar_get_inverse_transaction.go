@@ -1,9 +1,7 @@
 package controllers
 
 import (
-	"crypto/rand"
 	"database/sql"
-	"encoding/hex"
 	"net/http"
 	"strconv"
 	"strings"
@@ -19,17 +17,11 @@ type TestDeposit struct {
 }
 
 func (c *TestDeposit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	hash := r.PostFormValue("hash")
 	stellarAddress := r.PostFormValue("stellar_address")
 
-	bytes := make([]byte, 32)
-	if _, err := rand.Read(bytes); err != nil {
-		log.WithField("error", err).Error("Error generating random bytes")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
 	incomingTx := store.IncomingEthereumTransaction{
-		Hash:           hex.EncodeToString(bytes),
+		Hash:           hash,
 		ValueWei:       1000,
 		StellarAddress: stellarAddress,
 	}
