@@ -15,12 +15,12 @@ import (
 	"github.com/stellar/starbridge/store"
 )
 
-var (
-	ten      = big.NewInt(10)
-	eighteen = big.NewInt(18)
-	// weiInEth = 10^18
-	// weiInEth = new(big.Rat).SetInt(new(big.Int).Exp(ten, eighteen, nil))
-)
+// var (
+// 	ten      = big.NewInt(10)
+// 	eighteen = big.NewInt(18)
+// 	// weiInEth = 10^18
+// 	weiInEth = new(big.Rat).SetInt(new(big.Int).Exp(ten, eighteen, nil))
+// )
 
 type Worker struct {
 	Ctx context.Context
