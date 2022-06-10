@@ -40,7 +40,7 @@ func (c *TestDeposit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(incomingTx.Hash))
+	_, _ = w.Write([]byte(incomingTx.Hash))
 }
 
 type StellarGetInverseTransactionForEthereum struct {

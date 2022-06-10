@@ -19,7 +19,7 @@ var (
 	ten      = big.NewInt(10)
 	eighteen = big.NewInt(18)
 	// weiInEth = 10^18
-	weiInEth = new(big.Rat).SetInt(new(big.Int).Exp(ten, eighteen, nil))
+	// weiInEth = new(big.Rat).SetInt(new(big.Int).Exp(ten, eighteen, nil))
 )
 
 type Worker struct {
