@@ -1,7 +1,9 @@
 package controllers
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"net/http"
 	"strings"
 
@@ -9,12 +11,44 @@ import (
 	"github.com/stellar/starbridge/store"
 )
 
+// TODO remove after prototype demo
+type TestDeposit struct {
+	Store *store.DB
+}
+
+func (c *TestDeposit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	stellarAddress := r.PostFormValue("stellar_address")
+
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		log.WithField("error", err).Error("Error generating random bytes")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	incomingTx := store.IncomingEthereumTransaction{
+		Hash:           hex.EncodeToString(bytes),
+		ValueWei:       1000,
+		StellarAddress: stellarAddress,
+	}
+
+	err := c.Store.InsertIncomingEthereumTransaction(r.Context(), incomingTx)
+	if err != nil {
+		log.WithField("error", err).Error("Error inserting incoming ethereum transaction")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(incomingTx.Hash))
+}
+
 type StellarGetInverseTransactionForEthereum struct {
 	Store *store.DB
 }
 
 func (c *StellarGetInverseTransactionForEthereum) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ethereumTransactionHash := r.PostForm.Get("transaction_hash")
+	ethereumTransactionHash := r.PostFormValue("transaction_hash")
 
 	// Ensure incoming transaction exists
 	_, err := c.Store.GetIncomingEthereumTransactionByHash(r.Context(), ethereumTransactionHash)
@@ -22,7 +56,7 @@ func (c *StellarGetInverseTransactionForEthereum) ServeHTTP(w http.ResponseWrite
 		if err == sql.ErrNoRows {
 			w.WriteHeader(http.StatusNotFound)
 		} else {
-			log.WithField("error", err).Error("Error getting an incomming ethereum transaction")
+			log.WithField("error", err).Error("Error getting an incoming ethereum transaction")
 			w.WriteHeader(http.StatusInternalServerError)
 		}
 		return
