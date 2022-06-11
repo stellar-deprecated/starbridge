@@ -78,12 +78,13 @@ contract Auth {
         uint8 prev = 0;
         for (uint8 i = 0; i < signatures.length; i++) {
             uint8 idx = indexes[i];
-            address signer = signers[idx];
+            address expectedSigner = signers[idx];
             // by requiring indexes to be sorted we can verify there are no duplicate
             // signatures in linear time
             require(i == 0 || idx > prev, "signatures not sorted by signer");
+            address signer = ECDSA.recover(ECDSA.toEthSignedMessageHash(h), signatures[i]);
             require(
-                ECDSA.recover(h, signatures[i]) == signer,
+                signer == expectedSigner,
                 "signature does not match"
             );
             prev = idx;
