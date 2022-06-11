@@ -4,6 +4,9 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
+// UPDATE_SIGNERS_ID is used to distinguish updateSigners() signatures from signatures for other bridge functions.
+bytes32 constant UPDATE_SIGNERS_ID = keccak256("updateSigners");
+
 contract Auth {
     // The validator set is configured by the following three fields:
     // signers - the full list of signers who can approve a bridge transaction.
@@ -57,7 +60,7 @@ contract Auth {
         uint8[] calldata indexes
     ) external {
         uint256 newVersion = ++version;
-        bytes32 h = keccak256(abi.encode(newVersion-1, _signers, _minThreshold));
+        bytes32 h = keccak256(abi.encode(newVersion-1, UPDATE_SIGNERS_ID, _signers, _minThreshold));
         verifySignatures(h, signatures, indexes);
         _updateSigners(newVersion, _signers, _minThreshold);
     }

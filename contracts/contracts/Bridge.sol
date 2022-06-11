@@ -130,6 +130,8 @@ contract Bridge is Auth {
     ) external {
         require((paused & PAUSE_DEPOSITS) == 0, "deposits are paused");
         require(amount > 0);
+        emit DepositERC20(token, msg.sender, destination, amount);
+
         if (isStellarAsset[token]) {
             StellarAsset(token).burn(msg.sender, amount);
         } else {
@@ -140,7 +142,6 @@ contract Bridge is Auth {
                 amount
             );
         }
-        emit DepositERC20(token, msg.sender, destination, amount);
     }
 
     // depositETH() deposits ETH to the bridge and starts a ETH -> Stellar
@@ -170,6 +171,12 @@ contract Bridge is Auth {
             signatures,
             indexes
         );
+        emit WithdrawERC20(
+            request.id,
+            request.recipient,
+            request.token,
+            request.amount
+        );
 
         if (isStellarAsset[request.token]) {
             StellarAsset(request.token).mint(request.recipient, request.amount);
@@ -180,12 +187,6 @@ contract Bridge is Auth {
                 request.amount
             );
         }
-        emit WithdrawERC20(
-            request.id,
-            request.recipient,
-            request.token,
-            request.amount
-        );
     }
 
     // withdrawETH() claims ETH tokens from the bridge. This can correspond to
@@ -207,9 +208,9 @@ contract Bridge is Auth {
             signatures,
             indexes);
 
+        emit WithdrawETH(request.id, request.recipient, request.amount);
         (bool success, ) = request.recipient.call{value: request.amount}("");
         require(success, "ETH transfer failed");
-        emit WithdrawETH(request.id, request.recipient, request.amount);
     }
 
     // setPaused() will enable or disable withdrawals / deposits.
@@ -225,8 +226,8 @@ contract Bridge is Auth {
         bytes32 requestHash = keccak256(abi.encode(version, SET_PAUSED_ID, request));
         // ensure the same setPaused() transaction cannot be used more than once
         verifyRequest(requestHash, requestHash, request.expiration, signatures, indexes);
-        paused = request.value;
         emit SetPaused(request.value);
+        paused = request.value;
     }
 
     // registerStellarAsset() will creates an ERC20 token to represent a stellar asset.
@@ -259,7 +260,7 @@ contract Bridge is Auth {
             )
         );
 
-        isStellarAsset[asset] = true;
         emit RegisterStellarAsset(asset);
+        isStellarAsset[asset] = true;
     }
 }
