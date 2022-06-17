@@ -14,7 +14,6 @@ type Builder struct {
 
 // BuildTransaction builds a transaction. It does not check if expirationTimestamp is valid.
 func (b *Builder) BuildTransaction(txSource, destination, amount string, expirationTimestamp int64) (xdr.TransactionEnvelope, error) {
-	// TODO remove seqnum fetch from here. it should be provided by the user
 	client := &horizonclient.Client{
 		HorizonURL: b.HorizonURL,
 	}

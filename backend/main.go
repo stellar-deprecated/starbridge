@@ -15,12 +15,12 @@ import (
 	"github.com/stellar/starbridge/store"
 )
 
-var (
-	ten      = big.NewInt(10)
-	eighteen = big.NewInt(18)
-	// weiInEth = 10^18
-	weiInEth = new(big.Rat).SetInt(new(big.Int).Exp(ten, eighteen, nil))
-)
+// var (
+// 	ten      = big.NewInt(10)
+// 	eighteen = big.NewInt(18)
+// 	// weiInEth = 10^18
+// 	weiInEth = new(big.Rat).SetInt(new(big.Int).Exp(ten, eighteen, nil))
+// )
 
 type Worker struct {
 	Ctx context.Context
@@ -122,8 +122,8 @@ func (w *Worker) processIncomingEthereumSignatureRequest(sr store.SignatureReque
 	}
 
 	// All good: build, sign and persist outgoing transaction
-	amountRat := new(big.Rat).SetInt(incomingEthereumTransaction.ValueWei)
-	amountRat.Quo(amountRat, weiInEth)
+	amountRat := new(big.Rat).SetInt64(incomingEthereumTransaction.ValueWei)
+	// amountRat.Quo(amountRat, weiInEth)
 
 	tx, err := w.StellarBuilder.BuildTransaction(
 		incomingEthereumTransaction.StellarAddress,

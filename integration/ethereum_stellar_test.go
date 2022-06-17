@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/txnbuild"
+	"github.com/stellar/starbridge/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -23,9 +25,28 @@ func TestEthereumStellarDeposit(t *testing.T) {
 		Servers: servers,
 	})
 
+	incomingTx := store.IncomingEthereumTransaction{
+		Hash:           "bf308af417b896b78f1a6bc5b8bd53df1a6d0270ba17c64345dac01b21d9559f",
+		ValueWei:       1000,
+		StellarAddress: itest.clientKey.Address(),
+	}
+
+	for i := 0; i < servers; i++ {
+		err := itest.app[i].GetStore().InsertIncomingEthereumTransaction(context.Background(), incomingTx)
+		require.NoError(t, err)
+		_, err = itest.app[i].GetStore().GetIncomingEthereumTransactionByHash(context.Background(), incomingTx.Hash)
+		require.NoError(t, err)
+	}
+
 	txs := make([]string, servers)
 
 	g := new(errgroup.Group)
+
+	postData := url.Values{
+		"transaction_hash":        {incomingTx.Hash},
+		"tx_expiration_timestamp": {strconv.FormatInt(time.Now().Add(time.Minute).Unix(), 10)},
+	}
+
 	for i := 0; i < servers; i++ {
 		i := i
 		g.Go(func() error {
@@ -33,9 +54,6 @@ func TestEthereumStellarDeposit(t *testing.T) {
 		loop:
 			for {
 				time.Sleep(time.Second)
-				postData := url.Values{
-					"tx_expiration_timestamp": {strconv.FormatInt(time.Now().Add(time.Minute).Unix(), 10)},
-				}
 				url := fmt.Sprintf("http://localhost:%d/stellar/get_inverse_transaction/ethereum", port)
 				resp, err := itest.Client().PostForm(url, postData)
 				require.NoError(t, err)
@@ -94,6 +112,9 @@ func TestEthereumStellarDeposit(t *testing.T) {
 	mainTx, err = mainTx.Sign(StandaloneNetworkPassphrase, itest.clientKey)
 	require.NoError(t, err)
 
-	_, err = itest.HorizonClient().SubmitTransaction(mainTx)
+	b64, err := mainTx.Base64()
 	require.NoError(t, err)
+
+	_, err = itest.HorizonClient().SubmitTransaction(mainTx)
+	require.NoErrorf(t, err, "error submitting: %s", b64)
 }

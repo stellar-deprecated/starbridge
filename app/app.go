@@ -69,6 +69,10 @@ func NewApp(config Config) *App {
 	return app
 }
 
+func (a *App) GetStore() *store.DB {
+	return a.store
+}
+
 func (a *App) initGracefulShutdown() {
 	a.appCtx, a.cancelCtx = context.WithCancel(context.Background())
 

@@ -11,6 +11,32 @@ import (
 	"github.com/stellar/starbridge/store"
 )
 
+// TODO remove after prototype demo
+type TestDeposit struct {
+	Store *store.DB
+}
+
+func (c *TestDeposit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	hash := r.PostFormValue("hash")
+	stellarAddress := r.PostFormValue("stellar_address")
+
+	incomingTx := store.IncomingEthereumTransaction{
+		Hash:           hash,
+		ValueWei:       1000,
+		StellarAddress: stellarAddress,
+	}
+
+	err := c.Store.InsertIncomingEthereumTransaction(r.Context(), incomingTx)
+	if err != nil {
+		log.WithField("error", err).Error("Error inserting incoming ethereum transaction")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(incomingTx.Hash))
+}
+
 type StellarGetInverseTransactionForEthereum struct {
 	Store *store.DB
 }
@@ -33,9 +59,26 @@ func (c *StellarGetInverseTransactionForEthereum) ServeHTTP(w http.ResponseWrite
 		if err == sql.ErrNoRows {
 			w.WriteHeader(http.StatusNotFound)
 		} else {
-			log.WithField("error", err).Error("Error getting an incomming ethereum transaction")
+			log.WithField("error", err).Error("Error getting an incoming ethereum transaction")
 			w.WriteHeader(http.StatusInternalServerError)
 		}
+		return
+	}
+
+	// Check TxExpirationTimestamp
+	// TODO - replace with last ledger close time persisted in a DB
+	lastLedgerCloseTime := time.Now().UTC()
+
+	if txExpirationTime.Before(lastLedgerCloseTime) {
+		log.Error("tx expiration timestamp in the past")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// TODO 10m below should be configurable
+	if txExpirationTime.After(lastLedgerCloseTime.Add(10 * time.Minute)) {
+		log.Error("tx expiration timestamp too far in the future")
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -57,7 +100,7 @@ func (c *StellarGetInverseTransactionForEthereum) ServeHTTP(w http.ResponseWrite
 
 	// Check TxExpirationTimestamp
 	// TODO - replace with last ledger close time persisted in a DB
-	lastLedgerCloseTime := time.Now().UTC()
+	lastLedgerCloseTime = time.Now().UTC()
 
 	if txExpirationTime.Before(lastLedgerCloseTime) {
 		log.Error("tx expiration timestamp in the past")
