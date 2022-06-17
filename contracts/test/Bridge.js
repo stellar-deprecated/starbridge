@@ -14,11 +14,6 @@ describe("Deploy Bridge", function() {
         expect(await bridge.signers(i)).to.equal(addresses[i]);
       }
       await expect(bridge.signers(20)).to.be.reverted;
-
-      const hash = ethers.utils.arrayify(ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(["uint256", "bytes32", "address[]", "uint8"], [0, ethers.utils.id("updateSigners"), addresses, 20])));
-      const signatures = await Promise.all(signers.map(s => s.signMessage(hash)));
-      const gas = await bridge.estimateGas.updateSigners(addresses, 20, signatures, [...Array(20).keys()]);
-      console.log(gas);
     });
 
     it("deploy Bridge contract with invalid minThreshold", async function() {
@@ -57,5 +52,4 @@ describe("Deploy Bridge", function() {
       await expect(Bridge.deploy([addresses[0], addresses[0], addresses[1]], 3)).to.be.revertedWith("signers not sorted");
       await expect(Bridge.deploy([addresses[0], addresses[1], addresses[2], addresses[4], addresses[3]], 5)).to.be.revertedWith("signers not sorted");
     });
-
-  });
+});

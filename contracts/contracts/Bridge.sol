@@ -129,7 +129,7 @@ contract Bridge is Auth {
         uint256 amount
     ) external {
         require((paused & PAUSE_DEPOSITS) == 0, "deposits are paused");
-        require(amount > 0);
+        require(amount > 0, "deposit amount is zero");
         emit DepositERC20(token, msg.sender, destination, amount);
 
         if (isStellarAsset[token]) {
@@ -148,7 +148,7 @@ contract Bridge is Auth {
     // transfer. If deposits are disabled this function will fail.
     function depositETH(uint256 destination) external payable {
         require((paused & PAUSE_DEPOSITS) == 0, "deposits are paused");
-        require(msg.value > 0);
+        require(msg.value > 0, "deposit amount is zero");
         emit DepositETH(msg.sender, destination, msg.value);
     }
 
@@ -252,8 +252,13 @@ contract Bridge is Auth {
             indexes
         );
 
+        bytes32 assetHash = keccak256(abi.encode(
+            request.decimals,
+            keccak256(bytes(request.name)),
+            keccak256(bytes(request.symbol))
+        ));
         address asset = address(
-            new StellarAsset{salt: requestHash}(
+            new StellarAsset{salt: assetHash}(
                 request.name,
                 request.symbol,
                 request.decimals
