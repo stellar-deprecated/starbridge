@@ -14,6 +14,7 @@ import (
 	"github.com/stellar/go/support/errors"
 	stellarhttp "github.com/stellar/go/support/http"
 	"github.com/stellar/go/support/log"
+	"github.com/stellar/starbridge/html"
 	"github.com/stellar/starbridge/stellar/controllers"
 	"github.com/stellar/starbridge/store"
 )
@@ -104,9 +105,14 @@ func (s *Server) initMux() {
 	mux.Use(middleware.Timeout(10 * time.Second))
 
 	// Public routes
-	mux.Method(http.MethodGet, "/stellar/get_inverse_transaction/ethereum", &controllers.StellarGetInverseTransactionForEthereum{
+	mux.Method(http.MethodPost, "/stellar/get_inverse_transaction/ethereum", &controllers.StellarGetInverseTransactionForEthereum{
 		Store: s.store,
 	})
+	mux.Method(http.MethodPost, "/deposit", &controllers.TestDeposit{
+		Store: s.store,
+	})
+	staticServer := http.FileServer(http.FS(html.Files))
+	mux.Handle("/*", staticServer)
 
 	s.server.Handler = mux
 }

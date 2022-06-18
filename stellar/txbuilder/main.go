@@ -12,7 +12,7 @@ type Builder struct {
 	BridgeAccount string
 }
 
-func (b *Builder) BuildTransaction(txSource, destination, amount string) (xdr.TransactionEnvelope, error) {
+func (b *Builder) BuildTransaction(txSource, destination, amount string, expirationTimestamp int64) (xdr.TransactionEnvelope, error) {
 	// TODO remove seqnum fetch from here. it should be provided by the user
 	client := &horizonclient.Client{
 		HorizonURL: b.HorizonURL,
@@ -44,8 +44,9 @@ func (b *Builder) BuildTransaction(txSource, destination, amount string) (xdr.Tr
 				},
 			},
 			BaseFee: txnbuild.MinBaseFee,
-			// TODO: one minute for faster debugging, change do 5m/10m
-			Preconditions: txnbuild.Preconditions{TimeBounds: txnbuild.NewTimeout(60)},
+			Preconditions: txnbuild.Preconditions{
+				TimeBounds: txnbuild.NewTimebounds(0, expirationTimestamp),
+			},
 		},
 	)
 	if err != nil {
