@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./contracts
+        working-directory: ./solidity
     steps:
     - uses: actions/checkout@v3
     - name: Use Node.js 16.x
@@ -20,6 +20,6 @@ jobs:
       with:
         node-version: 16.x
         cache: 'npm'
-        cache-dependency-path: ./contracts/package-lock.json
+        cache-dependency-path: ./solidity/package-lock.json
     - run: npm ci
     - run: npm test
