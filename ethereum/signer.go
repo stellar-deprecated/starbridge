@@ -98,7 +98,6 @@ func (s Signer) SignWithdrawal(
 			Amount:     amount,
 		})
 	}
-
 }
 
 func (s Signer) signWithdrawERC20Request(request solidity.WithdrawERC20Request) ([]byte, error) {

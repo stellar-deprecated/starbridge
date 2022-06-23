@@ -2,11 +2,12 @@ package ethereum
 
 import (
 	"encoding/hex"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/assert"
 	"math/big"
 	"strings"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 )
 
 func createSigner(t *testing.T) Signer {
