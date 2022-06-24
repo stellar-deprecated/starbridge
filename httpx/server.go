@@ -108,9 +108,6 @@ func (s *Server) initMux() {
 	mux.Method(http.MethodPost, "/stellar/get_inverse_transaction/ethereum", &controllers.StellarGetInverseTransactionForEthereum{
 		Store: s.store,
 	})
-	mux.Method(http.MethodPost, "/stellar/get_cancel_transaction/ethereum", &controllers.StellarGetCancelTransactionForEthereum{
-		Store: s.store,
-	})
 	mux.Method(http.MethodPost, "/deposit", &controllers.TestDeposit{
 		Store: s.store,
 	})
