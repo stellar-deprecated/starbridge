@@ -97,19 +97,32 @@ func (w *Worker) processIncomingEthereumSignatureRequest(sr store.SignatureReque
 		return errors.Wrap(err, "error getting last ledger close time")
 	}
 
+	if incomingEthereumTransaction.Withdrawn {
+		// TODO on permament errors remove signature request
+		return errors.New("already withdrawn")
+	}
+
 	if lastLedgerCloseTime.After(incomingEthereumTransaction.WithdrawExpiration) {
 		return errors.New("withdrawal no longer possible")
 	}
 
 	outgoingStellarTransaction, err := w.Store.GetOutgoingStellarTransactionForEthereumByHash(context.TODO(), hash)
-	if err != nil && err != sql.ErrNoRows {
+	if err == nil {
+		// Ensure outgoing tx is not pending or success
+		if outgoingStellarTransaction.State == store.PendingState ||
+			outgoingStellarTransaction.State == store.SuccessState {
+			return errors.Errorf("outgoing transaction is in `%s` state", outgoingStellarTransaction.State)
+		}
+	} else if err != sql.ErrNoRows {
 		return errors.Wrap(err, "error getting outgoing stellar transaction")
 	}
 
-	// Ensure outgoing tx is not pending or success
-	if outgoingStellarTransaction.State == store.PendingState ||
-		outgoingStellarTransaction.State == store.SuccessState {
-		return errors.Errorf("outgoing transaction is in `%s` state", outgoingStellarTransaction.State)
+	// Check if withdrawal tx was seen without signature request
+	_, err = w.Store.GetHistoryStellarTransactionByMemoHash(context.TODO(), incomingEthereumTransaction.Hash)
+	if err == nil {
+		return errors.New("withdraw transaction is present in ledger history")
+	} else if err != sql.ErrNoRows {
+		return errors.Wrap(err, "error getting history stellar transaction by memo hash")
 	}
 
 	// Load source account sequence

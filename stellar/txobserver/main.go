@@ -90,7 +90,7 @@ func (o *Observer) processSingleLedger(ledger horizon.Ledger) error {
 	}()
 
 	// Get latest list of hashes to observe
-	outgoingBridgeTransactions, err := o.store.GetOutgoingStellarTransactions(context.TODO())
+	outgoingBridgeTransactions, err := o.store.GetPendingOutgoingStellarTransactions(context.TODO())
 	if err != nil {
 		return errors.Wrap(err, "error getting outgoing bridge transactions")
 	}

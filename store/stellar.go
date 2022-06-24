@@ -42,8 +42,21 @@ func (m *DB) InsertHistoryStellarTransaction(ctx context.Context, tx HistoryStel
 	return err
 }
 
-func (m *DB) GetOutgoingStellarTransactions(ctx context.Context) ([]OutgoingStellarTransaction, error) {
-	sql := sq.Select("*").From("outgoing_stellar_transactions")
+func (m *DB) GetHistoryStellarTransactionByMemoHash(ctx context.Context, memoHash string) (HistoryStellarTransaction, error) {
+	sql := sq.Select("*").From("history_stellar_transactions").
+		Where(sq.Eq{"memo_hash": memoHash})
+
+	var result HistoryStellarTransaction
+	if err := m.Session.Get(ctx, &result, sql); err != nil {
+		return HistoryStellarTransaction{}, err
+	}
+
+	return result, nil
+}
+
+func (m *DB) GetPendingOutgoingStellarTransactions(ctx context.Context) ([]OutgoingStellarTransaction, error) {
+	sql := sq.Select("*").From("outgoing_stellar_transactions").
+		Where(sq.Eq{"state": PendingState})
 
 	var results []OutgoingStellarTransaction
 	if err := m.Session.Select(ctx, &results, sql); err != nil {
