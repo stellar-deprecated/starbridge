@@ -3,9 +3,11 @@ package backend
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"math/big"
 	"time"
 
+	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/xdr"
@@ -15,18 +17,19 @@ import (
 	"github.com/stellar/starbridge/store"
 )
 
-// var (
-// 	ten      = big.NewInt(10)
-// 	eighteen = big.NewInt(18)
-// 	// weiInEth = 10^18
-// 	weiInEth = new(big.Rat).SetInt(new(big.Int).Exp(ten, eighteen, nil))
-// )
+var (
+	ten      = big.NewInt(10)
+	eighteen = big.NewInt(18)
+	// weiInEth = 10^18
+	weiInEth = new(big.Rat).SetInt(new(big.Int).Exp(ten, eighteen, nil))
+)
 
 type Worker struct {
 	Ctx context.Context
 
 	Store *store.DB
 
+	StellarClient   *horizonclient.Client
 	StellarBuilder  *txbuilder.Builder
 	StellarSigner   *signer.Signer
 	StellarObserver *txobserver.Observer
@@ -89,25 +92,13 @@ func (w *Worker) processIncomingEthereumSignatureRequest(sr store.SignatureReque
 	}
 
 	// Ensure incoming tx can still be withdrawn
-	if incomingEthereumTransaction.WithdrawExpiration.After(time.Now()) {
-		return errors.New("transaction withdraw time expired")
-	}
-
-	// Check TxExpirationTimestamp
-	lastLedgerCloseTime, err := w.StellarObserver.GetLastLedgerCloseTime()
+	lastLedgerCloseTime, err := w.Store.GetLastLedgerCloseTime(context.TODO())
 	if err != nil {
 		return errors.Wrap(err, "error getting last ledger close time")
 	}
 
-	txExpirationTime := time.Unix(sr.TxExpirationTimestamp, 0)
-
-	if txExpirationTime.Before(lastLedgerCloseTime) {
-		return errors.New("tx expiration timestamp in the past")
-	}
-
-	// TODO 10m below should be configurable
-	if txExpirationTime.After(lastLedgerCloseTime.Add(10 * time.Minute)) {
-		return errors.New("tx expiration timestamp too far in the future")
+	if lastLedgerCloseTime.After(incomingEthereumTransaction.WithdrawExpiration) {
+		return errors.New("withdrawal no longer possible")
 	}
 
 	outgoingStellarTransaction, err := w.Store.GetOutgoingStellarTransactionForEthereumByHash(context.TODO(), hash)
@@ -121,15 +112,44 @@ func (w *Worker) processIncomingEthereumSignatureRequest(sr store.SignatureReque
 		return errors.Errorf("outgoing transaction is in `%s` state", outgoingStellarTransaction.State)
 	}
 
+	// Load source account sequence
+	sourceAccount, err := w.StellarClient.AccountDetail(horizonclient.AccountRequest{
+		AccountID: incomingEthereumTransaction.StellarAddress,
+	})
+	if err != nil {
+		return errors.Wrap(err, "error getting account details")
+	}
+
+	// Ensure source account sequence was not bumped in a meantime
+	lastLedgerSequence, err := w.Store.GetLastLedgerSequence(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "error getting last ledger sequence")
+	}
+
+	if lastLedgerSequence < sourceAccount.LastModifiedLedger {
+		return errors.New("skipping, account sequence possibly bumped after last ledger ingested")
+	}
+
 	// All good: build, sign and persist outgoing transaction
-	amountRat := new(big.Rat).SetInt64(incomingEthereumTransaction.ValueWei)
-	// amountRat.Quo(amountRat, weiInEth)
+	amountRat, ok := new(big.Rat).SetString(incomingEthereumTransaction.ValueWei)
+	if !ok {
+		return errors.Errorf("cannot convert value in wei to bit.Rat: %s", incomingEthereumTransaction.ValueWei)
+	}
+	amountRat.Quo(amountRat, weiInEth)
+
+	incomingEthereumTransactionHashBytes, err := hex.DecodeString(incomingEthereumTransaction.Hash)
+	if err != nil {
+		return errors.Wrap(err, "error decoding incomingEthereumTransaction.Hash")
+	}
 
 	tx, err := w.StellarBuilder.BuildTransaction(
 		incomingEthereumTransaction.StellarAddress,
 		incomingEthereumTransaction.StellarAddress,
 		amountRat.FloatString(7),
-		sr.TxExpirationTimestamp,
+		sourceAccount.Sequence+1,
+		// TODO: ensure using WithdrawExpiration without any time buffer is safe
+		incomingEthereumTransaction.WithdrawExpiration.Unix(),
+		incomingEthereumTransactionHashBytes,
 	)
 	if err != nil {
 		return errors.Wrap(err, "error building outgoing stellar transaction")
@@ -153,8 +173,6 @@ func (w *Worker) processIncomingEthereumSignatureRequest(sr store.SignatureReque
 		State:    store.PendingState,
 		Hash:     outgoingHash,
 		Envelope: txBase64,
-		// Overflow not possible because MaxTime is set by Starbridge
-		Expiration: time.Unix(int64(tx.V1.Tx.Cond.TimeBounds.MaxTime), 0),
 
 		IncomingType:            sr.IncomingType,
 		IncomingTransactionHash: sr.IncomingTransactionHash,

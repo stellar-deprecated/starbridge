@@ -2,36 +2,32 @@ package txbuilder
 
 import (
 	"github.com/pkg/errors"
-	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
 )
 
 type Builder struct {
-	HorizonURL    string
 	BridgeAccount string
 }
 
 // BuildTransaction builds a transaction. It does not check if expirationTimestamp is valid.
-func (b *Builder) BuildTransaction(txSource, destination, amount string, expirationTimestamp int64) (xdr.TransactionEnvelope, error) {
-	client := &horizonclient.Client{
-		HorizonURL: b.HorizonURL,
-	}
-
+func (b *Builder) BuildTransaction(txSource, destination, amount string, sequence, expirationTimestamp int64, memoHash []byte) (xdr.TransactionEnvelope, error) {
 	if txSource == b.BridgeAccount {
 		return xdr.TransactionEnvelope{}, errors.New("bridge account cannot be used as a transaction source")
 	}
 
-	sourceAccount, err := client.AccountDetail(horizonclient.AccountRequest{AccountID: txSource})
-	if err != nil {
-		return xdr.TransactionEnvelope{}, errors.Wrap(err, "error getting account details")
+	sourceAccount := txnbuild.SimpleAccount{
+		AccountID: txSource,
+		Sequence:  sequence,
 	}
+
+	var memoHashArray txnbuild.MemoHash
+	copy(memoHashArray[:], memoHash)
 
 	tx, err := txnbuild.NewTransaction(
 		txnbuild.TransactionParams{
-			IncrementSequenceNum: true,
-
 			SourceAccount: &sourceAccount,
+			Memo:          memoHashArray,
 			Operations: []txnbuild.Operation{
 				&txnbuild.Payment{
 					SourceAccount: b.BridgeAccount,

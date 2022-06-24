@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"strconv"
 	"testing"
 	"time"
 
@@ -26,9 +25,10 @@ func TestEthereumStellarDeposit(t *testing.T) {
 	})
 
 	incomingTx := store.IncomingEthereumTransaction{
-		Hash:           "bf308af417b896b78f1a6bc5b8bd53df1a6d0270ba17c64345dac01b21d9559f",
-		ValueWei:       1000,
-		StellarAddress: itest.clientKey.Address(),
+		Hash:               "bf308af417b896b78f1a6bc5b8bd53df1a6d0270ba17c64345dac01b21d9559f",
+		ValueWei:           "100000000000000000", // 0.1 ETH
+		StellarAddress:     itest.clientKey.Address(),
+		WithdrawExpiration: time.Now().AddDate(0, 0, 1), // Now + 1 day
 	}
 
 	for i := 0; i < servers; i++ {
@@ -43,8 +43,7 @@ func TestEthereumStellarDeposit(t *testing.T) {
 	g := new(errgroup.Group)
 
 	postData := url.Values{
-		"transaction_hash":        {incomingTx.Hash},
-		"tx_expiration_timestamp": {strconv.FormatInt(time.Now().Add(time.Minute).Unix(), 10)},
+		"transaction_hash": {incomingTx.Hash},
 	}
 
 	for i := 0; i < servers; i++ {

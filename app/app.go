@@ -60,9 +60,9 @@ func NewApp(config Config) *App {
 
 	app.initStore(config)
 	app.initGracefulShutdown()
-	app.stellarObserver = txobserver.NewObserver(app.appCtx, client, app.store)
+	app.stellarObserver = txobserver.NewObserver(app.appCtx, config.MainAccountID, client, app.store)
 	app.initHTTP(config)
-	app.initWorker(config)
+	app.initWorker(config, client)
 	app.initLogger()
 	app.initPrometheus()
 
@@ -111,7 +111,7 @@ func (a *App) initStore(config Config) {
 	}
 }
 
-func (a *App) initWorker(config Config) {
+func (a *App) initWorker(config Config, client *horizonclient.Client) {
 	var (
 		signerKey *keypair.Full
 		err       error
@@ -124,10 +124,10 @@ func (a *App) initWorker(config Config) {
 	}
 
 	a.worker = &backend.Worker{
-		Ctx:   a.appCtx,
-		Store: a.store,
+		Ctx:           a.appCtx,
+		Store:         a.store,
+		StellarClient: client,
 		StellarBuilder: &txbuilder.Builder{
-			HorizonURL:    config.HorizonURL,
 			BridgeAccount: config.MainAccountID,
 		},
 		StellarSigner: &signer.Signer{

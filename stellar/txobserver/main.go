@@ -15,35 +15,41 @@ import (
 type Observer struct {
 	ctx context.Context
 
+	bridgeAccount string
+
 	client *horizonclient.Client
 	store  *store.DB
 	log    *slog.Entry
 
-	// TODO: last ledgerSequence will be persisted in a DB
-	ledgerSequence  uint32
-	ledgerCloseTime time.Time
+	ledgerSequence uint32
 }
 
-func NewObserver(ctx context.Context, client *horizonclient.Client, store *store.DB) *Observer {
+func NewObserver(ctx context.Context, bridgeAccount string, client *horizonclient.Client, store *store.DB) *Observer {
 	o := &Observer{
-		ctx:    ctx,
-		client: client,
-		store:  store,
-		log:    slog.DefaultLogger.WithField("service", "stellar_txobserver"),
+		ctx:           ctx,
+		bridgeAccount: bridgeAccount,
+		client:        client,
+		store:         store,
+		log:           slog.DefaultLogger.WithField("service", "stellar_txobserver"),
 	}
 
-	root, err := o.client.Root()
+	ledgerSeq, err := o.store.GetLastLedgerSequence(context.Background())
 	if err != nil {
-		o.log.Fatalf("Unable to access Horizon (%s) root resource: %v", client.HorizonURL, err)
+		o.log.Fatalf("Unable to load last ledger sequence from db: %v", err)
 	}
 
-	o.ledgerSequence = uint32(root.HorizonSequence)
+	if ledgerSeq == 0 {
+		root, err := o.client.Root()
+		if err != nil {
+			o.log.Fatalf("Unable to access Horizon (%s) root resource: %v", client.HorizonURL, err)
+		}
+
+		o.ledgerSequence = uint32(root.HorizonSequence)
+	} else {
+		o.ledgerSequence = ledgerSeq
+	}
 
 	return o
-}
-
-func (o *Observer) GetLastLedgerCloseTime() (time.Time, error) {
-	return o.ledgerCloseTime, nil
 }
 
 func (o *Observer) ProcessNewLedgers() {
@@ -65,7 +71,6 @@ func (o *Observer) ProcessNewLedgers() {
 				o.log.WithFields(slog.F{"error": err, "sequence": o.ledgerSequence}).Error("Error processing a single ledger details")
 			} else {
 				o.ledgerSequence++
-				o.ledgerCloseTime = ledger.ClosedAt
 				continue // without time.Sleep
 			}
 		}
@@ -90,53 +95,73 @@ func (o *Observer) processSingleLedger(ledger horizon.Ledger) error {
 		return errors.Wrap(err, "error getting outgoing bridge transactions")
 	}
 
-	// If no transactions to observe, skip to next ledger.
-	if len(outgoingBridgeTransactions) == 0 {
-		o.log.WithField("sequence", o.ledgerSequence).Info("No outgoing bridge transactions, skipping to next ledger")
-		return nil
-	}
-
 	// Transform to hash->tx map for faster lookups
 	outgoingBridgeTransactionsHashMap := make(map[string]store.OutgoingStellarTransaction)
 	for _, tx := range outgoingBridgeTransactions {
 		outgoingBridgeTransactionsHashMap[tx.Hash] = tx
 	}
 
-	// Transform to source->seqnum->tx map for faster lookups
-	outgoingBridgeTransactionsSourceMap := make(map[string]map[int64]store.OutgoingStellarTransaction)
-	for _, tx := range outgoingBridgeTransactions {
-		if outgoingBridgeTransactionsSourceMap[tx.Source] == nil {
-			outgoingBridgeTransactionsSourceMap[tx.Source] = make(map[int64]store.OutgoingStellarTransaction)
-		}
-		outgoingBridgeTransactionsSourceMap[tx.Source][tx.SequenceNumber] = tx
-	}
-
-	// Process transactions
+	// Process operations
 	cursor := ""
+	previousHash := ""
 	for {
-		txs, err := o.client.Transactions(horizonclient.TransactionRequest{
+		ops, err := o.client.Operations(horizonclient.OperationRequest{
 			ForLedger:     uint(o.ledgerSequence),
 			Cursor:        cursor,
 			Limit:         200,
 			IncludeFailed: true,
+			Join:          "transactions",
 		})
 		if err != nil {
-			return errors.Wrap(err, "error getting transactions")
+			return errors.Wrap(err, "error getting operations")
 		}
 
-		if len(txs.Embedded.Records) == 0 {
+		if len(ops.Embedded.Records) == 0 {
 			break
 		}
 
-		for _, tx := range txs.Embedded.Records {
-			otx, hashExists := outgoingBridgeTransactionsHashMap[tx.Hash]
+		for _, op := range ops.Embedded.Records {
+			baseOp := op.GetBase()
+
+			// Update cursor instantly because we can continue later
+			cursor = op.PagingToken()
+
+			// Ignore ops not coming from bridge account
+			if baseOp.SourceAccount != o.bridgeAccount {
+				continue
+			}
+
+			tx := baseOp.Transaction
+
+			memoHash := ""
+			if tx.MemoType == "hash" {
+				memoHash = tx.Memo
+			}
+
+			// Skip inserting transactions with multiple ops. Currently Starbridge
+			// does not create such transactions but it can change in the future.
+			if previousHash != baseOp.TransactionHash {
+				err := o.store.InsertHistoryStellarTransaction(context.TODO(), store.HistoryStellarTransaction{
+					Hash:     tx.Hash,
+					Envelope: tx.EnvelopeXdr,
+					MemoHash: memoHash,
+				})
+				if err != nil {
+					return errors.Wrapf(err, "error inserting history transaction: %s", tx.Hash)
+				}
+				previousHash = baseOp.TransactionHash
+			}
+
+			otx, hashExists := outgoingBridgeTransactionsHashMap[baseOp.TransactionHash]
 			if hashExists {
 				if tx.Successful {
 					otx.State = store.SuccessState
-					// TODO [important] update IncomingEthereumTransaction state
-					// as withdrawn so it's not possible to cancel it.
+					err := o.store.MarkIncomingEthereumTransactionAsWithdrawn(context.TODO(), otx.IncomingTransactionHash)
+					if err != nil {
+						return errors.Wrapf(err, "error updating incoming ethereum transaction: %s", otx.IncomingTransactionHash)
+					}
 				} else {
-					otx.State = store.FailedState
+					otx.State = store.InvalidState
 				}
 				err := o.store.UpsertOutgoingStellarTransaction(context.TODO(), otx)
 				if err != nil {
@@ -147,12 +172,14 @@ func (o *Observer) processSingleLedger(ledger horizon.Ledger) error {
 			if tx.InnerTransaction != nil {
 				otx, hashExists := outgoingBridgeTransactionsHashMap[tx.InnerTransaction.Hash]
 				if hashExists {
-					if tx.Successful {
+					if baseOp.Transaction.Successful {
 						otx.State = store.SuccessState
-						// TODO [important] update IncomingEthereumTransaction state
-						// as withdrawn so it's not possible to cancel it.
+						err := o.store.MarkIncomingEthereumTransactionAsWithdrawn(context.TODO(), otx.IncomingTransactionHash)
+						if err != nil {
+							return errors.Wrapf(err, "error updating incoming ethereum transaction: %s", otx.IncomingTransactionHash)
+						}
 					} else {
-						otx.State = store.FailedState
+						otx.State = store.InvalidState
 					}
 					err := o.store.UpsertOutgoingStellarTransaction(context.TODO(), otx)
 					if err != nil {
@@ -160,36 +187,17 @@ func (o *Observer) processSingleLedger(ledger horizon.Ledger) error {
 					}
 				}
 			}
-
-			seqnums, sourceExists := outgoingBridgeTransactionsSourceMap[tx.Account]
-			if sourceExists {
-				for seqnum, otx := range seqnums {
-					if tx.AccountSequence >= seqnum && otx.Hash != tx.Hash &&
-						(tx.InnerTransaction == nil ||
-							(tx.InnerTransaction != nil && otx.Hash != tx.InnerTransaction.Hash)) {
-						// Account sequence number was used for another transaction or bump thus otx transaction
-						// is irrevocably invalid and can be marked as expired.
-						otx.State = store.ExpiredState
-						err := o.store.UpsertOutgoingStellarTransaction(context.TODO(), otx)
-						if err != nil {
-							return errors.Wrapf(err, "error upserting outgoing transaction: %s", otx.Hash)
-						}
-					}
-				}
-			}
-
-			cursor = tx.PagingToken()
 		}
 	}
 
-	// Mark all expired txs as expired.
-	count, err := o.store.MarkOutgoingStellarTransactionExpired(context.TODO(), ledger.ClosedAt)
+	err = o.store.UpdateLastLedgerSequence(context.TODO(), uint32(ledger.Sequence))
 	if err != nil {
-		return errors.Wrap(err, "error marking outgoing transactions as expired")
+		return errors.Wrap(err, "error updating last ledger sequence")
 	}
 
-	if count > 0 {
-		o.log.Infof("Marked %d txs are expired", count)
+	err = o.store.UpdateLastLedgerCloseTime(context.TODO(), ledger.ClosedAt)
+	if err != nil {
+		return errors.Wrap(err, "error updating last ledger sequence")
 	}
 
 	err = o.store.Session.Commit()

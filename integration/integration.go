@@ -62,13 +62,15 @@ type Test struct {
 //
 // WARNING: This requires Docker Compose installed.
 func NewIntegrationTest(t *testing.T, config Config) *Test {
-	if os.Getenv("STARBRIDGE_INTEGRATION_TESTS_ENABLED") == "" {
-		t.Skip("skipping integration test: STARBRIDGE_INTEGRATION_TESTS_ENABLED not set")
-	}
+	// if os.Getenv("STARBRIDGE_INTEGRATION_TESTS_ENABLED") == "" {
+	// 	t.Skip("skipping integration test: STARBRIDGE_INTEGRATION_TESTS_ENABLED not set")
+	// }
 
-	if host := os.Getenv("STARBRIDGE_INTEGRATION_TESTS_DOCKER_HOST"); host != "" {
-		dockerHost = host
-	}
+	// if host := os.Getenv("STARBRIDGE_INTEGRATION_TESTS_DOCKER_HOST"); host != "" {
+	// 	dockerHost = host
+	// }
+
+	dockerHost = "192.168.99.100"
 
 	test := &Test{
 		t:           t,
