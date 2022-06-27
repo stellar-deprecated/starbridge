@@ -78,7 +78,7 @@ after init {
 
 relation valid(TX:withdraw_t, T:time_t)
 definition valid(TX:withdraw_t, T:time_t) =
-    seqnum = withdraw_t.seqnum(TX) & T <= withdraw_t.max_time(TX)
+    seqnum_t.succ(seqnum, withdraw_t.seqnum(TX)) & T <= withdraw_t.max_time(TX)
 
 # Execute a new ledger potentially containing a withdraw transaction. Note that
 # the sequence number of the receiving account can increase due to other
@@ -142,12 +142,12 @@ export action restart = {
 # `bridge_ledger`),
 # b) `max_time` is before the end of the withdraw period, and
 # c) the sequence number of the transaction is equal to the receiving account's
-# sequence number. TODO: it should be the sucessor of that.
+# sequence number.
 
 export action sign_withdraw(tx:withdraw_t) = {
     require T <= bridge_ledger -> ~executed(T, TX);
     require tx.max_time <= end_withdraw_period;
-    require tx.seqnum = bridge_receiving_seqnum;
+    require seqnum_t.succ(tx.seqnum, bridge_receiving_seqnum);
     pending(tx) := true;
 }
 
@@ -161,6 +161,8 @@ export action refund = {
 
 # Safety proof
 # ============
+
+# attribute method=bmc[15]
 
 # Ivy checks that the invariants given are together inductive. This means that:
 # a) they hold in the initial state and
