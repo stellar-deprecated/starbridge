@@ -107,14 +107,14 @@ export action new_ledger(new_t:time_t, s:seqnum_t, include_withdrawal:bool) = {
 
 # Ledger time as seen by the bridge:
 
-var bridge_ledger: time_t
+var bridge_ledger_time: time_t
 
 # Sequence number of the receiving account as seen by the bridge:
 
 var bridge_receiving_seqnum: seqnum_t
 
 after init {
-    bridge_ledger := 0;
+    bridge_ledger_time := 0;
     bridge_receiving_seqnum := 0;
 }
 
@@ -122,7 +122,7 @@ after init {
 
 export action process_ledgers(l:time_t) = {
     require l <= t;
-    bridge_ledger := l;
+    bridge_ledger_time := l;
     local s:seqnum_t { # the seqnum of the receiving account as of ledger l
         assume seqnums(l, s);
         bridge_receiving_seqnum := s;
@@ -132,32 +132,38 @@ export action process_ledgers(l:time_t) = {
 # The bridge loses its state and restarts:
 
 export action restart = {
-    bridge_ledger := 0;
+    bridge_ledger_time := 0;
     bridge_receiving_seqnum := 0
 }
 
 # The bridge signs a withdraw transaction if:
 # a) it has not been executed
 # according to the bridge's view of Stellar (so, before or in ledger
-# `bridge_ledger`),
+# `bridge_ledger_time`),
 # b) `max_time` is before the end of the withdraw period, and
 # c) the sequence number of the transaction is equal to the receiving account's
 # sequence number.
 
 export action sign_withdraw(tx:withdraw_t) = {
-    require T <= bridge_ledger -> ~executed(T, TX);
+    require T <= bridge_ledger_time -> ~executed(T, TX);
     require tx.max_time <= end_withdraw_period;
-    require seqnum_t.succ(tx.seqnum, bridge_receiving_seqnum);
+    require seqnum_t.succ(bridge_receiving_seqnum, tx.seqnum);
     pending(tx) := true;
 }
 
 # The bridge refunds a transaction if we are past the end of the withdraw period (as measure by Stellar ledger time as seen by the bridge) and no withdraw transaction has been executed.
 
 export action refund = {
-    require bridge_ledger > end_withdraw_period;
-    require T <= bridge_ledger -> ~executed(T, TX);
+    require bridge_ledger_time > end_withdraw_period;
+    require T <= bridge_ledger_time -> ~executed(T, TX);
     refunded := true;
 }
+
+isolate canaries = {
+    attribute method=bmc[6]
+    # invariant ~refunded
+    # invariant ~executed(T,TX)
+} with this
 
 # Safety proof
 # ============
