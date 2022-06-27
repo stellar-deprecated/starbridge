@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile.dev
     volumes:
       - ./output:/home/user/output:rw
-      - ../:/home/user/models:ro
+      - ../:/home/user/models:rw
     command: /bin/bash
     stdin_open: true # docker run -i
     tty: true        # docker run -t
@@ -17,6 +17,7 @@ services:
         - SYS_PTRACE
     environment:
       TERM: xterm-256color
+    command: /bin/bash
 
   starbridge-ivy:
     build:
