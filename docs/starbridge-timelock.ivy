@@ -160,66 +160,72 @@ export action refund = {
 }
 
 isolate canaries = {
+    # here we state some properties that, if violated in a bmc run, show that the system does
+    # something
     attribute method=bmc[6]
-    # invariant ~refunded
-    # invariant ~executed(T,TX)
+    # a counter-example to this show that there is a scenario in which a refund is made:
+    invariant ~refunded
+    # a counter-example to this show that there is a scenario in which a withdraw is successfully
+    # executed:
+    invariant ~executed(T,TX)
 } with this
 
 # Safety proof
 # ============
 
-# attribute method=bmc[15]
+isolate safety = {
 
-# Ivy checks that the invariants given are together inductive. This means that:
-# a) they hold in the initial state and
-# b) if they hold in a state s and we execute an exported action to obtain s',
-# then the invariants also hold in s'.
-#
-# Note that if those two conditions hold then, by induction, the invariants
-# hold in every reachable state.
+    # Ivy checks that the invariants given are together inductive. This means that:
+    # a) they hold in the initial state and
+    # b) if they hold in a state s and we execute an exported action to obtain s',
+    # then the invariants also hold in s'.
+    #
+    # Note that if those two conditions hold then, by induction, the invariants
+    # hold in every reachable state.
 
-# A withdrawal cannot be both executed and refunded:
-# --------------------------------------------------
+    # A withdrawal cannot be both executed and refunded:
+    # --------------------------------------------------
 
-invariant ~(refunded & exists T, TX. executed(T,TX))
+    invariant ~(refunded & exists T, TX. executed(T,TX))
 
-# Supporting invariants:
+    # Supporting invariants:
 
-# no withdrawals are executed after the end of the withdraw period:
-invariant executed(T,TX) -> T <= end_withdraw_period
-# refunds only happend after the withdraw period:
-invariant refunded -> t > end_withdraw_period
-# the bridge is always behind or in sync:
-invariant bridge_ledger <= t
-# all pending withdrawals have a max time lower than `end_withdraw_period`:
-invariant pending(TX) -> withdraw_t.max_time(TX) <= end_withdraw_period
+    # no withdrawals are executed after the end of the withdraw period:
+    invariant executed(T,TX) -> T <= end_withdraw_period
+    # refunds only happend after the withdraw period:
+    invariant refunded -> t > end_withdraw_period
+    # the bridge is always behind or in sync:
+    invariant bridge_ledger_time <= t
+    # all pending withdrawals have a max time lower than `end_withdraw_period`:
+    invariant pending(TX) -> withdraw_t.max_time(TX) <= end_withdraw_period
 
-# No double withdrawals:
-# ----------------------
+    # No double withdrawals:
+    # ----------------------
 
-invariant executed(T1, TX1) & executed(T2, TX2) -> T1 = T2 & TX1 = TX2
+    invariant executed(T1, TX1) & executed(T2, TX2) -> T1 = T2 & TX1 = TX2
 
-# Supporting invariants:
+    # Supporting invariants:
 
-# if a withdraw is executed, then all the others pending withdraws have stale sequence numbers:
-invariant executed(T1,TX1) & pending(TX2) & withdraw_t.seqnum(TX1) ~= withdraw_t.seqnum(TX2) -> withdraw_t.seqnum(TX2) < seqnum
-# no transaction is executed in the future:
-invariant executed(T,TX) -> T <= t
-# `seqnum` is the sequence number of the receiving account at the end of the last ledger:
-invariant seqnums(t,seqnum)
-# A withdrawal can be executed on if it has the same sequence number as the receiving account, executing it increases the sequence number of the receiving account, and account sequence numbers only increase. So we have the following three invariants:
-invariant executed(T,TX) & seqnums(T,S) -> withdraw_t.seqnum(TX) < S
-invariant executed(T2,TX) & seqnums(T1,S) & T1 < T2 -> S <= withdraw_t.seqnum(TX)
-invariant executed(T1,TX) & seqnums(T2,S) & T1 < T2 -> withdraw_t.seqnum(TX) < S
-# pending transactions have sequence numbers lower or equal to the current sequence number of the receiving account:
-invariant pending(TX) -> withdraw_t.seqnum(TX) <= seqnum
-# if a withdraw has been executed with a seqnum that the bridge has seen, then the bridge knows it's executed:
-invariant executed(T1,TX1) & withdraw_t.seqnum(TX1) < bridge_receiving_seqnum -> T1 <= bridge_ledger
-# the bridge is in sync or late:
-invariant bridge_receiving_seqnum <= seqnum
-# no seqnum is assigned in the future:
-invariant seqnums(T,S) -> T <= t
-# sequence numbers only grow:
-invariant seqnums(T1,S1) & seqnums(T2,S2) & T1 < T2 -> S1 <= S2
-# a ledger determines a seqnum:
-invariant seqnums(T,S1) & seqnums(T,S2) -> S1 = S2
+    # if a withdraw is executed, then all the others pending withdraws have stale sequence numbers:
+    invariant executed(T1,TX1) & pending(TX2) & withdraw_t.seqnum(TX1) ~= withdraw_t.seqnum(TX2) -> withdraw_t.seqnum(TX2) < seqnum
+    # no transaction is executed in the future:
+    invariant executed(T,TX) -> T <= t
+    # `seqnum` is the sequence number of the receiving account at the end of the last ledger:
+    invariant seqnums(t,seqnum)
+    # A withdrawal can be executed on if it has the same sequence number as the receiving account, executing it increases the sequence number of the receiving account, and account sequence numbers only increase. So we have the following three invariants:
+    invariant executed(T,TX) & seqnums(T,S) -> withdraw_t.seqnum(TX) <= S
+    invariant executed(T2,TX) & seqnums(T1,S) & T1 < T2 -> S <= withdraw_t.seqnum(TX)
+    invariant executed(T1,TX) & seqnums(T2,S) & T1 < T2 -> withdraw_t.seqnum(TX) < S
+    # pending transactions have sequence numbers lower or equal to the current sequence number of the receiving account:
+    invariant pending(TX) -> withdraw_t.seqnum(TX) <= seqnum | seqnum_t.succ(seqnum, withdraw_t.seqnum(TX))
+    # if a withdraw has been executed with a seqnum that the bridge has seen, then the bridge knows it's executed:
+    invariant executed(T1,TX1) & withdraw_t.seqnum(TX1) < bridge_receiving_seqnum -> T1 <= bridge_ledger_time
+    # the bridge is in sync or late:
+    invariant bridge_receiving_seqnum <= seqnum
+    # no seqnum is assigned in the future:
+    invariant seqnums(T,S) -> T <= t
+    # sequence numbers only grow:
+    invariant seqnums(T1,S1) & seqnums(T2,S2) & T1 < T2 -> S1 <= S2
+    # a ledger determines a seqnum:
+    invariant seqnums(T,S1) & seqnums(T,S2) -> S1 = S2
+} with this
