@@ -16,7 +16,6 @@ import (
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/starbridge/html"
 	"github.com/stellar/starbridge/stellar/controllers"
-	"github.com/stellar/starbridge/store"
 )
 
 type ServerMetrics struct {
@@ -33,7 +32,8 @@ type ServerConfig struct {
 	AdminPort          uint16
 	TLSConfig          *TLSConfig
 	PrometheusRegistry *prometheus.Registry
-	Store              *store.DB
+
+	StellarWithdrawalHandler *controllers.StellarWithdrawalHandler
 }
 
 type Server struct {
@@ -43,8 +43,6 @@ type Server struct {
 
 	server      *http.Server
 	adminServer *http.Server
-
-	store *store.DB
 
 	tlsConfig          *TLSConfig
 	prometheusRegistry *prometheus.Registry
@@ -73,10 +71,8 @@ func NewServer(serverConfig ServerConfig) (*Server, error) {
 			Addr:        fmt.Sprintf(":%d", serverConfig.Port),
 			ReadTimeout: 5 * time.Second,
 		},
-
-		store: serverConfig.Store,
 	}
-	server.initMux()
+	server.initMux(serverConfig)
 
 	if serverConfig.AdminPort != 0 {
 		server.adminServer = &http.Server{
@@ -89,7 +85,7 @@ func NewServer(serverConfig ServerConfig) (*Server, error) {
 	return server, nil
 }
 
-func (s *Server) initMux() {
+func (s *Server) initMux(serverConfig ServerConfig) {
 	mux := stellarhttp.NewAPIMux(log.DefaultLogger)
 
 	// Public middlewares
@@ -105,12 +101,7 @@ func (s *Server) initMux() {
 	mux.Use(middleware.Timeout(10 * time.Second))
 
 	// Public routes
-	mux.Method(http.MethodPost, "/stellar/get_inverse_transaction/ethereum", &controllers.StellarGetInverseTransactionForEthereum{
-		Store: s.store,
-	})
-	mux.Method(http.MethodPost, "/deposit", &controllers.TestDeposit{
-		Store: s.store,
-	})
+	mux.Method(http.MethodPost, "/stellar/withdraw/ethereum", serverConfig.StellarWithdrawalHandler)
 	staticServer := http.FileServer(http.FS(html.Files))
 	mux.Handle("/*", staticServer)
 

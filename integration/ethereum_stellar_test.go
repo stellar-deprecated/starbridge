@@ -4,56 +4,93 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/stellar/go/strkey"
+	"github.com/stellar/starbridge/solidity-go"
+
+	"github.com/stellar/starbridge/store"
+
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/txnbuild"
-	"github.com/stellar/starbridge/store"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 )
 
-func TestEthereumStellarDeposit(t *testing.T) {
+const (
+	ethereumSenderPrivateKey = "c1a4af60400ffd1473ada8425cff9f91b533194d6dd30424a17f356e418ac35b"
+)
+
+func depositETHToBridge(t *testing.T, client *ethclient.Client, amount *big.Int, stellarRecipient string) *types.Receipt {
+	parsedPrivateKey, err := crypto.HexToECDSA(ethereumSenderPrivateKey)
+	require.NoError(t, err)
+
+	opts, err := bind.NewKeyedTransactorWithChainID(parsedPrivateKey, big.NewInt(31337))
+	require.NoError(t, err)
+	opts.Value = amount
+	opts.GasPrice = new(big.Int).Mul(big.NewInt(1), big.NewInt(params.GWei))
+
+	rawRecipient := strkey.MustDecode(strkey.VersionByteAccountID, stellarRecipient)
+	recipient := &big.Int{}
+	recipient.SetBytes(rawRecipient)
+
+	bridge, err := solidity.NewBridgeTransactor(common.HexToAddress(EthereumBridgeAddress), client)
+	require.NoError(t, err)
+	tx, err := bridge.DepositETH(opts, recipient)
+	require.NoError(t, err)
+
+	receipt, err := client.TransactionReceipt(context.Background(), tx.Hash())
+	require.NoError(t, err)
+	require.Len(t, receipt.Logs, 1)
+	return receipt
+}
+
+func TestEthereumToStellarWithdrawal(t *testing.T) {
 	const servers int = 3
 
 	itest := NewIntegrationTest(t, Config{
 		Servers: servers,
 	})
 
-	incomingTx := store.IncomingEthereumTransaction{
-		Hash:               "bf308af417b896b78f1a6bc5b8bd53df1a6d0270ba17c64345dac01b21d9559f",
-		ValueWei:           "100000000000000000", // 0.1 ETH
-		StellarAddress:     itest.clientKey.Address(),
-		WithdrawExpiration: time.Now().AddDate(0, 0, 1), // Now + 1 day
-	}
-
-	for i := 0; i < servers; i++ {
-		err := itest.app[i].GetStore().InsertIncomingEthereumTransaction(context.Background(), incomingTx)
-		require.NoError(t, err)
-		_, err = itest.app[i].GetStore().GetIncomingEthereumTransactionByHash(context.Background(), incomingTx.Hash)
-		require.NoError(t, err)
-	}
+	ethRPCClient, err := ethclient.Dial(EthereumRPCURL)
+	require.NoError(t, err)
 
 	txs := make([]string, servers)
-
+	stores := make([]*store.DB, servers)
 	g := new(errgroup.Group)
 
+	receipt := depositETHToBridge(
+		t,
+		ethRPCClient,
+		new(big.Int).Mul(big.NewInt(3), big.NewInt(params.Ether)),
+		itest.clientKey.Address(),
+	)
+
 	postData := url.Values{
-		"transaction_hash": {incomingTx.Hash},
+		"transaction_hash": {receipt.TxHash.String()},
+		"log_index":        {strconv.FormatUint(uint64(receipt.Logs[0].Index), 10)},
 	}
 
 	for i := 0; i < servers; i++ {
 		i := i
+		stores[i] = itest.app[i].NewStore()
 		g.Go(func() error {
 			port := 9000 + i
 		loop:
 			for {
 				time.Sleep(time.Second)
-				url := fmt.Sprintf("http://localhost:%d/stellar/get_inverse_transaction/ethereum", port)
+				url := fmt.Sprintf("http://localhost:%d/stellar/withdraw/ethereum", port)
 				resp, err := itest.Client().PostForm(url, postData)
 				require.NoError(t, err)
 				switch resp.StatusCode {
@@ -99,7 +136,7 @@ func TestEthereumStellarDeposit(t *testing.T) {
 		require.True(t, ok)
 
 		// TODO timebound time should be provided in HTTP request and checked by Starbridge
-		assert.Equal(t, expectedSeqNum, tx.SequenceNumber())
+		require.Equal(t, expectedSeqNum, tx.SequenceNumber())
 
 		sig := tx.Signatures()
 
@@ -116,4 +153,32 @@ func TestEthereumStellarDeposit(t *testing.T) {
 
 	_, err = itest.HorizonClient().SubmitTransaction(mainTx)
 	require.NoErrorf(t, err, "error submitting: %s", b64)
+
+	memoHex := mainTx.ToXDR().Memo().MustHash().HexString()
+	numFound := 0
+	for attempts := 0; attempts < 10; attempts++ {
+		for i := 0; i < servers; i++ {
+			found, err := stores[i].HistoryStellarTransactionExists(context.Background(), memoHex)
+			require.NoError(t, err)
+			if found {
+				numFound++
+			}
+		}
+		if numFound == servers {
+			break
+		} else {
+			numFound = 0
+			time.Sleep(time.Second)
+		}
+	}
+	require.Equal(t, servers, numFound)
+
+	for i := 0; i < servers; i++ {
+		port := 9000 + i
+		time.Sleep(time.Second)
+		url := fmt.Sprintf("http://localhost:%d/stellar/withdraw/ethereum", port)
+		resp, err := itest.Client().PostForm(url, postData)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	}
 }

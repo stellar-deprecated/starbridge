@@ -29,9 +29,21 @@ import (
 
 const (
 	StandaloneNetworkPassphrase = "Standalone Network ; February 2017"
+	EthereumBridgeAddress       = "0x31995201773dA53F950f15278Ea1538eA37A68A1"
+	EthereumRPCURL              = "http://127.0.0.1:8545"
 )
 
-var dockerHost = "localhost"
+var (
+	dockerHost     = "localhost"
+	ethPrivateKeys = []string{
+		// 0x89bFfeDAB59580576f7b95DbC500Ac1657EA9119
+		"cff41ce3c1708e589b87198c9ee494eef407ca2a765a4353cf162c85ddc81cd9",
+		// 0xAe1B35129e5924C3a7313EE579878f829f3e8495
+		"51138e68e8a5fa906d38c5b42bc01b805d7adb3fce037743fb406bb10aa83307",
+		// 0xCe3535F6f176128A882db28Cca00E2b1FbC38F09
+		"0b1037a08795be0955e39e7e279e0530eb89e0ec06d372ff6f122a5a4e1a6f84",
+	}
+)
 
 type Config struct {
 	Servers int
@@ -81,10 +93,13 @@ func NewIntegrationTest(t *testing.T, config Config) *Test {
 		},
 	}
 
+	test.runComposeCommand("down", "-v")
 	test.runComposeCommand("up", "--detach", "--quiet-pull", "--no-color", "starbridge-postgres")
 	test.runComposeCommand("up", "--detach", "--quiet-pull", "--no-color", "quickstart")
+	test.runComposeCommand("up", "--detach", "--no-color", "ethereum-node")
+	test.runComposeCommand("up", "--no-color", "deploy-ethereum-contract")
 	test.prepareShutdownHandlers()
-	test.waitForHorizon()
+	ingestSequence := test.waitForHorizon()
 	test.waitForFriendbot()
 
 	if config.Servers == 0 {
@@ -99,7 +114,7 @@ func NewIntegrationTest(t *testing.T, config Config) *Test {
 	test.signerKeys = make([]*keypair.Full, config.Servers)
 
 	for i := 0; i < config.Servers; i++ {
-		if innerErr := test.StartStarbridge(i); innerErr != nil {
+		if innerErr := test.StartStarbridge(i, ingestSequence); innerErr != nil {
 			t.Fatalf("Failed to start Starbridge: %v", innerErr)
 		}
 	}
@@ -174,8 +189,7 @@ func (i *Test) prepareShutdownHandlers() {
 			// if i.app != nil {
 			// 	i.app.Close()
 			// }
-			i.runComposeCommand("rm", "-fvs", "quickstart")
-			i.runComposeCommand("rm", "-fvs", "starbridge-postgres")
+			i.runComposeCommand("down", "-v")
 		},
 	)
 
@@ -205,19 +219,23 @@ func (i *Test) Shutdown() {
 	})
 }
 
-func (i *Test) StartStarbridge(id int) error {
+func (i *Test) StartStarbridge(id int, ingestSequence uint32) error {
 	i.signerKeys[id] = keypair.MustRandom()
 
 	i.app[id] = app.NewApp(app.Config{
-		Port: 9000 + uint16(id),
-
-		HorizonURL:  fmt.Sprintf("http://%s:8000/", dockerHost),
-		PostgresDSN: fmt.Sprintf("postgres://postgres:mysecretpassword@%s:5641/starbridge%d?sslmode=disable", dockerHost, id),
-
-		MainAccountID:   i.mainKey.Address(),
-		SignerSecretKey: i.signerKeys[id].Seed(),
-
-		NetworkPassphrase: StandaloneNetworkPassphrase,
+		Port:                        9000 + uint16(id),
+		PostgresDSN:                 fmt.Sprintf("postgres://postgres:mysecretpassword@%s:5641/starbridge%d?sslmode=disable", dockerHost, id),
+		HorizonURL:                  fmt.Sprintf("http://%s:8000/", dockerHost),
+		NetworkPassphrase:           StandaloneNetworkPassphrase,
+		StellarBridgeAccount:        i.mainAccount.GetAccountID(),
+		StellarBridgeBirthSequence:  ingestSequence,
+		StellarPrivateKey:           i.signerKeys[id].Seed(),
+		EthereumRPCURL:              EthereumRPCURL,
+		EthereumBridgeAddress:       EthereumBridgeAddress,
+		EthereumBridgeConfigVersion: 0,
+		EthereumPrivateKey:          ethPrivateKeys[id],
+		EthereumFinalityBuffer:      0,
+		WithdrawalWindow:            24 * time.Hour,
 	})
 
 	done := make(chan struct{})
@@ -231,7 +249,7 @@ func (i *Test) StartStarbridge(id int) error {
 	return nil
 }
 
-func (i *Test) waitForHorizon() {
+func (i *Test) waitForHorizon() uint32 {
 	for t := 60; t >= 0; t -= 1 {
 		time.Sleep(time.Second)
 
@@ -250,11 +268,12 @@ func (i *Test) waitForHorizon() {
 		if uint32(root.CurrentProtocolVersion) != 0 {
 			i.t.Logf("Horizon protocol version upgraded to %d",
 				root.CurrentProtocolVersion)
-			return
+			return root.IngestSequence
 		}
 	}
 
 	i.t.Fatal("Horizon not ingesting...")
+	return 0
 }
 
 func (i *Test) waitForFriendbot() {

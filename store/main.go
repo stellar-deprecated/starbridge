@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"embed"
 	"strings"
 
@@ -12,14 +13,14 @@ import (
 var migrations embed.FS
 
 type DB struct {
-	Session *db.Session
+	Session db.SessionInterface
 }
 
-func (db *DB) InitSchema() error {
-	return db.Migrate(migrate.Up, 0)
+func InitSchema(db *sql.DB) error {
+	return Migrate(db, migrate.Up, 0)
 }
 
-func (db *DB) Migrate(dir migrate.MigrationDirection, max int) error {
+func Migrate(db *sql.DB, dir migrate.MigrationDirection, max int) error {
 	m := &migrate.AssetMigrationSource{
 		Asset: migrations.ReadFile,
 		AssetDir: func() func(string) ([]string, error) {
@@ -38,7 +39,7 @@ func (db *DB) Migrate(dir migrate.MigrationDirection, max int) error {
 		}(),
 		Dir: "migrations",
 	}
-	_, err := migrate.ExecMax(db.Session.DB.DB, "postgres", m, dir, max)
+	_, err := migrate.ExecMax(db, "postgres", m, dir, max)
 	return err
 }
 

@@ -18,3 +18,21 @@ services:
     ports:
       - "8000:8000"
     command: ["--standalone"]
+  ethereum-node:
+    build:
+      # set build context to the solidity directory
+      context: ../solidity
+    restart: on-failure
+    ports:
+      - "8545:8545"
+    command: ["npx", "hardhat", "node"]
+  deploy-ethereum-contract:
+    depends_on:
+      - ethereum-node
+    build:
+      # set build context to the solidity directory
+      context: ../solidity
+    restart: on-failure
+    command: ["npx", "hardhat", "run", "scripts/deploy.js", "--network", "docker"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

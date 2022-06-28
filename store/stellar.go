@@ -2,17 +2,9 @@ package store
 
 import (
 	"context"
+	"database/sql"
 
 	sq "github.com/Masterminds/squirrel"
-)
-
-type OutgoingStellarTransactionState string
-
-const (
-	PendingState OutgoingStellarTransactionState = "pending"
-	SuccessState OutgoingStellarTransactionState = "success"
-	// InvalidState is either expired, failed or irrevocably invalid tx
-	InvalidState OutgoingStellarTransactionState = "invalid"
 )
 
 type HistoryStellarTransaction struct {
@@ -22,12 +14,11 @@ type HistoryStellarTransaction struct {
 }
 
 type OutgoingStellarTransaction struct {
-	Hash     string                          `db:"hash"`
-	State    OutgoingStellarTransactionState `db:"state"`
-	Envelope string                          `db:"envelope"`
-
-	IncomingType            NetworkType `db:"incoming_type"`
-	IncomingTransactionHash string      `db:"incoming_transaction_hash"`
+	Hash      string `db:"hash"`
+	Envelope  string `db:"envelope"`
+	Sequence  int64  `db:"sequence"`
+	Action    Action `db:"requested_action"`
+	DepositID string `db:"deposit_id"`
 }
 
 func (m *DB) InsertHistoryStellarTransaction(ctx context.Context, tx HistoryStellarTransaction) error {
@@ -42,34 +33,24 @@ func (m *DB) InsertHistoryStellarTransaction(ctx context.Context, tx HistoryStel
 	return err
 }
 
-func (m *DB) GetHistoryStellarTransactionByMemoHash(ctx context.Context, memoHash string) (HistoryStellarTransaction, error) {
-	sql := sq.Select("*").From("history_stellar_transactions").
+func (m *DB) HistoryStellarTransactionExists(ctx context.Context, memoHash string) (bool, error) {
+	stmt := sq.Select("1").From("history_stellar_transactions").
 		Where(sq.Eq{"memo_hash": memoHash})
 
-	var result HistoryStellarTransaction
-	if err := m.Session.Get(ctx, &result, sql); err != nil {
-		return HistoryStellarTransaction{}, err
+	var result int
+	err := m.Session.Get(ctx, &result, stmt)
+	if err == nil {
+		return true, nil
+	} else if err == sql.ErrNoRows {
+		return false, nil
 	}
-
-	return result, nil
+	return false, err
 }
 
-func (m *DB) GetPendingOutgoingStellarTransactions(ctx context.Context) ([]OutgoingStellarTransaction, error) {
-	sql := sq.Select("*").From("outgoing_stellar_transactions").
-		Where(sq.Eq{"state": PendingState})
-
-	var results []OutgoingStellarTransaction
-	if err := m.Session.Select(ctx, &results, sql); err != nil {
-		return nil, err
-	}
-
-	return results, nil
-}
-
-func (m *DB) GetOutgoingStellarTransactionForEthereumByHash(ctx context.Context, hash string) (OutgoingStellarTransaction, error) {
+func (m *DB) GetOutgoingStellarTransaction(ctx context.Context, action Action, depositID string) (OutgoingStellarTransaction, error) {
 	sql := sq.Select("*").From("outgoing_stellar_transactions").Where(map[string]interface{}{
-		"incoming_type":             Ethereum,
-		"incoming_transaction_hash": hash,
+		"requested_action": action,
+		"deposit_id":       depositID,
 	})
 
 	var result OutgoingStellarTransaction
@@ -83,13 +64,16 @@ func (m *DB) GetOutgoingStellarTransactionForEthereumByHash(ctx context.Context,
 func (m *DB) UpsertOutgoingStellarTransaction(ctx context.Context, newtx OutgoingStellarTransaction) error {
 	query := sq.Insert("outgoing_stellar_transactions").
 		SetMap(map[string]interface{}{
-			"state":                     newtx.State,
-			"hash":                      newtx.Hash,
-			"envelope":                  newtx.Envelope,
-			"incoming_type":             newtx.IncomingType,
-			"incoming_transaction_hash": newtx.IncomingTransactionHash,
+			"hash":             newtx.Hash,
+			"envelope":         newtx.Envelope,
+			"requested_action": newtx.Action,
+			"deposit_id":       newtx.DepositID,
+			"sequence":         newtx.Sequence,
 		}).
-		Suffix("ON CONFLICT (incoming_type,incoming_transaction_hash) DO UPDATE SET state=EXCLUDED.state, hash=EXCLUDED.hash, envelope=EXCLUDED.envelope")
+		Suffix("ON CONFLICT (requested_action, deposit_id) " +
+			"DO UPDATE SET " +
+			"sequence=EXCLUDED.sequence, hash=EXCLUDED.hash, envelope=EXCLUDED.envelope",
+		)
 
 	_, err := m.Session.Exec(ctx, query)
 	return err
