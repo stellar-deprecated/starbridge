@@ -50,7 +50,7 @@ services:
     volumes:
       - ./output:/home/user/output:rw
       - ../:/home/user/models:ro
-    command: plot_dependencies.sh $IVY_FILE
+    command: plot_dependencies.sh $IVY_FILE 4
     stdin_open: true # docker run -i
     tty: true        # docker run -t
     container_name: starbridge-ivy-poisonivy
