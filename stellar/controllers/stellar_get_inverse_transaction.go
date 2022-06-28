@@ -1,9 +1,9 @@
 package controllers
 
 import (
+	"context"
 	"database/sql"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -21,9 +21,10 @@ func (c *TestDeposit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	stellarAddress := r.PostFormValue("stellar_address")
 
 	incomingTx := store.IncomingEthereumTransaction{
-		Hash:           hash,
-		ValueWei:       1000,
-		StellarAddress: stellarAddress,
+		Hash:               hash,
+		ValueWei:           "100000000000000000", // 0.1 ETH
+		StellarAddress:     stellarAddress,
+		WithdrawExpiration: time.Now().AddDate(0, 0, 1), // Now + 1 day
 	}
 
 	err := c.Store.InsertIncomingEthereumTransaction(r.Context(), incomingTx)
@@ -43,18 +44,9 @@ type StellarGetInverseTransactionForEthereum struct {
 
 func (c *StellarGetInverseTransactionForEthereum) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ethereumTransactionHash := r.PostFormValue("transaction_hash")
-	txExpirationTimestamp := r.PostFormValue("tx_expiration_timestamp")
-	txExpirationTimestampInt, err := strconv.ParseInt(txExpirationTimestamp, 10, 64)
-	if err != nil {
-		log.WithField("error", err).Error("error parsing tx_expiration_timestamp")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	txExpirationTime := time.Unix(txExpirationTimestampInt, 0)
 
 	// Ensure incoming transaction exists
-	_, err = c.Store.GetIncomingEthereumTransactionByHash(r.Context(), ethereumTransactionHash)
+	incomingEthereumTransaction, err := c.Store.GetIncomingEthereumTransactionByHash(r.Context(), ethereumTransactionHash)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			w.WriteHeader(http.StatusNotFound)
@@ -65,19 +57,16 @@ func (c *StellarGetInverseTransactionForEthereum) ServeHTTP(w http.ResponseWrite
 		return
 	}
 
-	// Check TxExpirationTimestamp
-	// TODO - replace with last ledger close time persisted in a DB
-	lastLedgerCloseTime := time.Now().UTC()
-
-	if txExpirationTime.Before(lastLedgerCloseTime) {
-		log.Error("tx expiration timestamp in the past")
-		w.WriteHeader(http.StatusBadRequest)
+	// Check withdraw expiration
+	lastLedgerCloseTime, err := c.Store.GetLastLedgerCloseTime(context.TODO())
+	if err != nil {
+		log.WithField("error", err).Error("Error getting last ledger close time")
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	// TODO 10m below should be configurable
-	if txExpirationTime.After(lastLedgerCloseTime.Add(10 * time.Minute)) {
-		log.Error("tx expiration timestamp too far in the future")
+	if lastLedgerCloseTime.After(incomingEthereumTransaction.WithdrawExpiration) {
+		// TODO send an error msg to the client
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -100,7 +89,7 @@ func (c *StellarGetInverseTransactionForEthereum) ServeHTTP(w http.ResponseWrite
 
 	// Outgoing Stellar transaction does not exist so create signature request.
 	// Duplicate requests for the same signatures are not allowed but the error is ignored.
-	err = c.Store.InsertSignatureRequestForIncomingEthereumTransaction(r.Context(), ethereumTransactionHash, txExpirationTimestampInt)
+	err = c.Store.InsertSignatureRequestForIncomingEthereumTransaction(r.Context(), ethereumTransactionHash)
 	if err != nil {
 		// Ignore duplicate violations
 		if !strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
