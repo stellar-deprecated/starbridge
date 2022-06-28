@@ -226,7 +226,7 @@ isolate safety_2 = {
         # Supporting invariants:
 
         # if a withdraw is executed, then all the others pending withdraws have stale sequence numbers:
-        invariant executed(T1,TX1) & pending(TX2) & withdraw_t.seqnum(TX1) ~= withdraw_t.seqnum(TX2) -> withdraw_t.seqnum(TX2) < seqnum
+        invariant executed(T1,TX1) & pending(TX2) -> withdraw_t.seqnum(TX2) <= seqnum
         # no transaction is executed in the future:
         invariant executed(T,TX) -> T <= t
         # `seqnum` is the sequence number of the receiving account at the end of the last ledger:
