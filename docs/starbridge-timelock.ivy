@@ -165,9 +165,9 @@ isolate canary_1 = {
     private {
         # here we state some properties that, if violated in a bmc run, show that the system does
         # something
-        # attribute method=bmc[6]
+        attribute method=bmc[6]
         # a counter-example to this show that there is a scenario in which a refund is made:
-        # invariant ~refunded
+        invariant ~refunded
     }
 } with this
 
@@ -175,10 +175,21 @@ isolate canary_2 = {
     private {
         # here we state some properties that, if violated in a bmc run, show that the system does
         # something
-        # attribute method=bmc[6]
+        attribute method=bmc[6]
         # a counter-example to this show that there is a scenario in which a withdraw is successfully
         # executed:
-        # invariant ~executed(T,TX)
+        invariant ~executed(T,TX)
+    }
+} with this
+
+isolate canary_3 = {
+    private {
+        # here we state some properties that, if violated in a bmc run, show that the system does
+        # something
+        attribute method=bmc[6]
+        # a counter-example to this show that there is a scenario in which a first withdrawal fails
+        # because the sequence number changed, and then a second withdrawal succeeds:
+        invariant ~(pending(TX1) & executed(T2,TX2) & withdraw_t.seqnum(TX1) < withdraw_t.seqnum(TX2))
     }
 } with this
 
@@ -225,21 +236,21 @@ isolate safety_2 = {
 
         # Supporting invariants:
 
+        # executed transactions that the bridge does not know about have a sequence number strictly higher than the sequence number the bridge knows about:
+        invariant executed(T1,TX1) & T1 > bridge_ledger_time -> withdraw_t.seqnum(TX1) > bridge_receiving_seqnum
+        # invariant executed(T,TX) -> T > 0
+
         # if a withdraw is executed, then all the others pending withdraws have stale sequence numbers:
         invariant executed(T1,TX1) & pending(TX2) -> withdraw_t.seqnum(TX2) <= seqnum
-        # no transaction is executed in the future:
-        invariant executed(T,TX) -> T <= t
         # `seqnum` is the sequence number of the receiving account at the end of the last ledger:
         invariant seqnums(t,seqnum)
         # A withdrawal can be executed on if it has the same sequence number as the receiving account, executing it increases the sequence number of the receiving account, and account sequence numbers only increase. So we have the following three invariants:
         invariant executed(T,TX) & seqnums(T,S) -> withdraw_t.seqnum(TX) <= S
         invariant seqnums(T1,S) & executed(T2,TX) & T1 < T2 -> S < withdraw_t.seqnum(TX)
-        invariant executed(T1,TX) & seqnums(T2,S) & T1 < T2 -> withdraw_t.seqnum(TX) <= S
+        invariant executed(T,TX) -> exists S . seqnums(T,S)
         # pending transactions have sequence numbers at most one above the current sequence number of
         # the receiving account:
         invariant pending(TX) -> (withdraw_t.seqnum(TX) <= seqnum | seqnum_t.succ(seqnum, withdraw_t.seqnum(TX)))
-        # if a withdraw has been executed with a seqnum that the bridge has seen, then the bridge has a ledger including the transaction
-        invariant executed(T1,TX1) & withdraw_t.seqnum(TX1) <= bridge_receiving_seqnum -> T1 <= bridge_ledger_time
         # executed transactions have sequence number at least 1 (since the account starts at 0):
         invariant executed(T,TX) -> withdraw_t.seqnum(TX) > 0
         # the bridge is in sync or late:
