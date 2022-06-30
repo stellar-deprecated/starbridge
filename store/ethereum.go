@@ -8,10 +8,11 @@ import (
 )
 
 type IncomingEthereumTransaction struct {
-	Hash               string `db:"hash"`
-	ValueWei           int64  `db:"value_wei"` // TODO change to big.Int
-	StellarAddress     string `db:"stellar_address"`
-	WithdrawExpiration time.Time
+	Hash               string    `db:"hash"`
+	ValueWei           string    `db:"value_wei"`
+	StellarAddress     string    `db:"stellar_address"`
+	WithdrawExpiration time.Time `db:"withdraw_expiration"`
+	Withdrawn          bool      `db:"withdrawn"`
 }
 
 func (m *DB) GetIncomingEthereumTransactionByHash(ctx context.Context, hash string) (IncomingEthereumTransaction, error) {
@@ -28,10 +29,21 @@ func (m *DB) GetIncomingEthereumTransactionByHash(ctx context.Context, hash stri
 func (m *DB) InsertIncomingEthereumTransaction(ctx context.Context, newtx IncomingEthereumTransaction) error {
 	query := sq.Insert("incoming_ethereum_transactions").
 		SetMap(map[string]interface{}{
-			"hash":            newtx.Hash,
-			"value_wei":       50,
-			"stellar_address": newtx.StellarAddress,
+			"hash":                newtx.Hash,
+			"value_wei":           newtx.ValueWei,
+			"stellar_address":     newtx.StellarAddress,
+			"withdraw_expiration": newtx.WithdrawExpiration,
+			"withdrawn":           false,
 		})
+
+	_, err := m.Session.Exec(ctx, query)
+	return err
+}
+
+func (m *DB) MarkIncomingEthereumTransactionAsWithdrawn(ctx context.Context, hash string) error {
+	query := sq.Update("incoming_ethereum_transactions").
+		Set("withdrawn", true).
+		Where(sq.Eq{"hash": hash})
 
 	_, err := m.Session.Exec(ctx, query)
 	return err
