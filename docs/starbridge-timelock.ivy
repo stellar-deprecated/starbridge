@@ -1,13 +1,13 @@
-#lang ivy1.8
+#lang ivy1.7
 
-# Model of Starbridge; timelock version.
+# Model of the Ethereum to Stellar transfer flow in Starbridge
 
 # In this model we consider a single transfer and a single bridge validator
 # (referred to as the bridge). For simplicity we do not model addresses,
 # amounts, hashes, etc.
 
 # Instead we focus on the core ideas:
-# a) the refund timelock and
+# a) disjoint withdraw and refund periods
 # b) the idea of using the successor of the current sequence number of the
 # receiving account as the sequence number of a withdrawal transaction.
 
@@ -166,9 +166,9 @@ isolate canary_1 = {
     private {
         # here we state some properties that, if violated in a bmc run, show that the system does
         # something
-        # attribute method=bmc[6]
+        attribute method=bmc[6]
         # a counter-example to this show that there is a scenario in which a refund is made:
-        # invariant ~refunded
+        invariant ~refunded
     }
 } with this
 
@@ -187,10 +187,17 @@ isolate canary_3 = {
     private {
         # here we state some properties that, if violated in a bmc run, show that the system does
         # something
-        # attribute method=bmc[6]
+        attribute method=bmc[6]
         # a counter-example to this show that there is a scenario in which a first withdrawal fails
         # because the sequence number changed, and then a second withdrawal succeeds:
-        # invariant ~(signed(TX1) & executed(T2,TX2) & withdraw_t.seqnum(TX1) < withdraw_t.seqnum(TX2))
+        invariant ~(signed(TX1) & executed(T2,TX2) & withdraw_tx_t.seqnum(TX1) < withdraw_tx_t.seqnum(TX2))
+    }
+} with this
+
+isolate canary_4 = {
+    private {
+        attribute method=bmc[10]
+        invariant ~(refunded & exists T, TX. executed(T,TX))
     }
 } with this
 

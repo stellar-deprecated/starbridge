@@ -1,0 +1,263 @@
+#lang ivy1.7
+
+# Model of the Ethereum to Stellar transfer flow in Starbridge
+
+# In this model we consider a single transfer and a single bridge validator
+# (referred to as the bridge). For simplicity we do not model addresses,
+# amounts, hashes, etc.
+
+# Instead we focus on the core ideas:
+# a) disjoint withdraw and refund periods
+# b) the idea of using the successor of the current sequence number of the
+# receiving account as the sequence number of a withdrawal transaction.
+
+# Include the order module from the standard Ivy library (ivy/include/1.7/order.ivy):
+include order
+
+# Create types `count_t`, `time_t`, and `seqnum_t`:
+instance count_t : unbounded_sequence
+instance seqnum_t : unbounded_sequence
+instance time_t : unbounded_sequence
+
+# The duration of the withdraw period (which starts at time 0):
+parameter end_withdraw_period:time_t
+axiom end_withdraw_period > 0
+
+# The type of withdraw transactions from the bridge to the receiving account:
+
+object withdraw_tx_t = {
+    type this = struct {
+        # we only track the time bound and seqnum; the rest is not relevant
+        max_time : time_t,
+        seqnum : seqnum_t
+    }
+}
+
+# The set of signed transactions that the user has collected:
+relation signed(TX:withdraw_tx_t)
+
+# State and actions pertaining to Stellar
+# =======================================
+
+# The last ledger close time on Stellar:
+var ledger_time:time_t
+
+# Current sequence number of the receiving account:
+var seqnum:seqnum_t
+
+# History of executed transactions (by ledger close time):
+relation executed(T:time_t, TX:withdraw_tx_t)
+
+# History of the sequence number of the receiving account (by ledger close time):
+relation seqnum_history(T:time_t, S:seqnum_t)
+
+after init {
+    signed(TX) := false;
+    ledger_time := 0;
+    executed(T,TX) := false;
+    seqnum := 0;
+    seqnum_history(T,S) := T=0 & S=0;
+    refunded := false;
+}
+
+# A withdrawal is valid and can be executed when its sequence number is equal to the sequence number
+# of the receiving account + 1, and its `max_time` is greater or equal to the current time.
+
+relation valid(TX:withdraw_tx_t, T:time_t)
+definition valid(TX:withdraw_tx_t, T:time_t) =
+    seqnum_t.succ(seqnum, withdraw_tx_t.seqnum(TX)) & T <= withdraw_tx_t.max_time(TX)
+
+# Execute a new ledger potentially containing a withdraw transaction. Note that
+# the sequence number of the receiving account can increase due to other
+# transactions being executed.
+export action new_ledger(new_t:time_t, s:seqnum_t, include_withdrawal:bool, tx:withdraw_tx_t) = {
+    require new_t > ledger_time;
+    require s >= seqnum;
+    if include_withdrawal {
+        require signed(tx) & valid(tx, new_t);
+        executed(new_t, tx) := true;
+        require s > seqnum;
+    };
+    seqnum := s;
+    ledger_time := new_t;
+    seqnum_history(ledger_time, seqnum) := true;
+}
+
+# State and actions pertaining to the bridge
+# ==========================================
+
+# Ledger time as seen by the bridge:
+var bridge_ledger_time: time_t
+
+# Sequence number of the receiving account as seen by the bridge:
+var bridge_receiving_seqnum: seqnum_t
+
+# Whether the transfer has been refunded or not:
+var refunded:bool
+
+after init {
+    bridge_ledger_time := 0;
+    bridge_receiving_seqnum := 0;
+}
+
+# The brigde processes ledgers up to `l`.
+export action process_ledgers(l:time_t) = {
+    require l <= ledger_time;
+    bridge_ledger_time := l;
+    local s:seqnum_t { # the seqnum of the receiving account as of ledger l
+        assume seqnum_history(l, s);
+        bridge_receiving_seqnum := s;
+    }
+}
+
+# The bridge loses its state and restarts:
+export action restart = {
+    bridge_ledger_time := 0;
+    bridge_receiving_seqnum := 0
+}
+
+# We assume we start in a state in which the user has already made a final deposit on Ethereum.
+# The bridge signs a withdraw transaction if:
+# a) it has not been executed according to the bridge's view of Stellar (so, before or in ledger
+# `bridge_ledger_time`),
+# b) `max_time` is before the end of the withdraw period, and
+# c) the sequence number of the transaction is equal to the receiving account's sequence number + 1.
+export action sign_withdraw(tx:withdraw_tx_t) = {
+    require T <= bridge_ledger_time -> ~executed(T, TX);
+    require tx.max_time <= end_withdraw_period;
+    require seqnum_t.succ(bridge_receiving_seqnum, tx.seqnum);
+    signed(tx) := true;
+}
+
+# The bridge refunds a transaction if we are past the end of the withdraw period (as measure by
+# Stellar ledger time as seen by the bridge) and no withdraw transaction has been executed.
+export action refund = {
+    require bridge_ledger_time > end_withdraw_period;
+    require T <= bridge_ledger_time -> ~executed(T, TX);
+    refunded := true;
+}
+
+# Now we'd like to check that:
+isolate main_invariants = {
+        invariant ~(refunded & executed(T,TX))
+        invariant ~(executed(T1,TX1) & executed(T2,TX2) & (T1 ~= T2 | TX1 ~= TX2))
+
+        # An invariant holds when, no matter how smart you are, you cannot call the actions, starting from the
+        # initial state, in such a way as to reach a state that violates the invariant.
+
+        # With bmc[10], Ivy checks that no invariant violation is possible in at most 10 steps:
+        attribute method=bmc[10]
+} with this
+
+# The invariants seem to hold, but is the model really doing what we think it is doing? After all, we
+# have not even tried to run it...
+# Instead of running it, we can use "canary properties"
+
+# Canary properties
+# =================
+
+# Canaries are non-invariant properties we use as sanity checks to make sure that the model does
+# something interesting
+
+isolate canary_1 = {
+    private {
+        attribute method=bmc[10]
+        # a counter-example to this show that there is a scenario in which a withdraw is successfully
+        # executed:
+        invariant ~executed(T,TX)
+    }
+} with this
+
+isolate canary_2 = {
+    private {
+        attribute method=bmc[10]
+        # a counter-example to this show that there is a scenario in which a refund is made:
+        invariant ~refunded
+    }
+} with this
+
+
+isolate canary_3 = {
+    private {
+        attribute method=bmc[10]
+        # a counter-example to this show that there is a scenario in which a first withdrawal fails
+        # because the sequence number changed, and then a second withdrawal succeeds:
+        invariant ~(signed(TX1) & executed(T2,TX2) & TX1 ~= TX2)
+    }
+} with this
+
+# Okay, now we have some confidence that our model does what we think it does.
+# Next, let's prove that the invariants cannot be violated even if we allow arbitrarily many steps.
+
+# Safety proof
+# ============
+
+# Ivy checks that the invariants given are together inductive. This means that:
+# a) they hold in the initial state and
+# b) if they hold in a state s and we execute an exported action to obtain s', then the invariants
+# also hold in s'.
+#
+# Note that if those two conditions hold then, by induction, the invariants hold in every reachable
+# state.
+
+isolate safety_1 = {
+    private {
+
+        # A withdrawal cannot be both executed and refunded:
+        # --------------------------------------------------
+
+        invariant ~(refunded & executed(T,TX))
+
+        # Supporting invariants:
+
+        # no withdrawals are executed after the end of the withdraw period:
+        invariant executed(T,TX) -> T <= end_withdraw_period
+        # refunds only happend after the withdraw period:
+        invariant refunded -> ledger_time > end_withdraw_period
+        # the bridge is always behind or in sync:
+        invariant bridge_ledger_time <= ledger_time
+        # all signed withdrawals have a max time lower than `end_withdraw_period`:
+        invariant signed(TX) -> withdraw_tx_t.max_time(TX) <= end_withdraw_period
+    }
+} with this
+
+isolate safety_2 = {
+
+    private {
+
+        # No double withdrawals:
+        # ----------------------
+
+        invariant executed(T1, TX1) & executed(T2, TX2) -> T1 = T2 & TX1 = TX2
+
+        # Supporting invariants:
+
+        # executed transactions that the bridge does not know about have a sequence number strictly
+        # higher than the sequence number the bridge knows about:
+        invariant executed(T1,TX1) & T1 > bridge_ledger_time -> withdraw_tx_t.seqnum(TX1) > bridge_receiving_seqnum
+
+        # if a withdraw is executed, then all the others signed withdraws have stale sequence numbers:
+        invariant executed(T1,TX1) & signed(TX2) -> withdraw_tx_t.seqnum(TX2) <= seqnum
+        # `seqnum` is the sequence number of the receiving account at the end of the last ledger:
+        invariant seqnum_history(ledger_time,seqnum)
+        # A withdrawal can be executed on if it has the same sequence number as the receiving account,
+        # executing it increases the sequence number of the receiving account, and account sequence
+        # numbers only increase. So we have the following three invariants:
+        invariant executed(T,TX) & seqnum_history(T,S) -> withdraw_tx_t.seqnum(TX) <= S
+        invariant seqnum_history(T1,S) & executed(T2,TX) & T1 < T2 -> S < withdraw_tx_t.seqnum(TX)
+        invariant executed(T,TX) -> exists S . seqnum_history(T,S)
+        # signed transactions have sequence numbers at most one above the current sequence number of
+        # the receiving account:
+        invariant signed(TX) -> (withdraw_tx_t.seqnum(TX) <= seqnum | seqnum_t.succ(seqnum, withdraw_tx_t.seqnum(TX)))
+        # executed transactions have sequence number at least 1 (since the account starts at 0):
+        invariant executed(T,TX) -> withdraw_tx_t.seqnum(TX) > 0
+        # the bridge is in sync or late:
+        invariant bridge_receiving_seqnum <= seqnum
+        # no seqnum is assigned in the future:
+        invariant seqnum_history(T,S) -> T <= ledger_time
+        # sequence numbers only grow:
+        invariant seqnum_history(T1,S1) & seqnum_history(T2,S2) & T1 < T2 -> S1 <= S2
+        # a ledger determines a seqnum:
+        invariant seqnum_history(T,S1) & seqnum_history(T,S2) -> S1 = S2
+    }
+} with this
