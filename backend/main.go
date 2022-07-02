@@ -5,7 +5,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"net/http"
 	"time"
+
+	"github.com/stellar/go/support/render/problem"
 
 	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/support/errors"
@@ -34,7 +37,7 @@ type Worker struct {
 	StellarSigner   *signer.Signer
 	StellarObserver *txobserver.Observer
 
-	WithdrawalWindow time.Duration
+	StellarWithdrawalValidator StellarWithdrawalValidator
 
 	log *log.Entry
 }
@@ -79,16 +82,23 @@ func (w *Worker) Run() {
 			if err != nil {
 				w.log.WithFields(log.F{"err": err, "request": sr}).
 					Error("Cannot process signature request")
+				if p, ok := err.(problem.P); ok && p.Status == http.StatusBadRequest {
+					w.deleteRequest(sr)
+				}
 			} else {
 				w.log.WithField("request", sr).
 					Info("Processed signature request successfully")
-				err = w.Store.DeleteSignatureRequest(context.TODO(), sr)
-				if err != nil {
-					w.log.WithFields(log.F{"err": err, "request": sr}).
-						Error("Error removing signature request")
-				}
+				w.deleteRequest(sr)
 			}
 		}
+	}
+}
+
+func (w *Worker) deleteRequest(sr store.SignatureRequest) {
+	err := w.Store.DeleteSignatureRequest(context.TODO(), sr)
+	if err != nil {
+		w.log.WithFields(log.F{"err": err, "request": sr}).
+			Error("Error removing signature request")
 	}
 }
 
@@ -101,30 +111,9 @@ func (w *Worker) processStellarWithdrawalRequest(sr store.SignatureRequest) erro
 		return errors.Wrap(err, "error getting ethereum deposit")
 	}
 
-	// Ensure incoming tx can still be withdrawn
-	lastLedgerCloseTime, err := w.Store.GetLastLedgerCloseTime(context.TODO())
+	details, err := w.StellarWithdrawalValidator.CanWithdraw(context.TODO(), deposit)
 	if err != nil {
-		return errors.Wrap(err, "error getting last ledger close time")
-	}
-
-	withdrawalDeadline := time.Unix(deposit.Timestamp, 0).Add(w.WithdrawalWindow)
-	if lastLedgerCloseTime.After(withdrawalDeadline) {
-		w.log.WithField("request", sr).Info("withdrawal window is expired")
-		return nil
-	}
-	lastLedgerSequence, err := w.Store.GetLastLedgerSequence(context.Background())
-	if err != nil {
-		return errors.Wrap(err, "error getting last ledger sequence")
-	}
-
-	// Check if withdrawal tx was seen without signature request
-	exists, err := w.Store.HistoryStellarTransactionExists(context.TODO(), deposit.ID)
-	if err != nil {
-		return errors.Wrap(err, "error getting history stellar transaction by memo hash")
-	}
-	if exists {
-		w.log.WithField("request", sr).Info("withdrawal transaction was already executed")
-		return nil
+		return err
 	}
 
 	// Load source account sequence
@@ -134,7 +123,7 @@ func (w *Worker) processStellarWithdrawalRequest(sr store.SignatureRequest) erro
 	if err != nil {
 		return errors.Wrap(err, "error getting account details")
 	}
-	if lastLedgerSequence < sourceAccount.LastModifiedLedger {
+	if details.LedgerSequence < sourceAccount.LastModifiedLedger {
 		return errors.New("skipping, account sequence possibly bumped after last ledger ingested")
 	}
 
@@ -156,7 +145,7 @@ func (w *Worker) processStellarWithdrawalRequest(sr store.SignatureRequest) erro
 		amountRat.FloatString(7),
 		sourceAccount.Sequence+1,
 		// TODO: ensure using WithdrawExpiration without any time buffer is safe
-		withdrawalDeadline.Unix(),
+		details.Deadline.Unix(),
 		depositIDBytes,
 	)
 	if err != nil {

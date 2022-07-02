@@ -6,13 +6,12 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
-	"strings"
-	"time"
-
-	"github.com/stellar/go/strkey"
 
 	"github.com/stellar/go/clients/horizonclient"
+	"github.com/stellar/go/strkey"
 	"github.com/stellar/go/support/log"
+	"github.com/stellar/go/support/render/problem"
+	"github.com/stellar/starbridge/backend"
 	"github.com/stellar/starbridge/ethereum"
 	"github.com/stellar/starbridge/store"
 )
@@ -20,11 +19,11 @@ import (
 var validTxHash = regexp.MustCompile("^(0x)?([A-Fa-f0-9]{64})$")
 
 type StellarWithdrawalHandler struct {
-	StellarClient          *horizonclient.Client
-	Observer               ethereum.Observer
-	Store                  *store.DB
-	WithdrawalWindow       time.Duration
-	EthereumFinalityBuffer uint64
+	StellarClient              *horizonclient.Client
+	Observer                   ethereum.Observer
+	Store                      *store.DB
+	StellarWithdrawalValidator backend.StellarWithdrawalValidator
+	EthereumFinalityBuffer     uint64
 }
 
 func (c *StellarWithdrawalHandler) getDeposit(r *http.Request, w http.ResponseWriter) (store.EthereumDeposit, error) {
@@ -104,30 +103,9 @@ func (c *StellarWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Check withdraw expiration
-	lastLedgerCloseTime, err := c.Store.GetLastLedgerCloseTime(r.Context())
+	_, err = c.StellarWithdrawalValidator.CanWithdraw(r.Context(), deposit)
 	if err != nil {
-		log.WithField("error", err).Error("Error getting last ledger close time")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	if lastLedgerCloseTime.After(time.Unix(deposit.Timestamp, 0).Add(c.WithdrawalWindow)) {
-		// TODO send an error msg to the client
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	// Check if withdrawal tx was seen without signature request
-	exists, err := c.Store.HistoryStellarTransactionExists(r.Context(), deposit.ID)
-	if err != nil {
-		log.WithField("error", err).Error("Error getting transaction by memo hash")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	if exists {
-		log.WithField("depositID", deposit.ID).Info("withdrawal transaction was already executed")
-		// TODO send an error msg to the client
-		w.WriteHeader(http.StatusBadRequest)
+		problem.Render(r.Context(), w, err)
 		return
 	}
 
@@ -162,12 +140,8 @@ func (c *StellarWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		DepositID:    deposit.ID,
 	})
 	if err != nil {
-		// Ignore duplicate violations
-		if !strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
-			log.WithField("error", err).Error("Error inserting a signature request")
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	w.WriteHeader(http.StatusAccepted)

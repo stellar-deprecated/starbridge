@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"strings"
 
 	sq "github.com/Masterminds/squirrel"
 )
@@ -31,7 +32,8 @@ func (m *DB) InsertSignatureRequest(ctx context.Context, request SignatureReques
 		"deposit_id":       request.DepositID,
 	})
 	_, err := m.Session.Exec(ctx, sql)
-	if err != nil {
+	// Ignore duplicate violations
+	if err != nil && !strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 		return err
 	}
 

@@ -156,8 +156,11 @@ func (a *App) initWorker(config Config, client *horizonclient.Client) {
 			NetworkPassphrase: config.NetworkPassphrase,
 			Signer:            signerKey,
 		},
-		StellarObserver:  a.stellarObserver,
-		WithdrawalWindow: config.WithdrawalWindow,
+		StellarObserver: a.stellarObserver,
+		StellarWithdrawalValidator: backend.StellarWithdrawalValidator{
+			Store:            a.NewStore(),
+			WithdrawalWindow: config.WithdrawalWindow,
+		},
 	}
 }
 
@@ -168,10 +171,13 @@ func (a *App) initHTTP(config Config, client *horizonclient.Client, ethObserver 
 		AdminPort:          config.AdminPort,
 		PrometheusRegistry: a.prometheusRegistry,
 		StellarWithdrawalHandler: &controllers.StellarWithdrawalHandler{
-			StellarClient:          client,
-			Observer:               ethObserver,
-			Store:                  a.NewStore(),
-			WithdrawalWindow:       config.WithdrawalWindow,
+			StellarClient: client,
+			Observer:      ethObserver,
+			Store:         a.NewStore(),
+			StellarWithdrawalValidator: backend.StellarWithdrawalValidator{
+				Store:            a.NewStore(),
+				WithdrawalWindow: config.WithdrawalWindow,
+			},
 			EthereumFinalityBuffer: config.EthereumFinalityBuffer,
 		},
 	})
