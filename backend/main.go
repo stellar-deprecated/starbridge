@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"net/http"
 	"time"
 
 	"github.com/stellar/go/support/render/problem"
@@ -82,7 +81,7 @@ func (w *Worker) Run() {
 			if err != nil {
 				w.log.WithFields(log.F{"err": err, "request": sr}).
 					Error("Cannot process signature request")
-				if p, ok := err.(problem.P); ok && p.Status == http.StatusBadRequest {
+				if p, ok := err.(problem.P); ok && p.Status >= 400 && p.Status < 500 {
 					w.deleteRequest(sr)
 				}
 			} else {
