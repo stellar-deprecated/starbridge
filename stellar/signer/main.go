@@ -1,8 +1,6 @@
 package signer
 
 import (
-	"encoding/hex"
-
 	"github.com/stellar/go/keypair"
 	"github.com/stellar/go/network"
 	"github.com/stellar/go/support/errors"
@@ -15,16 +13,16 @@ type Signer struct {
 }
 
 // Sign signs an envelope.
-func (s *Signer) Sign(envelope xdr.TransactionEnvelope) (string, xdr.DecoratedSignature, error) {
+func (s *Signer) Sign(envelope xdr.TransactionEnvelope) (xdr.DecoratedSignature, error) {
 	hash, err := network.HashTransactionInEnvelope(envelope, s.NetworkPassphrase)
 	if err != nil {
-		return "", xdr.DecoratedSignature{}, errors.Wrap(err, "failed to hash transaction")
+		return xdr.DecoratedSignature{}, errors.Wrap(err, "failed to hash transaction")
 	}
 
 	sig, err := s.Signer.SignDecorated(hash[:])
 	if err != nil {
-		return "", xdr.DecoratedSignature{}, errors.Wrap(err, "failed to sign transaction")
+		return xdr.DecoratedSignature{}, errors.Wrap(err, "failed to sign transaction")
 	}
 
-	return hex.EncodeToString(hash[:]), sig, nil
+	return sig, nil
 }

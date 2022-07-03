@@ -145,6 +145,11 @@ func (a *App) initWorker(config Config, client *horizonclient.Client) {
 		}
 	}
 
+	ethSigner, err := ethereum.NewSigner(config.EthereumPrivateKey, config.EthereumBridgeConfigVersion)
+	if err != nil {
+		log.Fatalf("cannot create ethereum signer: %v", err)
+	}
+
 	a.worker = &backend.Worker{
 		Ctx:           a.appCtx,
 		Store:         a.NewStore(),
@@ -157,7 +162,12 @@ func (a *App) initWorker(config Config, client *horizonclient.Client) {
 			Signer:            signerKey,
 		},
 		StellarObserver: a.stellarObserver,
+		EthereumSigner:  ethSigner,
 		StellarWithdrawalValidator: backend.StellarWithdrawalValidator{
+			Session:          a.session.Clone(),
+			WithdrawalWindow: config.WithdrawalWindow,
+		},
+		EthereumRefundValidator: backend.EthereumRefundValidator{
 			Session:          a.session.Clone(),
 			WithdrawalWindow: config.WithdrawalWindow,
 		},
@@ -175,6 +185,15 @@ func (a *App) initHTTP(config Config, client *horizonclient.Client, ethObserver 
 			Observer:      ethObserver,
 			Store:         a.NewStore(),
 			StellarWithdrawalValidator: backend.StellarWithdrawalValidator{
+				Session:          a.session.Clone(),
+				WithdrawalWindow: config.WithdrawalWindow,
+			},
+			EthereumFinalityBuffer: config.EthereumFinalityBuffer,
+		},
+		EthereumRefundHandler: &controllers.EthereumRefundHandler{
+			Observer: ethObserver,
+			Store:    a.NewStore(),
+			EthereumRefundValidator: backend.EthereumRefundValidator{
 				Session:          a.session.Clone(),
 				WithdrawalWindow: config.WithdrawalWindow,
 			},
