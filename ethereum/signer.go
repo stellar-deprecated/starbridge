@@ -56,7 +56,7 @@ type Signer struct {
 }
 
 // NewSigner constructs a new Signer instance
-func NewSigner(privateKey string, bridgeConfigVersion int) (Signer, error) {
+func NewSigner(privateKey string, bridgeConfigVersion uint32) (Signer, error) {
 	parsed, err := crypto.HexToECDSA(privateKey)
 	if err != nil {
 		return Signer{}, err
@@ -137,5 +137,17 @@ func (s Signer) signWithdrawETHRequest(request solidity.WithdrawETHRequest) ([]b
 }
 
 func (s Signer) signPayload(abiEncoded []byte) ([]byte, error) {
-	return crypto.Sign(accounts.TextHash(crypto.Keccak256(abiEncoded)), s.privateKey)
+	sig, err := crypto.Sign(accounts.TextHash(crypto.Keccak256(abiEncoded)), s.privateKey)
+	if err != nil {
+		return nil, err
+	}
+	// The ECDSA solidity library used by the bridge smart contract expects the v
+	// value to be 27 or 28, see:
+	// https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.7.0/contracts/utils/cryptography/ECDSA.sol#L41-L43
+	// However, crypto.Sign() encodes the v value as 0 or 1, see:
+	// https://github.com/ethereum/go-ethereum/blob/v1.10.20/crypto/signature_cgo.go#L54
+	// That is why we need to transform the signature to be compatible with the
+	// ECDSA solidity library.
+	sig[len(sig)-1] += 27
+	return sig, nil
 }
