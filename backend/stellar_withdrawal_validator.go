@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/stellar/go/support/db"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/support/render/problem"
@@ -48,7 +50,7 @@ var (
 // withdraw a deposit to the ethereum bridge smart contract on
 // Stellar.
 type StellarWithdrawalValidator struct {
-	Store            *store.DB
+	Session          db.SessionInterface
 	WithdrawalWindow time.Duration
 }
 
@@ -77,7 +79,8 @@ func (s StellarWithdrawalValidator) CanWithdraw(ctx context.Context, deposit sto
 		return StellarWithdrawalDetails{}, WithdrawalAmountInvalid
 	}
 
-	err := s.Store.Session.BeginTx(&sql.TxOptions{
+	dbStore := store.DB{Session: s.Session.Clone()}
+	err := dbStore.Session.BeginTx(&sql.TxOptions{
 		Isolation: sql.LevelRepeatableRead,
 		ReadOnly:  true,
 	})
@@ -86,15 +89,15 @@ func (s StellarWithdrawalValidator) CanWithdraw(ctx context.Context, deposit sto
 	}
 	defer func() {
 		// explicitly ignore return value to make the linter happy
-		_ = s.Store.Session.Rollback()
+		_ = dbStore.Session.Rollback()
 	}()
 
-	lastLedgerSequence, err := s.Store.GetLastLedgerSequence(context.Background())
+	lastLedgerSequence, err := dbStore.GetLastLedgerSequence(context.Background())
 	if err != nil {
 		return StellarWithdrawalDetails{}, errors.Wrap(err, "error getting last ledger sequence")
 	}
 
-	lastLedgerCloseTime, err := s.Store.GetLastLedgerCloseTime(ctx)
+	lastLedgerCloseTime, err := dbStore.GetLastLedgerCloseTime(ctx)
 	if err != nil {
 		return StellarWithdrawalDetails{}, errors.Wrap(err, "error getting last ledger close time")
 	}
@@ -104,7 +107,7 @@ func (s StellarWithdrawalValidator) CanWithdraw(ctx context.Context, deposit sto
 	}
 
 	// Check if withdrawal tx was seen without signature request
-	exists, err := s.Store.HistoryStellarTransactionExists(ctx, deposit.ID)
+	exists, err := dbStore.HistoryStellarTransactionExists(ctx, deposit.ID)
 	if err != nil {
 		return StellarWithdrawalDetails{}, errors.Wrap(err, "error getting history stellar transaction by memo hash")
 	}

@@ -158,7 +158,7 @@ func (a *App) initWorker(config Config, client *horizonclient.Client) {
 		},
 		StellarObserver: a.stellarObserver,
 		StellarWithdrawalValidator: backend.StellarWithdrawalValidator{
-			Store:            a.NewStore(),
+			Session:          a.session.Clone(),
 			WithdrawalWindow: config.WithdrawalWindow,
 		},
 	}
@@ -175,7 +175,7 @@ func (a *App) initHTTP(config Config, client *horizonclient.Client, ethObserver 
 			Observer:      ethObserver,
 			Store:         a.NewStore(),
 			StellarWithdrawalValidator: backend.StellarWithdrawalValidator{
-				Store:            a.NewStore(),
+				Session:          a.session.Clone(),
 				WithdrawalWindow: config.WithdrawalWindow,
 			},
 			EthereumFinalityBuffer: config.EthereumFinalityBuffer,
