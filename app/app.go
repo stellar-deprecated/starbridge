@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -24,9 +25,10 @@ type App struct {
 	appCtx    context.Context
 	cancelCtx context.CancelFunc
 
-	httpServer *httpx.Server
-	worker     *backend.Worker
-	store      *store.DB
+	httpServer      *httpx.Server
+	worker          *backend.Worker
+	store           *store.DB
+	stellarObserver *txobserver.Observer
 
 	prometheusRegistry *prometheus.Registry
 }
@@ -50,10 +52,17 @@ func NewApp(config Config) *App {
 		prometheusRegistry: prometheus.NewRegistry(),
 	}
 
-	app.initGracefulShutdown()
-	app.initHTTP(config)
-	app.initWorker(config)
+	client := &horizonclient.Client{
+		HorizonURL: config.HorizonURL,
+		// TODO set proper timeouts
+		HTTP: http.DefaultClient,
+	}
+
 	app.initStore(config)
+	app.initGracefulShutdown()
+	app.stellarObserver = txobserver.NewObserver(app.appCtx, config.MainAccountID, client, app.store)
+	app.initHTTP(config)
+	app.initWorker(config, client)
 	app.initLogger()
 	app.initPrometheus()
 
@@ -102,7 +111,7 @@ func (a *App) initStore(config Config) {
 	}
 }
 
-func (a *App) initWorker(config Config) {
+func (a *App) initWorker(config Config, client *horizonclient.Client) {
 	var (
 		signerKey *keypair.Full
 		err       error
@@ -115,17 +124,17 @@ func (a *App) initWorker(config Config) {
 	}
 
 	a.worker = &backend.Worker{
-		Ctx:   a.appCtx,
-		Store: a.store,
+		Ctx:           a.appCtx,
+		Store:         a.store,
+		StellarClient: client,
 		StellarBuilder: &txbuilder.Builder{
-			HorizonURL:    config.HorizonURL,
 			BridgeAccount: config.MainAccountID,
 		},
 		StellarSigner: &signer.Signer{
 			NetworkPassphrase: config.NetworkPassphrase,
 			Signer:            signerKey,
 		},
-		StellarObserver: txobserver.NewObserver(a.appCtx, horizonclient.DefaultTestNetClient, a.store),
+		StellarObserver: a.stellarObserver,
 	}
 }
 

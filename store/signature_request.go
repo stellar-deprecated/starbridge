@@ -15,14 +15,12 @@ const (
 type SignatureRequest struct {
 	IncomingType            NetworkType `db:"incoming_type"`
 	IncomingTransactionHash string      `db:"incoming_transaction_hash"`
-	TxExpirationTimestamp   int64       `db:"tx_expiration_timestamp"`
 }
 
-func (m *DB) InsertSignatureRequestForIncomingEthereumTransaction(ctx context.Context, hash string, expirationTimestamp int64) error {
+func (m *DB) InsertSignatureRequestForIncomingEthereumTransaction(ctx context.Context, hash string) error {
 	sql := sq.Insert("signature_requests").SetMap(map[string]interface{}{
 		"incoming_type":             Ethereum,
 		"incoming_transaction_hash": hash,
-		`tx_expiration_timestamp`:   expirationTimestamp,
 	})
 	_, err := m.Session.Exec(ctx, sql)
 	if err != nil {
