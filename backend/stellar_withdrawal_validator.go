@@ -98,7 +98,7 @@ func (s StellarWithdrawalValidator) CanWithdraw(ctx context.Context, deposit sto
 	if err != nil {
 		return StellarWithdrawalDetails{}, errors.Wrap(err, "error getting last ledger close time")
 	}
-	withdrawalDeadline := time.Unix(deposit.Timestamp, 0).Add(s.WithdrawalWindow)
+	withdrawalDeadline := time.Unix(deposit.BlockTime, 0).Add(s.WithdrawalWindow)
 	if lastLedgerCloseTime.After(withdrawalDeadline) {
 		return StellarWithdrawalDetails{}, WithdrawalWindowExpired
 	}

@@ -27,8 +27,8 @@ type EthereumDeposit struct {
 	// BlockNumber is the sequence number of the block containing the deposit
 	// transaction
 	BlockNumber uint64 `db:"block_number"`
-	// Timestamp is the unix timestamp of the deposit
-	Timestamp int64 `db:"block_time"`
+	// BlockTime is the unix timestamp of the deposit
+	BlockTime int64 `db:"block_time"`
 }
 
 func (m *DB) GetEthereumDeposit(ctx context.Context, id string) (EthereumDeposit, error) {
@@ -51,7 +51,7 @@ func (m *DB) InsertEthereumDeposit(ctx context.Context, deposit EthereumDeposit)
 			"hash":         deposit.Hash,
 			"log_index":    deposit.LogIndex,
 			"block_number": deposit.BlockNumber,
-			"block_time":   deposit.Timestamp,
+			"block_time":   deposit.BlockTime,
 			"amount":       deposit.Amount,
 			"destination":  deposit.Destination,
 			"sender":       deposit.Sender,

@@ -105,7 +105,7 @@ func getEthereumDeposit(observer ethereum.Observer, depositStore *store.DB, fina
 		Hash:        deposit.TxHash.String(),
 		LogIndex:    deposit.LogIndex,
 		BlockNumber: deposit.BlockNumber,
-		Timestamp:   deposit.Time.Unix(),
+		BlockTime:   deposit.Time.Unix(),
 	}
 	if err = depositStore.InsertEthereumDeposit(r.Context(), storeDeposit); err != nil {
 		return store.EthereumDeposit{}, err
