@@ -47,7 +47,7 @@ type Config struct {
 	HorizonURL                 string `toml:"horizon_url" valid:"-"`
 	NetworkPassphrase          string `toml:"network_passphrase" valid:"-"`
 	StellarBridgeAccount       string `toml:"stellar_bridge_account" valid:"stellar_accountid"`
-	StellarBridgeBirthSequence uint32 `toml:"stellar_bridge_birth_sequence" valid:"int"`
+	StellarBridgeAccountCreateSequence uint32 `toml:"stellar_bridge_account_create_sequence" valid:"int"`
 	StellarPrivateKey          string `toml:"stellar_private_key" valid:"stellar_seed"`
 
 	EthereumRPCURL              string `toml:"ethereum_rpc_url" valid:"-"`
