@@ -3,9 +3,13 @@ package ethereum
 import (
 	"context"
 	"encoding/binary"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
+
+	"github.com/ethereum/go-ethereum"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -22,7 +26,25 @@ var (
 	// ErrLogNotFromBridge is returned by GetDeposit when the log
 	// with the given block index is not emitted from the bridge contract
 	ErrLogNotFromBridge = fmt.Errorf("log is not from bridge")
+	// ErrLogNotDepositEvent is returned by GetDeposit when the log
+	// with the given block index is not a DepositETH or DepositERC20 event
+	ErrLogNotDepositEvent = fmt.Errorf("log is not a deposit event")
+	// ErrTxHashNotFound is returned by GetDeposit when the given transaction
+	// hash is not found
+	ErrTxHashNotFound = fmt.Errorf("deposit tx hash not found")
 )
+
+// IsInvalidGetDepositRequest returns true if the given error
+// from GetDeposit indicates that the provided transaction hash
+// or log index is invalid
+func IsInvalidGetDepositRequest(err error) bool {
+	if err == nil {
+		return false
+	}
+	return errors.Is(err, ErrLogNotFound) ||
+		errors.Is(err, ErrLogNotFromBridge) ||
+		errors.Is(err, ErrLogNotDepositEvent)
+}
 
 // Block represents an ethereum block
 type Block struct {
@@ -66,11 +88,13 @@ type Deposit struct {
 	Time time.Time
 }
 
-// ID returns a unique id for the deposit
-func (d Deposit) ID() common.Hash {
+// DepositID returns a globally unique id for a given deposit
+func DepositID(txHash string, logIndex uint) string {
+	hash := common.HexToHash(txHash)
 	logIndexBytes := [32]byte{}
-	binary.PutUvarint(logIndexBytes[:], uint64(d.LogIndex))
-	return crypto.Keccak256Hash(d.TxHash[:], logIndexBytes[:])
+	binary.PutUvarint(logIndexBytes[:], uint64(logIndex))
+	id := crypto.Keccak256Hash(hash[:], logIndexBytes[:])
+	return hex.EncodeToString(id.Bytes())
 }
 
 // Observer is used to inspect the ethereum blockchain to
@@ -83,12 +107,17 @@ type Observer struct {
 }
 
 // NewObserver constructs a new Observer instance
-func NewObserver(client *ethclient.Client, bridgeAddress common.Address) (Observer, error) {
-	caller, err := solidity.NewBridgeCaller(bridgeAddress, client)
+func NewObserver(client *ethclient.Client, bridgeAddress string) (Observer, error) {
+	if !common.IsHexAddress(bridgeAddress) {
+		return Observer{}, fmt.Errorf("%v is not a valid ethereum address", bridgeAddress)
+	}
+	bridgeAddressParsed := common.HexToAddress(bridgeAddress)
+
+	caller, err := solidity.NewBridgeCaller(bridgeAddressParsed, client)
 	if err != nil {
 		return Observer{}, err
 	}
-	filterer, err := solidity.NewBridgeFilterer(bridgeAddress, client)
+	filterer, err := solidity.NewBridgeFilterer(bridgeAddressParsed, client)
 	if err != nil {
 		return Observer{}, err
 	}
@@ -97,7 +126,7 @@ func NewObserver(client *ethclient.Client, bridgeAddress common.Address) (Observ
 		client:        client,
 		filterer:      filterer,
 		caller:        caller,
-		bridgeAddress: bridgeAddress,
+		bridgeAddress: bridgeAddressParsed,
 	}, nil
 }
 
@@ -108,6 +137,9 @@ func (o Observer) GetDeposit(
 ) (Deposit, error) {
 	receipt, err := o.client.TransactionReceipt(ctx, common.HexToHash(txHash))
 	if err != nil {
+		if err == ethereum.NotFound {
+			return Deposit{}, ErrTxHashNotFound
+		}
 		return Deposit{}, err
 	}
 	var log *types.Log
@@ -145,7 +177,7 @@ func (o Observer) GetDeposit(
 
 	ethEvent, err := o.filterer.ParseDepositETH(*log)
 	if err != nil {
-		return Deposit{}, err
+		return Deposit{}, ErrLogNotDepositEvent
 	}
 	return Deposit{
 		Token:       common.Address{},

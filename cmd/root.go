@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"time"
+
 	"github.com/spf13/cobra"
 	"github.com/stellar/go/support/config"
 	"github.com/stellar/go/support/errors"
@@ -28,6 +30,8 @@ var RootCmd = &cobra.Command{
 			}
 		}
 
+		cfg.EthereumFinalityBuffer = 6
+		cfg.WithdrawalWindow = time.Hour * 24
 		app := app.NewApp(cfg)
 		app.Run()
 		return nil

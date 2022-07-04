@@ -2,28 +2,38 @@ package store
 
 import (
 	"context"
+	"strings"
 
 	sq "github.com/Masterminds/squirrel"
 )
 
-type NetworkType string
+type (
+	Blockchain string
+	Action     string
+)
 
 const (
-	Ethereum NetworkType = "ethereum"
+	Stellar  Blockchain = "stellar"
+	Ethereum Blockchain = "ethereum"
+	Withdraw Action     = "withdraw"
+	Refund   Action     = "refund"
 )
 
 type SignatureRequest struct {
-	IncomingType            NetworkType `db:"incoming_type"`
-	IncomingTransactionHash string      `db:"incoming_transaction_hash"`
+	DepositChain Blockchain `db:"deposit_chain"`
+	Action       Action     `db:"requested_action"`
+	DepositID    string     `db:"deposit_id"`
 }
 
-func (m *DB) InsertSignatureRequestForIncomingEthereumTransaction(ctx context.Context, hash string) error {
+func (m *DB) InsertSignatureRequest(ctx context.Context, request SignatureRequest) error {
 	sql := sq.Insert("signature_requests").SetMap(map[string]interface{}{
-		"incoming_type":             Ethereum,
-		"incoming_transaction_hash": hash,
+		"deposit_chain":    request.DepositChain,
+		"requested_action": request.Action,
+		"deposit_id":       request.DepositID,
 	})
 	_, err := m.Session.Exec(ctx, sql)
-	if err != nil {
+	// Ignore duplicate violations
+	if err != nil && !strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
 		return err
 	}
 
@@ -41,24 +51,11 @@ func (m *DB) GetSignatureRequests(ctx context.Context) ([]SignatureRequest, erro
 	return results, nil
 }
 
-func (m *DB) GetSignatureRequestForIncomingEthereumTransaction(ctx context.Context, hash string) (SignatureRequest, error) {
-	sql := sq.Select("*").From("signature_requests").Where(map[string]interface{}{
-		"incoming_type":             Ethereum,
-		"incoming_transaction_hash": hash,
-	})
-
-	var result SignatureRequest
-	if err := m.Session.Get(ctx, &result, sql); err != nil {
-		return result, err
-	}
-
-	return result, nil
-}
-
-func (m *DB) DeleteSignatureRequestForIncomingEthereumTransaction(ctx context.Context, hash string) error {
+func (m *DB) DeleteSignatureRequest(ctx context.Context, request SignatureRequest) error {
 	del := sq.Delete("signature_requests").Where(map[string]interface{}{
-		"incoming_type":             Ethereum,
-		"incoming_transaction_hash": hash,
+		"deposit_chain":    request.DepositChain,
+		"deposit_id":       request.DepositID,
+		"requested_action": request.Action,
 	})
 	_, err := m.Session.Exec(ctx, del)
 	return err

@@ -2,23 +2,41 @@ package store
 
 import (
 	"context"
-	"time"
 
 	sq "github.com/Masterminds/squirrel"
 )
 
-type IncomingEthereumTransaction struct {
-	Hash               string    `db:"hash"`
-	ValueWei           string    `db:"value_wei"`
-	StellarAddress     string    `db:"stellar_address"`
-	WithdrawExpiration time.Time `db:"withdraw_expiration"`
-	Withdrawn          bool      `db:"withdrawn"`
+type EthereumDeposit struct {
+	// ID is the globally unique id for this deposit
+	ID string `db:"id"`
+	// Token is the address (0x0 in the case that eth was deposited)
+	// of the tokens which were deposited to the bridge
+	Token string `db:"token"`
+	// Sender is the address of the account which deposited the tokens
+	Sender string `db:"sender"`
+	// Destination is the intended recipient of the bridge transfer
+	Destination string `db:"destination"`
+	// Amount is the amount of tokens which were deposited to the bridge
+	// contract
+	Amount string `db:"amount"`
+	// Hash is the hash of the transaction containing the deposit
+	Hash string `db:"hash"`
+	// LogIndex is the log index within the ethereum block of the deposit event
+	// emitted by the bridge contract
+	LogIndex uint `db:"log_index"`
+	// BlockNumber is the sequence number of the block containing the deposit
+	// transaction
+	BlockNumber uint64 `db:"block_number"`
+	// BlockTime is the unix timestamp of the deposit
+	BlockTime int64 `db:"block_time"`
 }
 
-func (m *DB) GetIncomingEthereumTransactionByHash(ctx context.Context, hash string) (IncomingEthereumTransaction, error) {
-	sql := sq.Select("*").From("incoming_ethereum_transactions").Where(sq.Eq{"hash": hash})
+func (m *DB) GetEthereumDeposit(ctx context.Context, id string) (EthereumDeposit, error) {
+	sql := sq.Select("*").From("ethereum_deposits").Where(
+		sq.Eq{"id": id},
+	)
 
-	var result IncomingEthereumTransaction
+	var result EthereumDeposit
 	if err := m.Session.Get(ctx, &result, sql); err != nil {
 		return result, err
 	}
@@ -26,24 +44,19 @@ func (m *DB) GetIncomingEthereumTransactionByHash(ctx context.Context, hash stri
 	return result, nil
 }
 
-func (m *DB) InsertIncomingEthereumTransaction(ctx context.Context, newtx IncomingEthereumTransaction) error {
-	query := sq.Insert("incoming_ethereum_transactions").
+func (m *DB) InsertEthereumDeposit(ctx context.Context, deposit EthereumDeposit) error {
+	query := sq.Insert("ethereum_deposits").
 		SetMap(map[string]interface{}{
-			"hash":                newtx.Hash,
-			"value_wei":           newtx.ValueWei,
-			"stellar_address":     newtx.StellarAddress,
-			"withdraw_expiration": newtx.WithdrawExpiration,
-			"withdrawn":           false,
+			"id":           deposit.ID,
+			"hash":         deposit.Hash,
+			"log_index":    deposit.LogIndex,
+			"block_number": deposit.BlockNumber,
+			"block_time":   deposit.BlockTime,
+			"amount":       deposit.Amount,
+			"destination":  deposit.Destination,
+			"sender":       deposit.Sender,
+			"token":        deposit.Token,
 		})
-
-	_, err := m.Session.Exec(ctx, query)
-	return err
-}
-
-func (m *DB) MarkIncomingEthereumTransactionAsWithdrawn(ctx context.Context, hash string) error {
-	query := sq.Update("incoming_ethereum_transactions").
-		Set("withdrawn", true).
-		Where(sq.Eq{"hash": hash})
 
 	_, err := m.Session.Exec(ctx, query)
 	return err

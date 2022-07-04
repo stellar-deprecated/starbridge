@@ -2,10 +2,12 @@ package backend
 
 import (
 	"context"
-	"database/sql"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"time"
+
+	"github.com/stellar/go/support/render/problem"
 
 	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/support/errors"
@@ -34,6 +36,8 @@ type Worker struct {
 	StellarSigner   *signer.Signer
 	StellarObserver *txobserver.Observer
 
+	StellarWithdrawalValidator StellarWithdrawalValidator
+
 	log *log.Entry
 }
 
@@ -61,108 +65,93 @@ func (w *Worker) Run() {
 		w.log.Infof("Processing %d signature requests", len(signatureRequests))
 
 		for _, sr := range signatureRequests {
-			switch sr.IncomingType {
-			case store.Ethereum:
-				err := w.processIncomingEthereumSignatureRequest(sr)
-				if err != nil {
-					w.log.WithFields(log.F{"err": err, "hash": sr.IncomingTransactionHash}).
-						Error("Cannot process signature request")
+			var err error
+			switch sr.Action {
+			case store.Withdraw:
+				switch sr.DepositChain {
+				case store.Ethereum:
+					err = w.processStellarWithdrawalRequest(sr)
+				default:
+					err = fmt.Errorf("withdrawals for deposit chain %v is not supported", sr.DepositChain)
 				}
+			default:
+				err = fmt.Errorf("action %v is not supported", sr.Action)
+			}
 
-				w.log.WithField("hash", sr.IncomingTransactionHash).
-					WithField("network", sr.IncomingType).
+			if err != nil {
+				w.log.WithFields(log.F{"err": err, "request": sr}).
+					Error("Cannot process signature request")
+				if p, ok := err.(problem.P); ok && p.Status >= 400 && p.Status < 500 {
+					w.deleteRequest(sr)
+				}
+			} else {
+				w.log.WithField("request", sr).
 					Info("Processed signature request successfully")
-
-				err = w.Store.DeleteSignatureRequestForIncomingEthereumTransaction(context.TODO(), sr.IncomingTransactionHash)
-				if err != nil {
-					w.log.WithFields(log.F{"err": err, "hash": sr.IncomingTransactionHash}).
-						Error("Error removing signature request")
-				}
+				w.deleteRequest(sr)
 			}
 		}
 	}
 }
 
-func (w *Worker) processIncomingEthereumSignatureRequest(sr store.SignatureRequest) error {
-	hash := sr.IncomingTransactionHash
-
-	incomingEthereumTransaction, err := w.Store.GetIncomingEthereumTransactionByHash(context.TODO(), hash)
+func (w *Worker) deleteRequest(sr store.SignatureRequest) {
+	err := w.Store.DeleteSignatureRequest(context.TODO(), sr)
 	if err != nil {
-		return errors.Wrap(err, "error getting incoming ethereum transaction")
+		w.log.WithFields(log.F{"err": err, "request": sr}).
+			Error("Error removing signature request")
 	}
+}
 
-	// Ensure incoming tx can still be withdrawn
-	lastLedgerCloseTime, err := w.Store.GetLastLedgerCloseTime(context.TODO())
+func (w *Worker) processStellarWithdrawalRequest(sr store.SignatureRequest) error {
+	if sr.DepositChain != store.Ethereum {
+		return fmt.Errorf("deposits from %v are not supported", sr.DepositChain)
+	}
+	deposit, err := w.Store.GetEthereumDeposit(context.TODO(), sr.DepositID)
 	if err != nil {
-		return errors.Wrap(err, "error getting last ledger close time")
+		return errors.Wrap(err, "error getting ethereum deposit")
 	}
 
-	if incomingEthereumTransaction.Withdrawn {
-		// TODO on permament errors remove signature request
-		return errors.New("already withdrawn")
-	}
-
-	if lastLedgerCloseTime.After(incomingEthereumTransaction.WithdrawExpiration) {
-		return errors.New("withdrawal no longer possible")
-	}
-
-	outgoingStellarTransaction, err := w.Store.GetOutgoingStellarTransactionForEthereumByHash(context.TODO(), hash)
-	if err == nil {
-		// Ensure outgoing tx is not pending or success
-		if outgoingStellarTransaction.State == store.PendingState ||
-			outgoingStellarTransaction.State == store.SuccessState {
-			return errors.Errorf("outgoing transaction is in `%s` state", outgoingStellarTransaction.State)
-		}
-	} else if err != sql.ErrNoRows {
-		return errors.Wrap(err, "error getting outgoing stellar transaction")
-	}
-
-	// Check if withdrawal tx was seen without signature request
-	_, err = w.Store.GetHistoryStellarTransactionByMemoHash(context.TODO(), incomingEthereumTransaction.Hash)
-	if err == nil {
-		return errors.New("withdraw transaction is present in ledger history")
-	} else if err != sql.ErrNoRows {
-		return errors.Wrap(err, "error getting history stellar transaction by memo hash")
+	details, err := w.StellarWithdrawalValidator.CanWithdraw(context.TODO(), deposit)
+	if err != nil {
+		return err
 	}
 
 	// Load source account sequence
 	sourceAccount, err := w.StellarClient.AccountDetail(horizonclient.AccountRequest{
-		AccountID: incomingEthereumTransaction.StellarAddress,
+		AccountID: deposit.Destination,
 	})
 	if err != nil {
 		return errors.Wrap(err, "error getting account details")
 	}
-
-	// Ensure source account sequence was not bumped in a meantime
-	lastLedgerSequence, err := w.Store.GetLastLedgerSequence(context.Background())
-	if err != nil {
-		return errors.Wrap(err, "error getting last ledger sequence")
-	}
-
-	if lastLedgerSequence < sourceAccount.LastModifiedLedger {
-		return errors.New("skipping, account sequence possibly bumped after last ledger ingested")
+	if sourceAccount.SequenceLedger > 0 {
+		if details.LedgerSequence < sourceAccount.SequenceLedger {
+			return errors.New("skipping, account sequence ledger is higher than last ledger ingested")
+		}
+	} else {
+		if details.LedgerSequence < sourceAccount.LastModifiedLedger {
+			return errors.New("skipping, account sequence possibly bumped after last ledger ingested")
+		}
 	}
 
 	// All good: build, sign and persist outgoing transaction
-	amountRat, ok := new(big.Rat).SetString(incomingEthereumTransaction.ValueWei)
+	amountRat, ok := new(big.Rat).SetString(deposit.Amount)
 	if !ok {
-		return errors.Errorf("cannot convert value in wei to bit.Rat: %s", incomingEthereumTransaction.ValueWei)
+		return errors.Errorf("cannot convert value in wei to bit.Rat: %s", deposit.Amount)
 	}
 	amountRat.Quo(amountRat, weiInEth)
 
-	incomingEthereumTransactionHashBytes, err := hex.DecodeString(incomingEthereumTransaction.Hash)
+	depositIDBytes, err := hex.DecodeString(deposit.ID)
 	if err != nil {
-		return errors.Wrap(err, "error decoding incomingEthereumTransaction.Hash")
+		return errors.Wrap(err, "error decoding deposit id")
 	}
 
 	tx, err := w.StellarBuilder.BuildTransaction(
-		incomingEthereumTransaction.StellarAddress,
-		incomingEthereumTransaction.StellarAddress,
+		deposit.Destination,
+		deposit.Destination,
 		amountRat.FloatString(7),
 		sourceAccount.Sequence+1,
 		// TODO: ensure using WithdrawExpiration without any time buffer is safe
-		incomingEthereumTransaction.WithdrawExpiration.Unix(),
-		incomingEthereumTransactionHashBytes,
+		details.Deadline.Unix(),
+		depositIDBytes,
 	)
 	if err != nil {
 		return errors.Wrap(err, "error building outgoing stellar transaction")
@@ -183,14 +172,12 @@ func (w *Worker) processIncomingEthereumSignatureRequest(sr store.SignatureReque
 	}
 
 	outgoingTx := store.OutgoingStellarTransaction{
-		State:    store.PendingState,
-		Hash:     outgoingHash,
-		Envelope: txBase64,
-
-		IncomingType:            sr.IncomingType,
-		IncomingTransactionHash: sr.IncomingTransactionHash,
+		Hash:      outgoingHash,
+		Envelope:  txBase64,
+		Action:    sr.Action,
+		DepositID: sr.DepositID,
+		Sequence:  tx.SeqNum(),
 	}
-
 	err = w.Store.UpsertOutgoingStellarTransaction(context.TODO(), outgoingTx)
 	if err != nil {
 		return errors.Wrap(err, "error upserting outgoing stellar transaction")

@@ -7,6 +7,11 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
+
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/stellar/starbridge/ethereum"
+	"github.com/stellar/starbridge/stellar/controllers"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stellar/go/clients/horizonclient"
@@ -27,7 +32,7 @@ type App struct {
 
 	httpServer      *httpx.Server
 	worker          *backend.Worker
-	store           *store.DB
+	session         *db.Session
 	stellarObserver *txobserver.Observer
 
 	prometheusRegistry *prometheus.Registry
@@ -39,16 +44,23 @@ type Config struct {
 
 	PostgresDSN string `toml:"postgres_dsn" valid:"-"`
 
-	HorizonURL        string `toml:"horizon_url" valid:"-"`
-	NetworkPassphrase string `toml:"network_passphrase" valid:"-"`
+	HorizonURL                         string `toml:"horizon_url" valid:"-"`
+	NetworkPassphrase                  string `toml:"network_passphrase" valid:"-"`
+	StellarBridgeAccount               string `toml:"stellar_bridge_account" valid:"stellar_accountid"`
+	StellarBridgeAccountCreateSequence uint32 `toml:"stellar_bridge_account_create_sequence" valid:"int"`
+	StellarPrivateKey                  string `toml:"stellar_private_key" valid:"stellar_seed"`
 
-	MainAccountID   string `toml:"main_account_id" valid:"stellar_accountid"`
-	SignerSecretKey string `toml:"signer_secret_key" valid:"optional,stellar_seed"`
+	EthereumRPCURL              string `toml:"ethereum_rpc_url" valid:"-"`
+	EthereumBridgeAddress       string `toml:"ethereum_bridge_address" valid:"-"`
+	EthereumBridgeConfigVersion uint32 `toml:"ethereum_bridge_config_version" valid:"int"`
+	EthereumPrivateKey          string `toml:"ethereum_private_key" valid:"-"`
+
+	EthereumFinalityBuffer uint64
+	WithdrawalWindow       time.Duration
 }
 
 func NewApp(config Config) *App {
 	app := &App{
-		store:              &store.DB{},
 		prometheusRegistry: prometheus.NewRegistry(),
 	}
 
@@ -58,19 +70,29 @@ func NewApp(config Config) *App {
 		HTTP: http.DefaultClient,
 	}
 
-	app.initStore(config)
+	app.initDB(config)
 	app.initGracefulShutdown()
-	app.stellarObserver = txobserver.NewObserver(app.appCtx, config.MainAccountID, client, app.store)
-	app.initHTTP(config)
+	app.stellarObserver = txobserver.NewObserver(
+		app.appCtx,
+		config.StellarBridgeAccount,
+		config.StellarBridgeAccountCreateSequence,
+		client,
+		app.NewStore(),
+	)
+	ethRPCClient, err := ethclient.Dial(config.EthereumRPCURL)
+	if err != nil {
+		log.WithField("err", err).Fatal("could not dial ethereum node")
+	}
+	ethObserver, err := ethereum.NewObserver(ethRPCClient, config.EthereumBridgeAddress)
+	if err != nil {
+		log.WithField("err", err).Fatal("could not create ethereum observer")
+	}
+	app.initHTTP(config, client, ethObserver)
 	app.initWorker(config, client)
 	app.initLogger()
 	app.initPrometheus()
 
 	return app
-}
-
-func (a *App) GetStore() *store.DB {
-	return a.store
 }
 
 func (a *App) initGracefulShutdown() {
@@ -98,14 +120,14 @@ func (a *App) initLogger() {
 	log.SetLevel(log.InfoLevel)
 }
 
-func (a *App) initStore(config Config) {
+func (a *App) initDB(config Config) {
 	session, err := db.Open("postgres", config.PostgresDSN)
 	if err != nil {
 		log.Fatalf("cannot open DB: %v", err)
 	}
 
-	a.store.Session = session
-	err = a.store.InitSchema()
+	a.session = session
+	err = store.InitSchema(session.DB.DB)
 	if err != nil {
 		log.Fatalf("cannot init DB: %v", err)
 	}
@@ -116,8 +138,8 @@ func (a *App) initWorker(config Config, client *horizonclient.Client) {
 		signerKey *keypair.Full
 		err       error
 	)
-	if config.SignerSecretKey != "" {
-		signerKey, err = keypair.ParseFull(config.SignerSecretKey)
+	if config.StellarPrivateKey != "" {
+		signerKey, err = keypair.ParseFull(config.StellarPrivateKey)
 		if err != nil {
 			log.Fatalf("cannot pase signer secret key: %v", err)
 		}
@@ -125,31 +147,49 @@ func (a *App) initWorker(config Config, client *horizonclient.Client) {
 
 	a.worker = &backend.Worker{
 		Ctx:           a.appCtx,
-		Store:         a.store,
+		Store:         a.NewStore(),
 		StellarClient: client,
 		StellarBuilder: &txbuilder.Builder{
-			BridgeAccount: config.MainAccountID,
+			BridgeAccount: config.StellarBridgeAccount,
 		},
 		StellarSigner: &signer.Signer{
 			NetworkPassphrase: config.NetworkPassphrase,
 			Signer:            signerKey,
 		},
 		StellarObserver: a.stellarObserver,
+		StellarWithdrawalValidator: backend.StellarWithdrawalValidator{
+			Session:          a.session.Clone(),
+			WithdrawalWindow: config.WithdrawalWindow,
+		},
 	}
 }
 
-func (a *App) initHTTP(config Config) {
+func (a *App) initHTTP(config Config, client *horizonclient.Client, ethObserver ethereum.Observer) {
 	httpServer, err := httpx.NewServer(httpx.ServerConfig{
 		Ctx:                a.appCtx,
 		Port:               config.Port,
 		AdminPort:          config.AdminPort,
 		PrometheusRegistry: a.prometheusRegistry,
-		Store:              a.store,
+		StellarWithdrawalHandler: &controllers.StellarWithdrawalHandler{
+			StellarClient: client,
+			Observer:      ethObserver,
+			Store:         a.NewStore(),
+			StellarWithdrawalValidator: backend.StellarWithdrawalValidator{
+				Session:          a.session.Clone(),
+				WithdrawalWindow: config.WithdrawalWindow,
+			},
+			EthereumFinalityBuffer: config.EthereumFinalityBuffer,
+		},
 	})
 	if err != nil {
 		log.Fatal("unable to create http server", err)
 	}
 	a.httpServer = httpServer
+}
+
+// NewStore returns a new instance of store.DB
+func (a *App) NewStore() *store.DB {
+	return &store.DB{Session: a.session.Clone()}
 }
 
 // Run starts all services and block until they are gracefully shut down.

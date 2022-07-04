@@ -49,7 +49,7 @@ document.getElementById("withdraw").onclick = function() {
                 status.textContent = "Sending request..."
                 while (true) {
                     const response = await axios.post(
-                        validatorUrls[j]+"/stellar/get_inverse_transaction/ethereum",
+                        validatorUrls[j]+"/stellar/withdraw/ethereum",
                         form,
                         {validateStatus: null}
                     );
