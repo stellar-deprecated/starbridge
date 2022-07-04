@@ -23,23 +23,23 @@ type Observer struct {
 	store  *store.DB
 	log    *slog.Entry
 
-	bridgeAccountBirthSequence uint32
+	bridgeAccountCreateSequence uint32
 }
 
 func NewObserver(
 	ctx context.Context,
 	bridgeAccount string,
-	bridgeAccountBirthSequence uint32,
+	bridgeAccountCreateSequence uint32,
 	client *horizonclient.Client,
 	store *store.DB,
 ) *Observer {
 	o := &Observer{
-		ctx:                        ctx,
-		bridgeAccount:              bridgeAccount,
-		bridgeAccountBirthSequence: bridgeAccountBirthSequence,
-		client:                     client,
-		store:                      store,
-		log:                        slog.DefaultLogger.WithField("service", "stellar_txobserver"),
+		ctx:                         ctx,
+		bridgeAccount:               bridgeAccount,
+		bridgeAccountCreateSequence: bridgeAccountCreateSequence,
+		client:                      client,
+		store:                       store,
+		log:                         slog.DefaultLogger.WithField("service", "stellar_txobserver"),
 	}
 
 	return o
@@ -51,7 +51,7 @@ func (o *Observer) ProcessNewLedgers() {
 			o.log.Errorf("Unable to load last ledger sequence from db: %v", err)
 		} else {
 			if ledgerSeq == 0 {
-				ledgerSeq = o.bridgeAccountBirthSequence
+				ledgerSeq = o.bridgeAccountCreateSequence
 			} else {
 				ledgerSeq++
 			}

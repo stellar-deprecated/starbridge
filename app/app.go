@@ -44,11 +44,11 @@ type Config struct {
 
 	PostgresDSN string `toml:"postgres_dsn" valid:"-"`
 
-	HorizonURL                 string `toml:"horizon_url" valid:"-"`
-	NetworkPassphrase          string `toml:"network_passphrase" valid:"-"`
-	StellarBridgeAccount       string `toml:"stellar_bridge_account" valid:"stellar_accountid"`
+	HorizonURL                         string `toml:"horizon_url" valid:"-"`
+	NetworkPassphrase                  string `toml:"network_passphrase" valid:"-"`
+	StellarBridgeAccount               string `toml:"stellar_bridge_account" valid:"stellar_accountid"`
 	StellarBridgeAccountCreateSequence uint32 `toml:"stellar_bridge_account_create_sequence" valid:"int"`
-	StellarPrivateKey          string `toml:"stellar_private_key" valid:"stellar_seed"`
+	StellarPrivateKey                  string `toml:"stellar_private_key" valid:"stellar_seed"`
 
 	EthereumRPCURL              string `toml:"ethereum_rpc_url" valid:"-"`
 	EthereumBridgeAddress       string `toml:"ethereum_bridge_address" valid:"-"`
@@ -75,7 +75,7 @@ func NewApp(config Config) *App {
 	app.stellarObserver = txobserver.NewObserver(
 		app.appCtx,
 		config.StellarBridgeAccount,
-		config.StellarBridgeBirthSequence,
+		config.StellarBridgeAccountCreateSequence,
 		client,
 		app.NewStore(),
 	)
