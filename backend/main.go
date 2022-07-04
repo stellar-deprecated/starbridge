@@ -122,8 +122,14 @@ func (w *Worker) processStellarWithdrawalRequest(sr store.SignatureRequest) erro
 	if err != nil {
 		return errors.Wrap(err, "error getting account details")
 	}
-	if details.LedgerSequence < sourceAccount.LastModifiedLedger {
-		return errors.New("skipping, account sequence possibly bumped after last ledger ingested")
+	if sourceAccount.SequenceLedger > 0 {
+		if details.LedgerSequence < sourceAccount.SequenceLedger {
+			return errors.New("skipping, account sequence ledger is higher than last ledger ingested")
+		}
+	} else {
+		if details.LedgerSequence < sourceAccount.LastModifiedLedger {
+			return errors.New("skipping, account sequence possibly bumped after last ledger ingested")
+		}
 	}
 
 	// All good: build, sign and persist outgoing transaction
