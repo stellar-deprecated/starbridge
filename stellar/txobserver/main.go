@@ -64,8 +64,9 @@ func (o *Observer) ProcessNewLedgers() {
 			err := o.catchupLedgers()
 			if err != nil {
 				o.log.WithFields(slog.F{"error": err}).Error("Error catching up")
+			} else {
+				o.catchup = false
 			}
-			o.catchup = false
 		} else {
 			// Get ledger data first to ensure there are no gaps
 			ledger, err := o.client.LedgerDetail(o.ledgerSequence)
