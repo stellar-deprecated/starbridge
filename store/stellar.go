@@ -7,6 +7,23 @@ import (
 	sq "github.com/Masterminds/squirrel"
 )
 
+type StellarDeposit struct {
+	// ID is the globally unique id for this deposit
+	ID string `db:"id"`
+	// Asset is the string encoding of the Stellar assets
+	// which were deposited to the bridge
+	Asset string `db:"token"`
+	// Sender is the address of the account which deposited the tokens
+	Sender string `db:"sender"`
+	// Destination is the intended recipient of the bridge transfer
+	Destination string `db:"destination"`
+	// Amount is the amount of tokens which were deposited to the bridge
+	// contract
+	Amount string `db:"amount"`
+	// LedgerTime is the unix timestamp of the deposit
+	LedgerTime int64 `db:"ledger_time"`
+}
+
 type HistoryStellarTransaction struct {
 	Hash     string `db:"hash"`
 	Envelope string `db:"envelope"`
@@ -14,10 +31,39 @@ type HistoryStellarTransaction struct {
 }
 
 type OutgoingStellarTransaction struct {
-	Envelope  string `db:"envelope"`
-	Sequence  int64  `db:"sequence"`
-	Action    Action `db:"requested_action"`
-	DepositID string `db:"deposit_id"`
+	Envelope      string `db:"envelope"`
+	SourceAccount string `db:"source_account"`
+	Sequence      int64  `db:"sequence"`
+	Action        Action `db:"requested_action"`
+	DepositID     string `db:"deposit_id"`
+}
+
+func (m *DB) GetStellarDeposit(ctx context.Context, id string) (StellarDeposit, error) {
+	sql := sq.Select("*").From("stellar_deposits").Where(
+		sq.Eq{"id": id},
+	)
+
+	var result StellarDeposit
+	if err := m.Session.Get(ctx, &result, sql); err != nil {
+		return result, err
+	}
+
+	return result, nil
+}
+
+func (m *DB) InsertStellarDeposit(ctx context.Context, deposit StellarDeposit) error {
+	query := sq.Insert("stellar_deposits").
+		SetMap(map[string]interface{}{
+			"id":          deposit.ID,
+			"ledger_time": deposit.LedgerTime,
+			"amount":      deposit.Amount,
+			"destination": deposit.Destination,
+			"sender":      deposit.Sender,
+			"asset":       deposit.Asset,
+		})
+
+	_, err := m.Session.Exec(ctx, query)
+	return err
 }
 
 func (m *DB) InsertHistoryStellarTransaction(ctx context.Context, tx HistoryStellarTransaction) error {
@@ -67,10 +113,11 @@ func (m *DB) UpsertOutgoingStellarTransaction(ctx context.Context, newtx Outgoin
 			"requested_action": newtx.Action,
 			"deposit_id":       newtx.DepositID,
 			"sequence":         newtx.Sequence,
+			"source_account":   newtx.SourceAccount,
 		}).
 		Suffix("ON CONFLICT (requested_action, deposit_id) " +
 			"DO UPDATE SET " +
-			"sequence=EXCLUDED.sequence, envelope=EXCLUDED.envelope",
+			"sequence=EXCLUDED.sequence, source_account=EXCLUDED.source_account, envelope=EXCLUDED.envelope",
 		)
 
 	_, err := m.Session.Exec(ctx, query)
