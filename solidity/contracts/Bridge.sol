@@ -79,7 +79,7 @@ contract Bridge is Auth {
     // to create a Bridge instance you need to provide the validator set configuration
     constructor(address[] memory _signers, uint8 _minThreshold) Auth(_signers, _minThreshold) {}
 
-    // Deposit is emitted ERC20 tokens (or ETH) is deposited on the bridge.
+    // Deposit is emitted whenever ERC20 tokens (or ETH) are deposited on the bridge.
     // The Deposit event initiates a Ethereum -> Stellar transfer.
     event Deposit(
         // 0x0 coresponds to ETH
