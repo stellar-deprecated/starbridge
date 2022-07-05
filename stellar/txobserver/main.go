@@ -2,6 +2,8 @@ package txobserver
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/hex"
 	"net/http"
 	"time"
 
@@ -151,7 +153,7 @@ func (o *Observer) catchupLedgers() error {
 
 	// Update sequence number to the ledgerSeq-1
 	// Ledger close time will be updated after returning to ProcessNewLedgers.
-	err = o.store.UpdateLastLedgerSequence(context.TODO(), uint32(ledgerSeq))
+	err = o.store.UpdateLastLedgerSequence(context.TODO(), uint32(ledgerSeq)-1)
 	if err != nil {
 		return errors.Wrap(err, "error updating last ledger sequence")
 	}
@@ -240,10 +242,15 @@ func (o *Observer) processOpsSinglePage(ops []operations.Operation, previousHash
 			continue
 		}
 
-		err := o.store.InsertHistoryStellarTransaction(context.TODO(), store.HistoryStellarTransaction{
+		memoBytes, err := base64.StdEncoding.DecodeString(tx.Memo)
+		if err != nil {
+			return errors.Wrapf(err, "error decoding memo: %s", tx.Memo)
+		}
+
+		err = o.store.InsertHistoryStellarTransaction(context.TODO(), store.HistoryStellarTransaction{
 			Hash:     tx.Hash,
 			Envelope: tx.EnvelopeXdr,
-			MemoHash: tx.Memo,
+			MemoHash: hex.EncodeToString(memoBytes),
 		})
 		if err != nil {
 			return errors.Wrapf(err, "error inserting history transaction: %s", tx.Hash)
