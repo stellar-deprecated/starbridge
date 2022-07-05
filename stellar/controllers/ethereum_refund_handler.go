@@ -39,7 +39,7 @@ func (c *EthereumRefundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if err == nil {
-		err = json.NewEncoder(w).Encode(EthereumSignatureResponse{
+		responseBytes, err := json.Marshal(EthereumSignatureResponse{
 			Address:    row.Address,
 			Signature:  row.Signature,
 			DepositID:  deposit.ID,
@@ -47,6 +47,8 @@ func (c *EthereumRefundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		})
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
+		} else {
+			_, _ = w.Write(responseBytes)
 		}
 		return
 	}
