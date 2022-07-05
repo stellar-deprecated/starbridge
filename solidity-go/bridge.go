@@ -61,7 +61,7 @@ type WithdrawETHRequest struct {
 
 // BridgeMetaData contains all meta data concerning the Bridge contract.
 var BridgeMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_signers\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"_minThreshold\",\"type\":\"uint8\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"destination\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"DepositERC20\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"destination\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"DepositETH\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"version\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"minThreshold\",\"type\":\"uint8\"}],\"name\":\"RegisterSigners\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"}],\"name\":\"RegisterStellarAsset\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"value\",\"type\":\"uint8\"}],\"name\":\"SetPaused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"WithdrawERC20\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"WithdrawETH\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"destination\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"depositERC20\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"destination\",\"type\":\"uint256\"}],\"name\":\"depositETH\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"isStellarAsset\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"minThreshold\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"paused\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint8\",\"name\":\"decimals\",\"type\":\"uint8\"},{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"}],\"internalType\":\"structRegisterStellarAssetRequest\",\"name\":\"request\",\"type\":\"tuple\"},{\"internalType\":\"bytes[]\",\"name\":\"signatures\",\"type\":\"bytes[]\"},{\"internalType\":\"uint8[]\",\"name\":\"indexes\",\"type\":\"uint8[]\"}],\"name\":\"registerStellarAsset\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestID\",\"type\":\"bytes32\"}],\"name\":\"requestStatus\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint8\",\"name\":\"value\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"nonce\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"expiration\",\"type\":\"uint256\"}],\"internalType\":\"structSetPausedRequest\",\"name\":\"request\",\"type\":\"tuple\"},{\"internalType\":\"bytes[]\",\"name\":\"signatures\",\"type\":\"bytes[]\"},{\"internalType\":\"uint8[]\",\"name\":\"indexes\",\"type\":\"uint8[]\"}],\"name\":\"setPaused\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"signers\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_signers\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"_minThreshold\",\"type\":\"uint8\"},{\"internalType\":\"bytes[]\",\"name\":\"signatures\",\"type\":\"bytes[]\"},{\"internalType\":\"uint8[]\",\"name\":\"indexes\",\"type\":\"uint8[]\"}],\"name\":\"updateSigners\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"version\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"expiration\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"internalType\":\"structWithdrawERC20Request\",\"name\":\"request\",\"type\":\"tuple\"},{\"internalType\":\"bytes[]\",\"name\":\"signatures\",\"type\":\"bytes[]\"},{\"internalType\":\"uint8[]\",\"name\":\"indexes\",\"type\":\"uint8[]\"}],\"name\":\"withdrawERC20\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"expiration\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"internalType\":\"structWithdrawETHRequest\",\"name\":\"request\",\"type\":\"tuple\"},{\"internalType\":\"bytes[]\",\"name\":\"signatures\",\"type\":\"bytes[]\"},{\"internalType\":\"uint8[]\",\"name\":\"indexes\",\"type\":\"uint8[]\"}],\"name\":\"withdrawETH\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_signers\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"_minThreshold\",\"type\":\"uint8\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"destination\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Deposit\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"version\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"minThreshold\",\"type\":\"uint8\"}],\"name\":\"RegisterSigners\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"}],\"name\":\"RegisterStellarAsset\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"value\",\"type\":\"uint8\"}],\"name\":\"SetPaused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Withdraw\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"destination\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"depositERC20\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"destination\",\"type\":\"uint256\"}],\"name\":\"depositETH\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"isStellarAsset\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"minThreshold\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"paused\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint8\",\"name\":\"decimals\",\"type\":\"uint8\"},{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"}],\"internalType\":\"structRegisterStellarAssetRequest\",\"name\":\"request\",\"type\":\"tuple\"},{\"internalType\":\"bytes[]\",\"name\":\"signatures\",\"type\":\"bytes[]\"},{\"internalType\":\"uint8[]\",\"name\":\"indexes\",\"type\":\"uint8[]\"}],\"name\":\"registerStellarAsset\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestID\",\"type\":\"bytes32\"}],\"name\":\"requestStatus\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint8\",\"name\":\"value\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"nonce\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"expiration\",\"type\":\"uint256\"}],\"internalType\":\"structSetPausedRequest\",\"name\":\"request\",\"type\":\"tuple\"},{\"internalType\":\"bytes[]\",\"name\":\"signatures\",\"type\":\"bytes[]\"},{\"internalType\":\"uint8[]\",\"name\":\"indexes\",\"type\":\"uint8[]\"}],\"name\":\"setPaused\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"signers\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_signers\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"_minThreshold\",\"type\":\"uint8\"},{\"internalType\":\"bytes[]\",\"name\":\"signatures\",\"type\":\"bytes[]\"},{\"internalType\":\"uint8[]\",\"name\":\"indexes\",\"type\":\"uint8[]\"}],\"name\":\"updateSigners\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"version\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"expiration\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"internalType\":\"structWithdrawERC20Request\",\"name\":\"request\",\"type\":\"tuple\"},{\"internalType\":\"bytes[]\",\"name\":\"signatures\",\"type\":\"bytes[]\"},{\"internalType\":\"uint8[]\",\"name\":\"indexes\",\"type\":\"uint8[]\"}],\"name\":\"withdrawERC20\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"expiration\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"internalType\":\"structWithdrawETHRequest\",\"name\":\"request\",\"type\":\"tuple\"},{\"internalType\":\"bytes[]\",\"name\":\"signatures\",\"type\":\"bytes[]\"},{\"internalType\":\"uint8[]\",\"name\":\"indexes\",\"type\":\"uint8[]\"}],\"name\":\"withdrawETH\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
 // BridgeABI is the input ABI used to generate the binding from.
@@ -544,9 +544,9 @@ func (_Bridge *BridgeTransactorSession) WithdrawETH(request WithdrawETHRequest, 
 	return _Bridge.Contract.WithdrawETH(&_Bridge.TransactOpts, request, signatures, indexes)
 }
 
-// BridgeDepositERC20Iterator is returned from FilterDepositERC20 and is used to iterate over the raw logs and unpacked data for DepositERC20 events raised by the Bridge contract.
-type BridgeDepositERC20Iterator struct {
-	Event *BridgeDepositERC20 // Event containing the contract specifics and raw log
+// BridgeDepositIterator is returned from FilterDeposit and is used to iterate over the raw logs and unpacked data for Deposit events raised by the Bridge contract.
+type BridgeDepositIterator struct {
+	Event *BridgeDeposit // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -560,7 +560,7 @@ type BridgeDepositERC20Iterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *BridgeDepositERC20Iterator) Next() bool {
+func (it *BridgeDepositIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -569,7 +569,7 @@ func (it *BridgeDepositERC20Iterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(BridgeDepositERC20)
+			it.Event = new(BridgeDeposit)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -584,7 +584,7 @@ func (it *BridgeDepositERC20Iterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(BridgeDepositERC20)
+		it.Event = new(BridgeDeposit)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -600,19 +600,19 @@ func (it *BridgeDepositERC20Iterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *BridgeDepositERC20Iterator) Error() error {
+func (it *BridgeDepositIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *BridgeDepositERC20Iterator) Close() error {
+func (it *BridgeDepositIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// BridgeDepositERC20 represents a DepositERC20 event raised by the Bridge contract.
-type BridgeDepositERC20 struct {
+// BridgeDeposit represents a Deposit event raised by the Bridge contract.
+type BridgeDeposit struct {
 	Token       common.Address
 	Sender      common.Address
 	Destination *big.Int
@@ -620,24 +620,24 @@ type BridgeDepositERC20 struct {
 	Raw         types.Log // Blockchain specific contextual infos
 }
 
-// FilterDepositERC20 is a free log retrieval operation binding the contract event 0x228adef123a7fe6b727889b4d24b39b39de663428214fd757c6c501fb98d8494.
+// FilterDeposit is a free log retrieval operation binding the contract event 0xdcbc1c05240f31ff3ad067ef1ee35ce4997762752e3a095284754544f4c709d7.
 //
-// Solidity: event DepositERC20(address token, address sender, uint256 destination, uint256 amount)
-func (_Bridge *BridgeFilterer) FilterDepositERC20(opts *bind.FilterOpts) (*BridgeDepositERC20Iterator, error) {
+// Solidity: event Deposit(address token, address sender, uint256 destination, uint256 amount)
+func (_Bridge *BridgeFilterer) FilterDeposit(opts *bind.FilterOpts) (*BridgeDepositIterator, error) {
 
-	logs, sub, err := _Bridge.contract.FilterLogs(opts, "DepositERC20")
+	logs, sub, err := _Bridge.contract.FilterLogs(opts, "Deposit")
 	if err != nil {
 		return nil, err
 	}
-	return &BridgeDepositERC20Iterator{contract: _Bridge.contract, event: "DepositERC20", logs: logs, sub: sub}, nil
+	return &BridgeDepositIterator{contract: _Bridge.contract, event: "Deposit", logs: logs, sub: sub}, nil
 }
 
-// WatchDepositERC20 is a free log subscription operation binding the contract event 0x228adef123a7fe6b727889b4d24b39b39de663428214fd757c6c501fb98d8494.
+// WatchDeposit is a free log subscription operation binding the contract event 0xdcbc1c05240f31ff3ad067ef1ee35ce4997762752e3a095284754544f4c709d7.
 //
-// Solidity: event DepositERC20(address token, address sender, uint256 destination, uint256 amount)
-func (_Bridge *BridgeFilterer) WatchDepositERC20(opts *bind.WatchOpts, sink chan<- *BridgeDepositERC20) (event.Subscription, error) {
+// Solidity: event Deposit(address token, address sender, uint256 destination, uint256 amount)
+func (_Bridge *BridgeFilterer) WatchDeposit(opts *bind.WatchOpts, sink chan<- *BridgeDeposit) (event.Subscription, error) {
 
-	logs, sub, err := _Bridge.contract.WatchLogs(opts, "DepositERC20")
+	logs, sub, err := _Bridge.contract.WatchLogs(opts, "Deposit")
 	if err != nil {
 		return nil, err
 	}
@@ -647,8 +647,8 @@ func (_Bridge *BridgeFilterer) WatchDepositERC20(opts *bind.WatchOpts, sink chan
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(BridgeDepositERC20)
-				if err := _Bridge.contract.UnpackLog(event, "DepositERC20", log); err != nil {
+				event := new(BridgeDeposit)
+				if err := _Bridge.contract.UnpackLog(event, "Deposit", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -669,148 +669,12 @@ func (_Bridge *BridgeFilterer) WatchDepositERC20(opts *bind.WatchOpts, sink chan
 	}), nil
 }
 
-// ParseDepositERC20 is a log parse operation binding the contract event 0x228adef123a7fe6b727889b4d24b39b39de663428214fd757c6c501fb98d8494.
+// ParseDeposit is a log parse operation binding the contract event 0xdcbc1c05240f31ff3ad067ef1ee35ce4997762752e3a095284754544f4c709d7.
 //
-// Solidity: event DepositERC20(address token, address sender, uint256 destination, uint256 amount)
-func (_Bridge *BridgeFilterer) ParseDepositERC20(log types.Log) (*BridgeDepositERC20, error) {
-	event := new(BridgeDepositERC20)
-	if err := _Bridge.contract.UnpackLog(event, "DepositERC20", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// BridgeDepositETHIterator is returned from FilterDepositETH and is used to iterate over the raw logs and unpacked data for DepositETH events raised by the Bridge contract.
-type BridgeDepositETHIterator struct {
-	Event *BridgeDepositETH // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *BridgeDepositETHIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(BridgeDepositETH)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(BridgeDepositETH)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *BridgeDepositETHIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *BridgeDepositETHIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// BridgeDepositETH represents a DepositETH event raised by the Bridge contract.
-type BridgeDepositETH struct {
-	Sender      common.Address
-	Destination *big.Int
-	Amount      *big.Int
-	Raw         types.Log // Blockchain specific contextual infos
-}
-
-// FilterDepositETH is a free log retrieval operation binding the contract event 0x57e8e547a3ef8d890c570ca885b0a8c441be3070e36b7ad4c7d6b9d9316ff2ce.
-//
-// Solidity: event DepositETH(address sender, uint256 destination, uint256 amount)
-func (_Bridge *BridgeFilterer) FilterDepositETH(opts *bind.FilterOpts) (*BridgeDepositETHIterator, error) {
-
-	logs, sub, err := _Bridge.contract.FilterLogs(opts, "DepositETH")
-	if err != nil {
-		return nil, err
-	}
-	return &BridgeDepositETHIterator{contract: _Bridge.contract, event: "DepositETH", logs: logs, sub: sub}, nil
-}
-
-// WatchDepositETH is a free log subscription operation binding the contract event 0x57e8e547a3ef8d890c570ca885b0a8c441be3070e36b7ad4c7d6b9d9316ff2ce.
-//
-// Solidity: event DepositETH(address sender, uint256 destination, uint256 amount)
-func (_Bridge *BridgeFilterer) WatchDepositETH(opts *bind.WatchOpts, sink chan<- *BridgeDepositETH) (event.Subscription, error) {
-
-	logs, sub, err := _Bridge.contract.WatchLogs(opts, "DepositETH")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(BridgeDepositETH)
-				if err := _Bridge.contract.UnpackLog(event, "DepositETH", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseDepositETH is a log parse operation binding the contract event 0x57e8e547a3ef8d890c570ca885b0a8c441be3070e36b7ad4c7d6b9d9316ff2ce.
-//
-// Solidity: event DepositETH(address sender, uint256 destination, uint256 amount)
-func (_Bridge *BridgeFilterer) ParseDepositETH(log types.Log) (*BridgeDepositETH, error) {
-	event := new(BridgeDepositETH)
-	if err := _Bridge.contract.UnpackLog(event, "DepositETH", log); err != nil {
+// Solidity: event Deposit(address token, address sender, uint256 destination, uint256 amount)
+func (_Bridge *BridgeFilterer) ParseDeposit(log types.Log) (*BridgeDeposit, error) {
+	event := new(BridgeDeposit)
+	if err := _Bridge.contract.UnpackLog(event, "Deposit", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -1221,9 +1085,9 @@ func (_Bridge *BridgeFilterer) ParseSetPaused(log types.Log) (*BridgeSetPaused, 
 	return event, nil
 }
 
-// BridgeWithdrawERC20Iterator is returned from FilterWithdrawERC20 and is used to iterate over the raw logs and unpacked data for WithdrawERC20 events raised by the Bridge contract.
-type BridgeWithdrawERC20Iterator struct {
-	Event *BridgeWithdrawERC20 // Event containing the contract specifics and raw log
+// BridgeWithdrawIterator is returned from FilterWithdraw and is used to iterate over the raw logs and unpacked data for Withdraw events raised by the Bridge contract.
+type BridgeWithdrawIterator struct {
+	Event *BridgeWithdraw // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -1237,7 +1101,7 @@ type BridgeWithdrawERC20Iterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *BridgeWithdrawERC20Iterator) Next() bool {
+func (it *BridgeWithdrawIterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -1246,7 +1110,7 @@ func (it *BridgeWithdrawERC20Iterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(BridgeWithdrawERC20)
+			it.Event = new(BridgeWithdraw)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -1261,7 +1125,7 @@ func (it *BridgeWithdrawERC20Iterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(BridgeWithdrawERC20)
+		it.Event = new(BridgeWithdraw)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -1277,180 +1141,44 @@ func (it *BridgeWithdrawERC20Iterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *BridgeWithdrawERC20Iterator) Error() error {
+func (it *BridgeWithdrawIterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *BridgeWithdrawERC20Iterator) Close() error {
+func (it *BridgeWithdrawIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// BridgeWithdrawERC20 represents a WithdrawERC20 event raised by the Bridge contract.
-type BridgeWithdrawERC20 struct {
+// BridgeWithdraw represents a Withdraw event raised by the Bridge contract.
+type BridgeWithdraw struct {
 	Id        [32]byte
-	Recipient common.Address
 	Token     common.Address
-	Amount    *big.Int
-	Raw       types.Log // Blockchain specific contextual infos
-}
-
-// FilterWithdrawERC20 is a free log retrieval operation binding the contract event 0x5535896dc1d7f0f89b88c63f555b88b65cd427f04ac3af06a277eac3d9ff17c7.
-//
-// Solidity: event WithdrawERC20(bytes32 id, address recipient, address token, uint256 amount)
-func (_Bridge *BridgeFilterer) FilterWithdrawERC20(opts *bind.FilterOpts) (*BridgeWithdrawERC20Iterator, error) {
-
-	logs, sub, err := _Bridge.contract.FilterLogs(opts, "WithdrawERC20")
-	if err != nil {
-		return nil, err
-	}
-	return &BridgeWithdrawERC20Iterator{contract: _Bridge.contract, event: "WithdrawERC20", logs: logs, sub: sub}, nil
-}
-
-// WatchWithdrawERC20 is a free log subscription operation binding the contract event 0x5535896dc1d7f0f89b88c63f555b88b65cd427f04ac3af06a277eac3d9ff17c7.
-//
-// Solidity: event WithdrawERC20(bytes32 id, address recipient, address token, uint256 amount)
-func (_Bridge *BridgeFilterer) WatchWithdrawERC20(opts *bind.WatchOpts, sink chan<- *BridgeWithdrawERC20) (event.Subscription, error) {
-
-	logs, sub, err := _Bridge.contract.WatchLogs(opts, "WithdrawERC20")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(BridgeWithdrawERC20)
-				if err := _Bridge.contract.UnpackLog(event, "WithdrawERC20", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseWithdrawERC20 is a log parse operation binding the contract event 0x5535896dc1d7f0f89b88c63f555b88b65cd427f04ac3af06a277eac3d9ff17c7.
-//
-// Solidity: event WithdrawERC20(bytes32 id, address recipient, address token, uint256 amount)
-func (_Bridge *BridgeFilterer) ParseWithdrawERC20(log types.Log) (*BridgeWithdrawERC20, error) {
-	event := new(BridgeWithdrawERC20)
-	if err := _Bridge.contract.UnpackLog(event, "WithdrawERC20", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// BridgeWithdrawETHIterator is returned from FilterWithdrawETH and is used to iterate over the raw logs and unpacked data for WithdrawETH events raised by the Bridge contract.
-type BridgeWithdrawETHIterator struct {
-	Event *BridgeWithdrawETH // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *BridgeWithdrawETHIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(BridgeWithdrawETH)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(BridgeWithdrawETH)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *BridgeWithdrawETHIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *BridgeWithdrawETHIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// BridgeWithdrawETH represents a WithdrawETH event raised by the Bridge contract.
-type BridgeWithdrawETH struct {
-	Id        [32]byte
 	Recipient common.Address
 	Amount    *big.Int
 	Raw       types.Log // Blockchain specific contextual infos
 }
 
-// FilterWithdrawETH is a free log retrieval operation binding the contract event 0xaa37a50b675b203dc298cafc773d3f7b6e87a165c3d926abb64d557d9c822e37.
+// FilterWithdraw is a free log retrieval operation binding the contract event 0xcd6ac346191b4b7531743e58f243dd4d350a52a9186641c1e5eac22b95aaedbe.
 //
-// Solidity: event WithdrawETH(bytes32 id, address recipient, uint256 amount)
-func (_Bridge *BridgeFilterer) FilterWithdrawETH(opts *bind.FilterOpts) (*BridgeWithdrawETHIterator, error) {
+// Solidity: event Withdraw(bytes32 id, address token, address recipient, uint256 amount)
+func (_Bridge *BridgeFilterer) FilterWithdraw(opts *bind.FilterOpts) (*BridgeWithdrawIterator, error) {
 
-	logs, sub, err := _Bridge.contract.FilterLogs(opts, "WithdrawETH")
+	logs, sub, err := _Bridge.contract.FilterLogs(opts, "Withdraw")
 	if err != nil {
 		return nil, err
 	}
-	return &BridgeWithdrawETHIterator{contract: _Bridge.contract, event: "WithdrawETH", logs: logs, sub: sub}, nil
+	return &BridgeWithdrawIterator{contract: _Bridge.contract, event: "Withdraw", logs: logs, sub: sub}, nil
 }
 
-// WatchWithdrawETH is a free log subscription operation binding the contract event 0xaa37a50b675b203dc298cafc773d3f7b6e87a165c3d926abb64d557d9c822e37.
+// WatchWithdraw is a free log subscription operation binding the contract event 0xcd6ac346191b4b7531743e58f243dd4d350a52a9186641c1e5eac22b95aaedbe.
 //
-// Solidity: event WithdrawETH(bytes32 id, address recipient, uint256 amount)
-func (_Bridge *BridgeFilterer) WatchWithdrawETH(opts *bind.WatchOpts, sink chan<- *BridgeWithdrawETH) (event.Subscription, error) {
+// Solidity: event Withdraw(bytes32 id, address token, address recipient, uint256 amount)
+func (_Bridge *BridgeFilterer) WatchWithdraw(opts *bind.WatchOpts, sink chan<- *BridgeWithdraw) (event.Subscription, error) {
 
-	logs, sub, err := _Bridge.contract.WatchLogs(opts, "WithdrawETH")
+	logs, sub, err := _Bridge.contract.WatchLogs(opts, "Withdraw")
 	if err != nil {
 		return nil, err
 	}
@@ -1460,8 +1188,8 @@ func (_Bridge *BridgeFilterer) WatchWithdrawETH(opts *bind.WatchOpts, sink chan<
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(BridgeWithdrawETH)
-				if err := _Bridge.contract.UnpackLog(event, "WithdrawETH", log); err != nil {
+				event := new(BridgeWithdraw)
+				if err := _Bridge.contract.UnpackLog(event, "Withdraw", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -1482,12 +1210,12 @@ func (_Bridge *BridgeFilterer) WatchWithdrawETH(opts *bind.WatchOpts, sink chan<
 	}), nil
 }
 
-// ParseWithdrawETH is a log parse operation binding the contract event 0xaa37a50b675b203dc298cafc773d3f7b6e87a165c3d926abb64d557d9c822e37.
+// ParseWithdraw is a log parse operation binding the contract event 0xcd6ac346191b4b7531743e58f243dd4d350a52a9186641c1e5eac22b95aaedbe.
 //
-// Solidity: event WithdrawETH(bytes32 id, address recipient, uint256 amount)
-func (_Bridge *BridgeFilterer) ParseWithdrawETH(log types.Log) (*BridgeWithdrawETH, error) {
-	event := new(BridgeWithdrawETH)
-	if err := _Bridge.contract.UnpackLog(event, "WithdrawETH", log); err != nil {
+// Solidity: event Withdraw(bytes32 id, address token, address recipient, uint256 amount)
+func (_Bridge *BridgeFilterer) ParseWithdraw(log types.Log) (*BridgeWithdraw, error) {
+	event := new(BridgeWithdraw)
+	if err := _Bridge.contract.UnpackLog(event, "Withdraw", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
