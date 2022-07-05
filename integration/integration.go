@@ -236,7 +236,7 @@ func (i *Test) StartStarbridge(id int, config Config, ingestSequence uint32) err
 		EthereumBridgeConfigVersion: 0,
 		EthereumPrivateKey:          ethPrivateKeys[id],
 		EthereumFinalityBuffer:      0,
-		WithdrawalWindow:            24 * time.Hour,
+		WithdrawalWindow:            config.WithdrawalWindow,
 	})
 
 	i.runningApps.Add(2)

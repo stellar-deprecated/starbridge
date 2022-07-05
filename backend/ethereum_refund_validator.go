@@ -9,7 +9,6 @@ import (
 	"github.com/stellar/go/support/db"
 
 	"github.com/stellar/go/support/errors"
-	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/support/render/problem"
 	"github.com/stellar/starbridge/store"
 )
@@ -48,9 +47,6 @@ func (s EthereumRefundValidator) CanRefund(ctx context.Context, deposit store.Et
 		return errors.Wrap(err, "error getting last ledger close time")
 	}
 	withdrawalDeadline := time.Unix(deposit.BlockTime, 0).Add(s.WithdrawalWindow)
-	log.Info(lastLedgerCloseTime)
-	log.Info(deposit.BlockTime)
-	log.Info(withdrawalDeadline)
 	if !lastLedgerCloseTime.After(withdrawalDeadline) {
 		return WithdrawalWindowStillActive
 	}
