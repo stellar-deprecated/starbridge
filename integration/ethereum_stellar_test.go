@@ -13,7 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stellar/starbridge/solidity-go"
 	"github.com/stellar/starbridge/stellar/controllers"
+	"github.com/stellar/starbridge/store"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -22,11 +24,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stellar/go/strkey"
-	"github.com/stellar/starbridge/solidity-go"
-
-	"github.com/stellar/starbridge/store"
-
 	"github.com/stellar/go/support/errors"
+	"github.com/stellar/go/support/render/problem"
 	"github.com/stellar/go/txnbuild"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -189,6 +188,9 @@ func TestEthereumToStellarWithdrawal(t *testing.T) {
 		resp, err := itest.Client().PostForm(url, postData)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+		var p problem.P
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&p))
+		require.Equal(t, "Withdrawal Window Still Active", p.Title)
 	}
 
 	// Concat signatures
@@ -252,6 +254,9 @@ func TestEthereumToStellarWithdrawal(t *testing.T) {
 		resp, err := itest.Client().PostForm(url, postData)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+		var p problem.P
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&p))
+		require.Equal(t, "Withdrawal Already Executed", p.Title)
 	}
 }
 
