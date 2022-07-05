@@ -14,7 +14,6 @@ type HistoryStellarTransaction struct {
 }
 
 type OutgoingStellarTransaction struct {
-	Hash      string `db:"hash"`
 	Envelope  string `db:"envelope"`
 	Sequence  int64  `db:"sequence"`
 	Action    Action `db:"requested_action"`
@@ -64,7 +63,6 @@ func (m *DB) GetOutgoingStellarTransaction(ctx context.Context, action Action, d
 func (m *DB) UpsertOutgoingStellarTransaction(ctx context.Context, newtx OutgoingStellarTransaction) error {
 	query := sq.Insert("outgoing_stellar_transactions").
 		SetMap(map[string]interface{}{
-			"hash":             newtx.Hash,
 			"envelope":         newtx.Envelope,
 			"requested_action": newtx.Action,
 			"deposit_id":       newtx.DepositID,
@@ -72,7 +70,7 @@ func (m *DB) UpsertOutgoingStellarTransaction(ctx context.Context, newtx Outgoin
 		}).
 		Suffix("ON CONFLICT (requested_action, deposit_id) " +
 			"DO UPDATE SET " +
-			"sequence=EXCLUDED.sequence, hash=EXCLUDED.hash, envelope=EXCLUDED.envelope",
+			"sequence=EXCLUDED.sequence, envelope=EXCLUDED.envelope",
 		)
 
 	_, err := m.Session.Exec(ctx, query)

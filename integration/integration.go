@@ -46,7 +46,9 @@ var (
 )
 
 type Config struct {
-	Servers int
+	Servers                int
+	EthereumFinalityBuffer uint64
+	WithdrawalWindow       time.Duration
 }
 
 type Test struct {
@@ -58,7 +60,7 @@ type Test struct {
 	horizonClient *horizonclient.Client
 
 	app           []*app.App
-	appStopped    chan struct{}
+	runningApps   *sync.WaitGroup
 	shutdownOnce  sync.Once
 	shutdownCalls []func()
 	masterKey     *keypair.Full
@@ -91,6 +93,8 @@ func NewIntegrationTest(t *testing.T, config Config) *Test {
 		horizonClient: &horizonclient.Client{
 			HorizonURL: fmt.Sprintf("http://%s:8000", dockerHost),
 		},
+
+		runningApps: &sync.WaitGroup{},
 	}
 
 	test.runComposeCommand("down", "-v")
@@ -114,7 +118,7 @@ func NewIntegrationTest(t *testing.T, config Config) *Test {
 	test.signerKeys = make([]*keypair.Full, config.Servers)
 
 	for i := 0; i < config.Servers; i++ {
-		if innerErr := test.StartStarbridge(i, ingestSequence); innerErr != nil {
+		if innerErr := test.StartStarbridge(i, config, ingestSequence); innerErr != nil {
 			t.Fatalf("Failed to start Starbridge: %v", innerErr)
 		}
 	}
@@ -186,11 +190,9 @@ func (i *Test) runComposeCommand(args ...string) {
 func (i *Test) prepareShutdownHandlers() {
 	i.shutdownCalls = append(i.shutdownCalls,
 		func() {
-			// if i.app != nil {
-			// 	i.app.Close()
-			// }
 			i.runComposeCommand("down", "-v")
 		},
+		i.StopStarbridge,
 	)
 
 	// Register cleanup handlers (on panic and ctrl+c) so the containers are
@@ -212,14 +214,14 @@ func (i *Test) prepareShutdownHandlers() {
 // called before.
 func (i *Test) Shutdown() {
 	i.shutdownOnce.Do(func() {
-		// run them in the opposite order in which they where added
+		// run them in the opposite order in which they were added
 		for callI := len(i.shutdownCalls) - 1; callI >= 0; callI-- {
 			i.shutdownCalls[callI]()
 		}
 	})
 }
 
-func (i *Test) StartStarbridge(id int, ingestSequence uint32) error {
+func (i *Test) StartStarbridge(id int, config Config, ingestSequence uint32) error {
 	i.signerKeys[id] = keypair.MustRandom()
 
 	i.app[id] = app.NewApp(app.Config{
@@ -234,17 +236,19 @@ func (i *Test) StartStarbridge(id int, ingestSequence uint32) error {
 		EthereumBridgeAddress:              EthereumBridgeAddress,
 		EthereumBridgeConfigVersion:        0,
 		EthereumPrivateKey:                 ethPrivateKeys[id],
-		EthereumFinalityBuffer:             0,
-		WithdrawalWindow:                   24 * time.Hour,
+		EthereumFinalityBuffer:             config.EthereumFinalityBuffer,
+		WithdrawalWindow:                   config.WithdrawalWindow,
 	})
 
-	done := make(chan struct{})
+	i.runningApps.Add(2)
 	go func() {
-		go i.app[id].RunHTTPServer()
-		i.app[id].RunBackendWorker()
-		close(done)
+		defer i.runningApps.Done()
+		i.app[id].RunHTTPServer()
 	}()
-	i.appStopped = done
+	go func() {
+		defer i.runningApps.Done()
+		i.app[id].RunBackendWorker()
+	}()
 
 	return nil
 }
@@ -336,15 +340,16 @@ func (i *Test) Client() *http.Client {
 	return i.client
 }
 
-// StopHorizon shuts down the running Horizon process
-// func (i *Test) StopStarbridge() {
-// 	i.app.Close()
-
-// 	// Wait for Horizon to shut down completely.
-// 	<-i.appStopped
-
-// 	i.app = nil
-// }
+// StopStarbridge shuts down the running starbridge processes
+func (i *Test) StopStarbridge() {
+	for _, app := range i.app {
+		if app != nil {
+			app.Close()
+		}
+	}
+	i.runningApps.Wait()
+	i.app = nil
+}
 
 // Master returns a keypair of the network masterKey account.
 func (i *Test) Master() *keypair.Full {

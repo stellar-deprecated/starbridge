@@ -26,12 +26,6 @@ func (c *StellarWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	_, err = c.StellarWithdrawalValidator.CanWithdraw(r.Context(), deposit)
-	if err != nil {
-		problem.Render(r.Context(), w, err)
-		return
-	}
-
 	// Check if outgoing transaction exists
 	outgoingTransaction, err := c.Store.GetOutgoingStellarTransaction(r.Context(), store.Withdraw, deposit.ID)
 	if err != nil && err != sql.ErrNoRows {
@@ -51,6 +45,12 @@ func (c *StellarWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 			_, _ = w.Write([]byte(outgoingTransaction.Envelope))
 			return
 		}
+	}
+
+	_, err = c.StellarWithdrawalValidator.CanWithdraw(r.Context(), deposit)
+	if err != nil {
+		problem.Render(r.Context(), w, err)
+		return
 	}
 
 	// Outgoing Stellar transaction does not exist so create signature request.
