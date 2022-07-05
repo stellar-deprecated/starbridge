@@ -79,36 +79,23 @@ contract Bridge is Auth {
     // to create a Bridge instance you need to provide the validator set configuration
     constructor(address[] memory _signers, uint8 _minThreshold) Auth(_signers, _minThreshold) {}
 
-    // DepositERC20 is emitted whenever an ERC20 token is deposited on the bridge.
-    // DepositERC20 initiates a ERC20 -> Stellar transfer.
-    event DepositERC20(
+    // Deposit is emitted whenever ERC20 tokens (or ETH) are deposited on the bridge.
+    // The Deposit event initiates a Ethereum -> Stellar transfer.
+    event Deposit(
+        // 0x0 coresponds to ETH
         address token,
-        address sender,
-        uint256 destination,
-        uint256 amount
-    );
-    // DepositERC20 is emitted whenever ETH is deposited on the bridge.
-    // DepositETH initiates a ETH -> Stellar transfer.
-    event DepositETH(
         address sender,
         uint256 destination,
         uint256 amount
     );
 
-    // WithdrawERC20 is emitted whenever an ERC20 token is claimed from the bridge.
-    // WithdrawERC20 corresponds to completing a Stellar -> ERC20 transfer or
-    // refunding a ERC20 -> Stellar transfer.
-    event WithdrawERC20(
+    // Withdraw is emitted whenever ERC20 tokens (or ETH) is claimed from the bridge.
+    // The Withdraw event corresponds to completing a Stellar -> Ethereum transfer or
+    // refunding a Ethereum -> Stellar transfer.
+    event Withdraw(
         bytes32 id,
-        address recipient,
+        // 0x0 coresponds to ETH
         address token,
-        uint256 amount
-    );
-    // WithdrawERC20 is emitted whenever ETH is claimed from the bridge.
-    // WithdrawERC20 corresponds to completing a Stellar -> ETH transfer or
-    // refunding a ETH -> Stellar transfer.
-    event WithdrawETH(
-        bytes32 id,
         address recipient,
         uint256 amount
     );
@@ -130,7 +117,7 @@ contract Bridge is Auth {
     ) external {
         require((paused & PAUSE_DEPOSITS) == 0, "deposits are paused");
         require(amount > 0, "deposit amount is zero");
-        emit DepositERC20(token, msg.sender, destination, amount);
+        emit Deposit(token, msg.sender, destination, amount);
 
         if (isStellarAsset[token]) {
             StellarAsset(token).burn(msg.sender, amount);
@@ -149,7 +136,7 @@ contract Bridge is Auth {
     function depositETH(uint256 destination) external payable {
         require((paused & PAUSE_DEPOSITS) == 0, "deposits are paused");
         require(msg.value > 0, "deposit amount is zero");
-        emit DepositETH(msg.sender, destination, msg.value);
+        emit Deposit(address(0), msg.sender, destination, msg.value);
     }
 
     // withdrawERC20() claims ERC20 tokens from the bridge. This can correspond to
@@ -171,10 +158,10 @@ contract Bridge is Auth {
             signatures,
             indexes
         );
-        emit WithdrawERC20(
+        emit Withdraw(
             request.id,
-            request.recipient,
             request.token,
+            request.recipient,
             request.amount
         );
 
@@ -208,7 +195,7 @@ contract Bridge is Auth {
             signatures,
             indexes);
 
-        emit WithdrawETH(request.id, request.recipient, request.amount);
+        emit Withdraw(request.id, address(0), request.recipient, request.amount);
         (bool success, ) = request.recipient.call{value: request.amount}("");
         require(success, "ETH transfer failed");
     }

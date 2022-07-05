@@ -161,29 +161,15 @@ func (o Observer) GetDeposit(
 		return Deposit{}, err
 	}
 
-	erc20Event, err := o.filterer.ParseDepositERC20(*log)
-	if err == nil {
-		return Deposit{
-			Token:       erc20Event.Token,
-			Sender:      erc20Event.Sender,
-			Destination: erc20Event.Destination,
-			Amount:      erc20Event.Amount,
-			TxHash:      log.TxHash,
-			LogIndex:    logIndex,
-			BlockNumber: log.BlockNumber,
-			Time:        time.Unix(int64(header.Time), 0),
-		}, nil
-	}
-
-	ethEvent, err := o.filterer.ParseDepositETH(*log)
+	event, err := o.filterer.ParseDeposit(*log)
 	if err != nil {
 		return Deposit{}, ErrLogNotDepositEvent
 	}
 	return Deposit{
-		Token:       common.Address{},
-		Sender:      ethEvent.Sender,
-		Destination: ethEvent.Destination,
-		Amount:      ethEvent.Amount,
+		Token:       event.Token,
+		Sender:      event.Sender,
+		Destination: event.Destination,
+		Amount:      event.Amount,
 		TxHash:      log.TxHash,
 		LogIndex:    logIndex,
 		BlockNumber: log.BlockNumber,
