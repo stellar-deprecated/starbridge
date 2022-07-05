@@ -14,7 +14,7 @@ import (
 type EthereumSignatureResponse struct {
 	Address    string `json:"address"`
 	Signature  string `json:"signature"`
-	DepositID  string `json:"depositId"`
+	DepositID  string `json:"deposit_id"`
 	Expiration int64  `json:"expiration,string"`
 }
 
