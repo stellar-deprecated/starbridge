@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/stellar/go/txnbuild"
+
 	"github.com/pkg/errors"
 	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/protocols/horizon"
@@ -80,7 +82,7 @@ func (o *Observer) ProcessNewLedgers() {
 			} else {
 				o.log.WithField("sequence", o.ledgerSequence).Info("Processing ledger...")
 
-				err = o.processSingleLedger(ledger)
+				err = o.ingestLedger(ledger)
 				if err != nil {
 					o.log.WithFields(slog.F{"error": err, "sequence": o.ledgerSequence}).Error("Error processing a single ledger details")
 				} else {
@@ -114,15 +116,15 @@ func (o *Observer) catchupLedgers() error {
 
 	// Process past bridge account payments
 	cursor := toid.AfterLedger(ledgerSeq).String()
-	previousHash := ""
 	var lastOp operations.Operation
 	for o.ctx.Err() == nil {
 		ops, err := o.client.Payments(horizonclient.OperationRequest{
-			ForAccount: o.bridgeAccount,
-			Cursor:     cursor,
-			Order:      horizonclient.OrderDesc,
-			Limit:      200,
-			Join:       "transactions",
+			ForAccount:    o.bridgeAccount,
+			Cursor:        cursor,
+			Order:         horizonclient.OrderDesc,
+			Limit:         200,
+			IncludeFailed: false,
+			Join:          "transactions",
 		})
 		if err != nil {
 			return errors.Wrap(err, "error getting operations")
@@ -132,14 +134,13 @@ func (o *Observer) catchupLedgers() error {
 			break
 		}
 
-		err = o.processOpsSinglePage(ops.Embedded.Records, previousHash)
+		err = o.ingestPage(ops.Embedded.Records)
 		if err != nil {
 			return err
 		}
 
 		lastOp = ops.Embedded.Records[len(ops.Embedded.Records)-1]
 		cursor = lastOp.PagingToken()
-		previousHash = lastOp.GetBase().TransactionHash
 	}
 
 	if o.ctx.Err() != nil {
@@ -169,7 +170,7 @@ func (o *Observer) catchupLedgers() error {
 	return nil
 }
 
-func (o *Observer) processSingleLedger(ledger horizon.Ledger) error {
+func (o *Observer) ingestLedger(ledger horizon.Ledger) error {
 	err := o.store.Session.Begin()
 	if err != nil {
 		return errors.Wrap(err, "error starting a transaction")
@@ -180,13 +181,12 @@ func (o *Observer) processSingleLedger(ledger horizon.Ledger) error {
 	}()
 	// Process operations
 	cursor := ""
-	previousHash := ""
 	for {
-		ops, err := o.client.Operations(horizonclient.OperationRequest{
+		ops, err := o.client.Payments(horizonclient.OperationRequest{
 			ForLedger:     uint(ledger.Sequence),
 			Cursor:        cursor,
 			Limit:         200,
-			IncludeFailed: true,
+			IncludeFailed: false,
 			Join:          "transactions",
 		})
 		if err != nil {
@@ -197,14 +197,13 @@ func (o *Observer) processSingleLedger(ledger horizon.Ledger) error {
 			break
 		}
 
-		err = o.processOpsSinglePage(ops.Embedded.Records, previousHash)
+		err = o.ingestPage(ops.Embedded.Records)
 		if err != nil {
 			return err
 		}
 
 		lastOp := ops.Embedded.Records[len(ops.Embedded.Records)-1].GetBase()
 		cursor = lastOp.PagingToken()
-		previousHash = lastOp.TransactionHash
 	}
 
 	err = o.store.UpdateLastLedgerSequence(context.TODO(), uint32(ledger.Sequence))
@@ -226,37 +225,92 @@ func (o *Observer) processSingleLedger(ledger horizon.Ledger) error {
 	return nil
 }
 
-func (o *Observer) processOpsSinglePage(ops []operations.Operation, previousHash string) error {
+func validTransaction(horizonTx *horizon.Transaction) bool {
+	// ignore failed transactions
+	if !horizonTx.Successful {
+		return false
+	}
+	gtx, err := txnbuild.TransactionFromXDR(horizonTx.EnvelopeXdr)
+	if err != nil {
+		return false
+	}
+	tx, ok := gtx.Transaction()
+	if !ok {
+		feeBump, _ := gtx.FeeBump()
+		tx = feeBump.InnerTransaction()
+	}
+	// Skip inserting transactions with multiple ops. Currently Starbridge
+	// does not create such transactions but it can change in the future.
+	return len(tx.Operations()) == 1
+}
+
+func (o *Observer) ingestPage(ops []operations.Operation) error {
 	for _, op := range ops {
-		baseOp := op.GetBase()
-
-		// Ignore ops not coming from bridge account
-		if baseOp.SourceAccount != o.bridgeAccount {
+		payment, ok := op.(operations.Payment)
+		// only consider payment operations
+		if !ok {
 			continue
 		}
 
-		tx := baseOp.Transaction
-		if tx.MemoType != "hash" || tx.Memo == "" || !tx.Successful ||
-			// Skip inserting transactions with multiple ops. Currently Starbridge
-			// does not create such transactions but it can change in the future.
-			previousHash == baseOp.TransactionHash {
+		tx := payment.Transaction
+		if !validTransaction(tx) {
 			continue
 		}
 
-		memoBytes, err := base64.StdEncoding.DecodeString(tx.Memo)
-		if err != nil {
-			return errors.Wrapf(err, "error decoding memo: %s", tx.Memo)
+		if payment.From == o.bridgeAccount {
+			if err := o.ingestOutgoingPayment(payment); err != nil {
+				return err
+			}
+		} else if payment.To == o.bridgeAccount {
+			if err := o.ingestIncomingPayment(payment); err != nil {
+				return err
+			}
 		}
+	}
 
-		err = o.store.InsertHistoryStellarTransaction(context.TODO(), store.HistoryStellarTransaction{
-			Hash:     tx.Hash,
-			Envelope: tx.EnvelopeXdr,
-			MemoHash: hex.EncodeToString(memoBytes),
-		})
-		if err != nil {
-			return errors.Wrapf(err, "error inserting history transaction: %s", tx.Hash)
-		}
-		previousHash = baseOp.TransactionHash
+	return nil
+}
+
+func (o *Observer) ingestOutgoingPayment(payment operations.Payment) error {
+	if payment.Transaction.MemoType != "hash" || payment.Transaction.Memo == "" {
+		return nil
+	}
+
+	memoBytes, err := base64.StdEncoding.DecodeString(payment.Transaction.Memo)
+	if err != nil {
+		return errors.Wrapf(err, "error decoding memo: %s", payment.Transaction.Memo)
+	}
+
+	err = o.store.InsertHistoryStellarTransaction(context.TODO(), store.HistoryStellarTransaction{
+		Hash:     payment.Transaction.Hash,
+		Envelope: payment.Transaction.EnvelopeXdr,
+		MemoHash: hex.EncodeToString(memoBytes),
+	})
+	if err != nil {
+		return errors.Wrapf(err, "error inserting history transaction: %s", payment.Transaction.Hash)
+	}
+
+	return nil
+}
+
+func (o *Observer) ingestIncomingPayment(payment operations.Payment) error {
+	var assetString string
+	if payment.Asset.Type == "native" {
+		assetString = "native"
+	} else {
+		assetString = payment.Asset.Code + ":" + payment.Asset.Issuer
+	}
+
+	deposit := store.StellarDeposit{
+		ID:          payment.Transaction.Hash,
+		Asset:       assetString,
+		LedgerTime:  payment.LedgerCloseTime.Unix(),
+		Sender:      payment.From,
+		Destination: payment.Transaction.Memo,
+		Amount:      payment.Amount,
+	}
+	if err := o.store.InsertStellarDeposit(context.TODO(), deposit); err != nil {
+		return err
 	}
 
 	return nil
