@@ -9,6 +9,7 @@ import (
 
 type StellarDeposit struct {
 	// ID is the globally unique id for this deposit
+	// and is equal to deposit transaction hash
 	ID string `db:"id"`
 	// Asset is the string encoding of the Stellar assets
 	// which were deposited to the bridge
