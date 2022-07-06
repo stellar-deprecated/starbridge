@@ -22,14 +22,6 @@ var (
 		Status: http.StatusNotFound,
 		Detail: "The stellar transaction cannot be found.",
 	}
-	InvalidEthereumRecipient = problem.P{
-		Type:   "invalid_ethereum_recipient",
-		Title:  "Invalid Ethereum Recipient",
-		Status: http.StatusUnprocessableEntity,
-		Detail: "The recipient of the deposit is not a valid Ethereum address.",
-	}
-	// TODO: remove this once getStellarDeposit is used
-	_ = getStellarDeposit
 )
 
 func getStellarDeposit(depositStore *store.DB, r *http.Request) (store.StellarDeposit, error) {

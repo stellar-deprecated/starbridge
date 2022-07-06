@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/stellar/go/strkey"
 	"github.com/stellar/go/support/db"
 	"github.com/stellar/go/support/errors"
@@ -29,28 +27,12 @@ var (
 		Status: http.StatusBadRequest,
 		Detail: "The withdrawal has already been executed.",
 	}
-	WithdrawalAssetInvalid = problem.P{
-		Type:   "withdrawal_asset_invalid",
-		Title:  "Withdrawal Asset Invalid",
-		Status: http.StatusBadRequest,
-		Detail: "Withdrawing the requested asset is not supported by the bridge." +
-			"Refund the deposit once the withdrawal period has expired.",
-	}
-	WithdrawalAmountInvalid = problem.P{
-		Type:   "withdrawal_amount_invalid",
-		Title:  "Withdrawal Amount Invalid",
-		Status: http.StatusBadRequest,
-		Detail: "Withdrawing the requested amount is not supported by the bridge." +
-			"Refund the deposit once the withdrawal period has expired.",
-	}
 	InvalidStellarRecipient = problem.P{
 		Type:   "invalid_stellar_recipient",
 		Title:  "Invalid Stellar Recipient",
 		Status: http.StatusBadRequest,
 		Detail: "The recipient of the deposit is not a valid Stellar address.",
 	}
-
-	ethereumTokenAddress = common.Address{}
 )
 
 // StellarWithdrawalValidator checks if it is possible to
@@ -59,6 +41,7 @@ var (
 type StellarWithdrawalValidator struct {
 	Session          db.SessionInterface
 	WithdrawalWindow time.Duration
+	Converter        AssetConverter
 }
 
 // StellarWithdrawalDetails includes metadata about the
@@ -73,20 +56,17 @@ type StellarWithdrawalDetails struct {
 	// LedgerSequence is the sequence number of the Stellar ledger
 	// for which the validation result is accurate.
 	LedgerSequence uint32
+	// Asset is the Stellar asset which will be transferred to the
+	// recipient.
+	Asset string
+	// Amount is the amount which will be transferred to the recipient.
+	Amount int64
 }
 
 func (s StellarWithdrawalValidator) CanWithdraw(ctx context.Context, deposit store.EthereumDeposit) (StellarWithdrawalDetails, error) {
-	// TODO: add support for erc20 transfers
-	if !common.IsHexAddress(deposit.Token) ||
-		common.HexToAddress(deposit.Token) != ethereumTokenAddress {
-		return StellarWithdrawalDetails{}, WithdrawalAssetInvalid
-	}
-
-	// TODO: implement amount validation which is specific to the type of token
-	amount := &big.Int{}
-	_, ok := amount.SetString(deposit.Amount, 10)
-	if !ok || !amount.IsInt64() || amount.Cmp(big.NewInt(0)) <= 0 {
-		return StellarWithdrawalDetails{}, WithdrawalAmountInvalid
+	stellarAsset, stellarAmount, err := s.Converter.ToStellar(deposit.Token, deposit.Amount)
+	if err != nil {
+		return StellarWithdrawalDetails{}, err
 	}
 
 	destination, ok := new(big.Int).SetString(deposit.Destination, 10)
@@ -141,5 +121,7 @@ func (s StellarWithdrawalValidator) CanWithdraw(ctx context.Context, deposit sto
 		Deadline:       withdrawalDeadline,
 		Recipient:      destinationAccountID,
 		LedgerSequence: lastLedgerSequence,
+		Asset:          stellarAsset,
+		Amount:         stellarAmount,
 	}, nil
 }

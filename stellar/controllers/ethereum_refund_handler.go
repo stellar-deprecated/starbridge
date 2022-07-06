@@ -16,6 +16,7 @@ type EthereumSignatureResponse struct {
 	Signature  string `json:"signature"`
 	DepositID  string `json:"deposit_id"`
 	Expiration int64  `json:"expiration,string"`
+	Token      string `json:"token"`
 }
 
 type EthereumRefundHandler struct {
@@ -44,6 +45,7 @@ func (c *EthereumRefundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 			Signature:  row.Signature,
 			DepositID:  deposit.ID,
 			Expiration: row.Expiration,
+			Token:      deposit.Token,
 		})
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
