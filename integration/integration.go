@@ -225,19 +225,18 @@ func (i *Test) StartStarbridge(id int, config Config, ingestSequence uint32) err
 	i.signerKeys[id] = keypair.MustRandom()
 
 	i.app[id] = app.NewApp(app.Config{
-		Port:                               9000 + uint16(id),
-		PostgresDSN:                        fmt.Sprintf("postgres://postgres:mysecretpassword@%s:5641/starbridge%d?sslmode=disable", dockerHost, id),
-		HorizonURL:                         fmt.Sprintf("http://%s:8000/", dockerHost),
-		NetworkPassphrase:                  StandaloneNetworkPassphrase,
-		StellarBridgeAccount:               i.mainAccount.GetAccountID(),
-		StellarBridgeAccountCreateSequence: ingestSequence,
-		StellarPrivateKey:                  i.signerKeys[id].Seed(),
-		EthereumRPCURL:                     EthereumRPCURL,
-		EthereumBridgeAddress:              EthereumBridgeAddress,
-		EthereumBridgeConfigVersion:        0,
-		EthereumPrivateKey:                 ethPrivateKeys[id],
-		EthereumFinalityBuffer:             config.EthereumFinalityBuffer,
-		WithdrawalWindow:                   config.WithdrawalWindow,
+		Port:                        9000 + uint16(id),
+		PostgresDSN:                 fmt.Sprintf("postgres://postgres:mysecretpassword@%s:5641/starbridge%d?sslmode=disable", dockerHost, id),
+		HorizonURL:                  fmt.Sprintf("http://%s:8000/", dockerHost),
+		NetworkPassphrase:           StandaloneNetworkPassphrase,
+		StellarBridgeAccount:        i.mainAccount.GetAccountID(),
+		StellarPrivateKey:           i.signerKeys[id].Seed(),
+		EthereumRPCURL:              EthereumRPCURL,
+		EthereumBridgeAddress:       EthereumBridgeAddress,
+		EthereumBridgeConfigVersion: 0,
+		EthereumPrivateKey:          ethPrivateKeys[id],
+		EthereumFinalityBuffer:      0,
+		WithdrawalWindow:            config.WithdrawalWindow,
 	})
 
 	i.runningApps.Add(2)
