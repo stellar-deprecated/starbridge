@@ -28,6 +28,9 @@ type StellarDeposit struct {
 type HistoryStellarTransaction struct {
 	Hash     string `db:"hash"`
 	Envelope string `db:"envelope"`
+	// MemoHash represents:
+	//   - Ethereum deposit ID in case of withdrawals in Ethereum->Stellar flow
+	//   - Stellar transaction hash in case of refunds in Stellar->Ethereum flow
 	MemoHash string `db:"memo_hash"`
 }
 

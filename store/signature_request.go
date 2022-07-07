@@ -15,8 +15,11 @@ type (
 const (
 	Stellar  Blockchain = "stellar"
 	Ethereum Blockchain = "ethereum"
-	Withdraw Action     = "withdraw"
-	Refund   Action     = "refund"
+)
+
+const (
+	Withdraw Action = "withdraw"
+	Refund   Action = "refund"
 )
 
 type SignatureRequest struct {

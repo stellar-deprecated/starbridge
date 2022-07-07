@@ -197,6 +197,16 @@ func (a *App) initHTTP(config Config, client *horizonclient.Client, ethObserver 
 			},
 			EthereumFinalityBuffer: config.EthereumFinalityBuffer,
 		},
+		StellarRefundHandler: &controllers.StellarRefundHandler{
+			StellarClient: client,
+			Store:         a.NewStore(),
+			StellarRefundValidator: backend.StellarRefundValidator{
+				Session:                a.session.Clone(),
+				WithdrawalWindow:       config.WithdrawalWindow,
+				Observer:               ethObserver,
+				EthereumFinalityBuffer: config.EthereumFinalityBuffer,
+			},
+		},
 	})
 	if err != nil {
 		log.Fatal("unable to create http server", err)

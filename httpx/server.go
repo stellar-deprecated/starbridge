@@ -35,6 +35,7 @@ type ServerConfig struct {
 
 	StellarWithdrawalHandler *controllers.StellarWithdrawalHandler
 	EthereumRefundHandler    *controllers.EthereumRefundHandler
+	StellarRefundHandler     *controllers.StellarRefundHandler
 }
 
 type Server struct {
@@ -104,6 +105,7 @@ func (s *Server) initMux(serverConfig ServerConfig) {
 	// Public routes
 	mux.Method(http.MethodPost, "/ethereum/withdraw/stellar", serverConfig.StellarWithdrawalHandler)
 	mux.Method(http.MethodPost, "/ethereum/refund", serverConfig.EthereumRefundHandler)
+	mux.Method(http.MethodPost, "/stellar/refund", serverConfig.StellarRefundHandler)
 
 	staticServer := http.FileServer(http.FS(html.Files))
 	mux.Handle("/*", staticServer)
