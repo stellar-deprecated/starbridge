@@ -16,6 +16,7 @@ CREATE INDEX history_stellar_transactions_memo_hash ON history_stellar_transacti
 CREATE TABLE outgoing_stellar_transactions (
     envelope text NOT NULL,
     sequence bigint NOT NULL ,
+    source_account text NOT NULL,
     requested_action character varying(40) NOT NULL,
     deposit_id text NOT NULL
 );
@@ -42,6 +43,15 @@ CREATE TABLE ethereum_deposits (
     token TEXT NOT NULL
 );
 
+CREATE TABLE stellar_deposits (
+   id TEXT NOT NULL PRIMARY KEY,
+   ledger_time BIGINT NOT NULL,
+   amount TEXT NOT NULL,
+   destination TEXT NOT NULL,
+   sender TEXT NOT NULL,
+   asset TEXT NOT NULL
+);
+
 CREATE TABLE key_value_store (
   key varchar(255) NOT NULL,
   value varchar(255) NOT NULL,
@@ -50,8 +60,9 @@ CREATE TABLE key_value_store (
 
 -- +migrate Down
 drop table key_value_store cascade;
+drop table stellar_deposits cascade;
 drop table ethereum_deposits cascade;
-drop table ethereum_signatures;
+drop table ethereum_signatures cascade;
 drop table outgoing_stellar_transactions cascade;
 drop table history_stellar_transactions cascade;
 drop table signature_requests cascade;

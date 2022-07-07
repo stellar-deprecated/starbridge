@@ -129,7 +129,7 @@ func (w *Worker) processStellarWithdrawalRequest(sr store.SignatureRequest) erro
 
 	// Load source account sequence
 	sourceAccount, err := w.StellarClient.AccountDetail(horizonclient.AccountRequest{
-		AccountID: deposit.Destination,
+		AccountID: details.Recipient,
 	})
 	if err != nil {
 		return errors.Wrap(err, "error getting account details")
@@ -157,8 +157,8 @@ func (w *Worker) processStellarWithdrawalRequest(sr store.SignatureRequest) erro
 	}
 
 	tx, err := w.StellarBuilder.BuildTransaction(
-		deposit.Destination,
-		deposit.Destination,
+		details.Recipient,
+		details.Recipient,
 		amountRat.FloatString(7),
 		sourceAccount.Sequence+1,
 		// TODO: ensure using WithdrawExpiration without any time buffer is safe
@@ -184,10 +184,11 @@ func (w *Worker) processStellarWithdrawalRequest(sr store.SignatureRequest) erro
 	}
 
 	outgoingTx := store.OutgoingStellarTransaction{
-		Envelope:  txBase64,
-		Action:    sr.Action,
-		DepositID: sr.DepositID,
-		Sequence:  tx.SeqNum(),
+		Envelope:      txBase64,
+		Action:        sr.Action,
+		DepositID:     sr.DepositID,
+		SourceAccount: details.Recipient,
+		Sequence:      tx.SeqNum(),
 	}
 	err = w.Store.UpsertOutgoingStellarTransaction(context.TODO(), outgoingTx)
 	if err != nil {

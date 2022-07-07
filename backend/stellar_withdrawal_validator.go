@@ -7,9 +7,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/stellar/go/support/db"
-
 	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/stellar/go/strkey"
+	"github.com/stellar/go/support/db"
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/support/render/problem"
 	"github.com/stellar/starbridge/store"
@@ -37,10 +38,16 @@ var (
 	}
 	WithdrawalAmountInvalid = problem.P{
 		Type:   "withdrawal_amount_invalid",
-		Title:  "Withdrawal Amouont Invalid",
+		Title:  "Withdrawal Amount Invalid",
 		Status: http.StatusBadRequest,
 		Detail: "Withdrawing the requested amount is not supported by the bridge." +
 			"Refund the deposit once the withdrawal period has expired.",
+	}
+	InvalidStellarRecipient = problem.P{
+		Type:   "invalid_stellar_recipient",
+		Title:  "Invalid Stellar Recipient",
+		Status: http.StatusBadRequest,
+		Detail: "The recipient of the deposit is not a valid Stellar address.",
 	}
 
 	ethereumTokenAddress = common.Address{}
@@ -60,6 +67,9 @@ type StellarWithdrawalDetails struct {
 	// Deadline is the deadline for executing the withdrawal
 	// transaction on Stellar.
 	Deadline time.Time
+	// Recipient is the Stellar account which should receive the
+	// withdrawal.
+	Recipient string
 	// LedgerSequence is the sequence number of the Stellar ledger
 	// for which the validation result is accurate.
 	LedgerSequence uint32
@@ -79,8 +89,20 @@ func (s StellarWithdrawalValidator) CanWithdraw(ctx context.Context, deposit sto
 		return StellarWithdrawalDetails{}, WithdrawalAmountInvalid
 	}
 
+	destination, ok := new(big.Int).SetString(deposit.Destination, 10)
+	if !ok {
+		return StellarWithdrawalDetails{}, InvalidStellarRecipient
+	}
+	destinationAccountID, err := strkey.Encode(
+		strkey.VersionByteAccountID,
+		destination.Bytes(),
+	)
+	if err != nil {
+		return StellarWithdrawalDetails{}, InvalidStellarRecipient
+	}
+
 	dbStore := store.DB{Session: s.Session.Clone()}
-	err := dbStore.Session.BeginTx(&sql.TxOptions{
+	err = dbStore.Session.BeginTx(&sql.TxOptions{
 		Isolation: sql.LevelRepeatableRead,
 		ReadOnly:  true,
 	})
@@ -117,6 +139,7 @@ func (s StellarWithdrawalValidator) CanWithdraw(ctx context.Context, deposit sto
 
 	return StellarWithdrawalDetails{
 		Deadline:       withdrawalDeadline,
+		Recipient:      destinationAccountID,
 		LedgerSequence: lastLedgerSequence,
 	}, nil
 }

@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/stellar/go/strkey"
 	"github.com/stellar/go/support/render/problem"
 	"github.com/stellar/starbridge/ethereum"
 	"github.com/stellar/starbridge/store"
@@ -42,12 +41,6 @@ var (
 		Title:  "Ethereum Transaction Requires More confirmations",
 		Status: http.StatusUnprocessableEntity,
 		Detail: "Retry later once the transaction has more confirmations.",
-	}
-	InvalidStellarRecipient = problem.P{
-		Type:   "invalid_stellar_recipient",
-		Title:  "Invalid Stellar Recipient",
-		Status: http.StatusUnprocessableEntity,
-		Detail: "The recipient of the deposit is not a valid Stellar address.",
 	}
 
 	validTxHash = regexp.MustCompile("^(0x)?([A-Fa-f0-9]{64})$")
@@ -89,18 +82,11 @@ func getEthereumDeposit(observer ethereum.Observer, depositStore *store.DB, fina
 		return store.EthereumDeposit{}, EthereumTxRequiresMoreConfirmations
 	}
 
-	destinationAccountID, err := strkey.Encode(
-		strkey.VersionByteAccountID,
-		deposit.Destination.Bytes(),
-	)
-	if err != nil {
-		return store.EthereumDeposit{}, InvalidStellarRecipient
-	}
 	storeDeposit = store.EthereumDeposit{
 		ID:          depositID,
 		Token:       deposit.Token.String(),
 		Sender:      deposit.Sender.String(),
-		Destination: destinationAccountID,
+		Destination: deposit.Destination.String(),
 		Amount:      deposit.Amount.String(),
 		Hash:        deposit.TxHash.String(),
 		LogIndex:    deposit.LogIndex,
