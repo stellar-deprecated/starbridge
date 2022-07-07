@@ -33,7 +33,7 @@ var (
 	_ = getStellarDeposit
 )
 
-func getStellarDeposit(client *horizonclient.Client, bridgeAccount string, depositStore *store.DB, r *http.Request) (store.StellarDeposit, error) {
+func getStellarDeposit(depositStore *store.DB, r *http.Request) (store.StellarDeposit, error) {
 	txHash := strings.TrimPrefix(r.PostFormValue("transaction_hash"), "0x")
 	if !validTxHash.MatchString(txHash) {
 		return store.StellarDeposit{}, InvalidStellarTxHash
