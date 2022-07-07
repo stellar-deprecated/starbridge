@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/stellar/go/txnbuild"
-
 	"github.com/pkg/errors"
 	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/protocols/horizon"
@@ -227,21 +225,10 @@ func (o *Observer) ingestLedger(ledger horizon.Ledger) error {
 
 func validTransaction(horizonTx *horizon.Transaction) bool {
 	// ignore failed transactions
-	if !horizonTx.Successful {
-		return false
-	}
-	gtx, err := txnbuild.TransactionFromXDR(horizonTx.EnvelopeXdr)
-	if err != nil {
-		return false
-	}
-	tx, ok := gtx.Transaction()
-	if !ok {
-		feeBump, _ := gtx.FeeBump()
-		tx = feeBump.InnerTransaction()
-	}
-	// Skip inserting transactions with multiple ops. Currently Starbridge
-	// does not create such transactions but it can change in the future.
-	return len(tx.Operations()) == 1
+	return horizonTx.Successful &&
+		// Skip inserting transactions with multiple ops. Currently Starbridge
+		// does not create such transactions but it can change in the future.
+		horizonTx.OperationCount == 1
 }
 
 func (o *Observer) ingestPage(ops []operations.Operation) error {
@@ -310,7 +297,7 @@ func (o *Observer) ingestIncomingPayment(payment operations.Payment) error {
 		Amount:      payment.Amount,
 	}
 	if err := o.store.InsertStellarDeposit(context.TODO(), deposit); err != nil {
-		return err
+		return errors.Wrapf(err, "error inserting stellar deposit: %s", payment.Transaction.Hash)
 	}
 
 	return nil

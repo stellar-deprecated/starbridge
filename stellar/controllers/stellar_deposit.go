@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/support/render/problem"
 	"github.com/stellar/starbridge/store"
 )
