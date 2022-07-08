@@ -9,25 +9,18 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/stellar/starbridge/ethereum"
-
-	"github.com/stellar/go/support/render/problem"
-
+	"github.com/stellar/go/amount"
 	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/support/log"
+	"github.com/stellar/go/support/render/problem"
 	"github.com/stellar/go/xdr"
+
+	"github.com/stellar/starbridge/ethereum"
 	"github.com/stellar/starbridge/stellar/signer"
 	"github.com/stellar/starbridge/stellar/txbuilder"
 	"github.com/stellar/starbridge/stellar/txobserver"
 	"github.com/stellar/starbridge/store"
-)
-
-var (
-	ten      = big.NewInt(10)
-	eighteen = big.NewInt(18)
-	// weiInEth = 10^18
-	weiInEth = new(big.Rat).SetInt(new(big.Int).Exp(ten, eighteen, nil))
 )
 
 type Worker struct {
@@ -35,13 +28,14 @@ type Worker struct {
 
 	Store *store.DB
 
-	StellarClient              *horizonclient.Client
-	StellarBuilder             *txbuilder.Builder
-	StellarSigner              *signer.Signer
-	StellarObserver            *txobserver.Observer
-	StellarWithdrawalValidator StellarWithdrawalValidator
-	EthereumRefundValidator    EthereumRefundValidator
-	EthereumSigner             ethereum.Signer
+	StellarClient               *horizonclient.Client
+	StellarBuilder              *txbuilder.Builder
+	StellarSigner               *signer.Signer
+	StellarObserver             *txobserver.Observer
+	StellarWithdrawalValidator  StellarWithdrawalValidator
+	EthereumRefundValidator     EthereumRefundValidator
+	EthereumWithdrawalValidator EthereumWithdrawalValidator
+	EthereumSigner              ethereum.Signer
 
 	log *log.Entry
 }
@@ -76,6 +70,8 @@ func (w *Worker) Run() {
 				switch sr.DepositChain {
 				case store.Ethereum:
 					err = w.processStellarWithdrawalRequest(sr)
+				case store.Stellar:
+					err = w.processEthereumWithdrawalRequest(sr)
 				default:
 					err = fmt.Errorf("withdrawals for deposit chain %v is not supported", sr.DepositChain)
 				}
@@ -144,22 +140,15 @@ func (w *Worker) processStellarWithdrawalRequest(sr store.SignatureRequest) erro
 		}
 	}
 
-	// All good: build, sign and persist outgoing transaction
-	amountRat, ok := new(big.Rat).SetString(deposit.Amount)
-	if !ok {
-		return errors.Errorf("cannot convert value in wei to bit.Rat: %s", deposit.Amount)
-	}
-	amountRat.Quo(amountRat, weiInEth)
-
 	depositIDBytes, err := hex.DecodeString(deposit.ID)
 	if err != nil {
 		return errors.Wrap(err, "error decoding deposit id")
 	}
-
 	tx, err := w.StellarBuilder.BuildTransaction(
+		details.Asset,
 		details.Recipient,
 		details.Recipient,
-		amountRat.FloatString(7),
+		amount.StringFromInt64(details.Amount),
 		sourceAccount.Sequence+1,
 		// TODO: ensure using WithdrawExpiration without any time buffer is safe
 		details.Deadline.Unix(),
@@ -234,6 +223,47 @@ func (w *Worker) processEthereumRefundRequest(sr store.SignatureRequest) error {
 		Action:     sr.Action,
 		DepositID:  sr.DepositID,
 		Expiration: expiration,
+		Token:      deposit.Token,
+	})
+	if err != nil {
+		return errors.Wrap(err, "error upserting etherum signature")
+	}
+
+	return nil
+}
+
+func (w *Worker) processEthereumWithdrawalRequest(sr store.SignatureRequest) error {
+	if sr.DepositChain != store.Stellar {
+		return fmt.Errorf("deposits from %v are not supported", sr.DepositChain)
+	}
+	deposit, err := w.Store.GetStellarDeposit(context.TODO(), sr.DepositID)
+	if err != nil {
+		return errors.Wrap(err, "error getting stellar deposit")
+	}
+
+	details, err := w.EthereumWithdrawalValidator.CanWithdraw(context.TODO(), deposit)
+	if err != nil {
+		return errors.Wrap(err, "error validating withdrawal conditions")
+	}
+
+	sig, err := w.EthereumSigner.SignWithdrawal(
+		common.HexToHash(deposit.ID),
+		details.Deadline.Unix(),
+		details.Recipient,
+		details.Token,
+		details.Amount,
+	)
+	if err != nil {
+		return errors.Wrap(err, "error signing withdrawal")
+	}
+
+	err = w.Store.UpsertEthereumSignature(context.TODO(), store.EthereumSignature{
+		Address:    w.EthereumSigner.Address().String(),
+		Signature:  hex.EncodeToString(sig),
+		Action:     sr.Action,
+		DepositID:  sr.DepositID,
+		Expiration: details.Deadline.Unix(),
+		Token:      details.Token.String(),
 	})
 	if err != nil {
 		return errors.Wrap(err, "error upserting etherum signature")

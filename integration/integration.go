@@ -15,6 +15,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stellar/starbridge/backend"
+
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
 
@@ -30,6 +33,7 @@ import (
 const (
 	StandaloneNetworkPassphrase = "Standalone Network ; February 2017"
 	EthereumBridgeAddress       = "0x31995201773dA53F950f15278Ea1538eA37A68A1"
+	EthereumXLMTokenAddress     = "0x4Ee50847CD1278DBE87190080DD53055672755F6"
 	EthereumRPCURL              = "http://127.0.0.1:8545"
 )
 
@@ -237,6 +241,18 @@ func (i *Test) StartStarbridge(id int, config Config, ingestSequence uint32) err
 		EthereumPrivateKey:          ethPrivateKeys[id],
 		EthereumFinalityBuffer:      0,
 		WithdrawalWindow:            config.WithdrawalWindow,
+		AssetMapping: []backend.AssetMappingConfigEntry{
+			{
+				StellarAsset:      "native",
+				EthereumToken:     EthereumXLMTokenAddress,
+				StellarToEthereum: "1",
+			},
+			{
+				StellarAsset:      "ETH:" + i.mainAccount.GetAccountID(),
+				EthereumToken:     (common.Address{}).String(),
+				StellarToEthereum: "100000000000",
+			},
+		},
 	})
 
 	i.runningApps.Add(2)

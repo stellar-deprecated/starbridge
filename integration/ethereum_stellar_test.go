@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -10,8 +11,12 @@ import (
 	"net/url"
 	"sort"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/stellar/go/amount"
+	"github.com/stellar/go/clients/horizonclient"
 
 	"github.com/stellar/starbridge/solidity-go"
 	"github.com/stellar/starbridge/stellar/controllers"
@@ -34,6 +39,13 @@ import (
 const (
 	ethereumSenderPrivateKey = "c1a4af60400ffd1473ada8425cff9f91b533194d6dd30424a17f356e418ac35b"
 )
+
+func ethereumSenderAddress(t *testing.T) common.Address {
+	parsedPrivateKey, err := crypto.HexToECDSA(ethereumSenderPrivateKey)
+	require.NoError(t, err)
+	ethereumRecipient := crypto.PubkeyToAddress(parsedPrivateKey.PublicKey)
+	return ethereumRecipient
+}
 
 func depositETHToBridge(t *testing.T, client *ethclient.Client, amount *big.Int, stellarRecipient string) *types.Receipt {
 	parsedPrivateKey, err := crypto.HexToECDSA(ethereumSenderPrivateKey)
@@ -59,7 +71,7 @@ func depositETHToBridge(t *testing.T, client *ethclient.Client, amount *big.Int,
 	return receipt
 }
 
-func withdrawETHFromBridge(t *testing.T, client *ethclient.Client, numValidators int, amount *big.Int, responses []controllers.EthereumSignatureResponse) {
+func withdrawFromEthereum(t *testing.T, client *ethclient.Client, numValidators int, amount *big.Int, responses []controllers.EthereumSignatureResponse) {
 	parsedPrivateKey, err := crypto.HexToECDSA(ethereumSenderPrivateKey)
 	require.NoError(t, err)
 
@@ -97,17 +109,34 @@ func withdrawETHFromBridge(t *testing.T, client *ethclient.Client, numValidators
 		indexes[i] = validatorToIndex[common.HexToAddress(response.Address)]
 	}
 
-	tx, err := bridge.WithdrawETH(
-		opts,
-		solidity.WithdrawETHRequest{
-			Id:         common.HexToHash(responses[0].DepositID),
-			Expiration: big.NewInt(responses[0].Expiration),
-			Recipient:  opts.From,
-			Amount:     amount,
-		},
-		signatures,
-		indexes,
-	)
+	token := common.HexToAddress(responses[0].Token)
+	var tx *types.Transaction
+	if token == (common.Address{}) {
+		tx, err = bridge.WithdrawETH(
+			opts,
+			solidity.WithdrawETHRequest{
+				Id:         common.HexToHash(responses[0].DepositID),
+				Expiration: big.NewInt(responses[0].Expiration),
+				Recipient:  opts.From,
+				Amount:     amount,
+			},
+			signatures,
+			indexes,
+		)
+	} else {
+		tx, err = bridge.WithdrawERC20(
+			opts,
+			solidity.WithdrawERC20Request{
+				Id:         common.HexToHash(responses[0].DepositID),
+				Expiration: big.NewInt(responses[0].Expiration),
+				Recipient:  opts.From,
+				Amount:     amount,
+				Token:      token,
+			},
+			signatures,
+			indexes,
+		)
+	}
 	require.NoError(t, err)
 
 	receipt, err := client.TransactionReceipt(context.Background(), tx.Hash())
@@ -196,10 +225,13 @@ func TestEthereumToStellarWithdrawal(t *testing.T) {
 	// Concat signatures
 	gtx, err := txnbuild.TransactionFromXDR(txs[0])
 	require.NoError(t, err)
+	expectedTxHash, err := gtx.HashHex(StandaloneNetworkPassphrase)
+
 	mainTx, ok := gtx.Transaction()
 	require.True(t, ok)
 
-	expectedSeqNum := mainTx.SequenceNumber()
+	require.NoError(t, err)
+	require.Equal(t, "3."+strings.Repeat("0", 7), mainTx.Operations()[0].(*txnbuild.Payment).Amount)
 
 	// Add as many sigs as needed and not a single more
 	for i := 1; i < servers/2+1; i++ {
@@ -209,7 +241,9 @@ func TestEthereumToStellarWithdrawal(t *testing.T) {
 		require.True(t, ok)
 
 		// TODO timebound time should be provided in HTTP request and checked by Starbridge
-		require.Equal(t, expectedSeqNum, tx.SequenceNumber())
+		txHash, err := gtx.HashHex(StandaloneNetworkPassphrase)
+		require.NoError(t, err)
+		require.Equal(t, expectedTxHash, txHash)
 
 		sig := tx.Signatures()
 
@@ -313,7 +347,6 @@ func TestEthereumRefund(t *testing.T) {
 
 	for i := 0; i < servers; i++ {
 		i := i
-		stores[i] = itest.app[i].NewStore()
 		g.Go(func() error {
 			port := 9000 + i
 		loop:
@@ -341,5 +374,100 @@ func TestEthereumRefund(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	withdrawETHFromBridge(t, ethRPCClient, servers, depositAmount, responses)
+	withdrawFromEthereum(t, ethRPCClient, servers, depositAmount, responses)
+}
+
+func TestStellarToEthereumWithdrawal(t *testing.T) {
+	const servers int = 3
+
+	itest := NewIntegrationTest(t, Config{
+		Servers:                servers,
+		EthereumFinalityBuffer: 0,
+		WithdrawalWindow:       time.Hour,
+	})
+
+	account, err := itest.HorizonClient().AccountDetail(horizonclient.AccountRequest{
+		AccountID: itest.clientKey.Address(),
+	})
+	require.NoError(t, err)
+
+	tx := itest.MustSubmitTransaction(itest.clientKey, txnbuild.TransactionParams{
+		SourceAccount: &account,
+		Operations: []txnbuild.Operation{
+			&txnbuild.Payment{
+				Destination: itest.mainAccount.GetAccountID(),
+				Amount:      "3",
+				Asset:       txnbuild.NativeAsset{},
+			},
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Memo:    txnbuild.MemoHash(ethereumSenderAddress(t).Hash()),
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+		IncrementSequenceNum: true,
+	})
+	require.True(t, tx.Successful)
+
+	stores := make([]*store.DB, servers)
+	for i := 0; i < servers; i++ {
+		stores[i] = itest.app[i].NewStore()
+	}
+
+	for {
+		ready := 0
+		for i := 0; i < servers; i++ {
+			_, err = stores[i].GetStellarDeposit(context.Background(), tx.Hash)
+			if err == sql.ErrNoRows {
+				continue
+			}
+			require.NoError(t, err)
+			ready++
+		}
+		if ready == servers {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+
+	g := new(errgroup.Group)
+	postData := url.Values{
+		"transaction_hash": {tx.Hash},
+	}
+	responses := make([]controllers.EthereumSignatureResponse, servers)
+
+	for i := 0; i < servers; i++ {
+		i := i
+		g.Go(func() error {
+			port := 9000 + i
+		loop:
+			for {
+				time.Sleep(time.Second)
+				url := fmt.Sprintf("http://localhost:%d/stellar/withdraw/ethereum", port)
+				resp, err := itest.Client().PostForm(url, postData)
+				require.NoError(t, err)
+				switch resp.StatusCode {
+				case http.StatusAccepted:
+					t.Log("Signing request accepted, waiting...")
+					continue loop
+				case http.StatusOK:
+					t.Log("Signing request processed")
+				default:
+					return errors.Errorf("Unknown status code: %s", resp.Status)
+				}
+				require.NoError(t, json.NewDecoder(resp.Body).Decode(&responses[i]))
+				require.Equal(t, tx.Hash, responses[i].DepositID)
+				require.Equal(t, EthereumXLMTokenAddress, responses[i].Token)
+				return nil
+			}
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		t.Fatal(err)
+	}
+
+	ethRPCClient, err := ethclient.Dial(EthereumRPCURL)
+	require.NoError(t, err)
+	withdrawFromEthereum(t, ethRPCClient, servers, big.NewInt(int64(amount.MustParse("3"))), responses)
 }
