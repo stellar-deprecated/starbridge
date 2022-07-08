@@ -61,9 +61,7 @@ func isAsset(assetString string) bool {
 	var asset xdr.Asset
 
 	if strings.ToLower(assetString) == "native" {
-		if err := asset.SetNative(); err != nil {
-			return false
-		}
+		return true
 	} else {
 
 		parts := strings.Split(assetString, ":")
