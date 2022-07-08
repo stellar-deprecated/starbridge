@@ -35,6 +35,7 @@ type EthereumDeposit struct {
 // bridge ethereum smart contract
 type EthereumSignature struct {
 	Address    string `db:"address"`
+	Token      string `db:"token"`
 	Signature  string `db:"signature"`
 	Expiration int64  `db:"expiration"`
 	Action     Action `db:"requested_action"`
@@ -94,10 +95,12 @@ func (m *DB) UpsertEthereumSignature(ctx context.Context, newSig EthereumSignatu
 			"expiration":       newSig.Expiration,
 			"requested_action": newSig.Action,
 			"deposit_id":       newSig.DepositID,
+			"token":            newSig.Token,
 		}).
 		Suffix("ON CONFLICT (requested_action, deposit_id) " +
 			"DO UPDATE SET " +
-			"signature=EXCLUDED.signature, address=EXCLUDED.address, expiration=EXCLUDED.expiration",
+			"signature=EXCLUDED.signature, address=EXCLUDED.address, " +
+			"expiration=EXCLUDED.expiration, token=EXCLUDED.token",
 		)
 
 	_, err := m.Session.Exec(ctx, query)

@@ -23,12 +23,6 @@ func (c *EthereumWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	details, err := c.EthereumWithdrawalValidator.CanWithdraw(r.Context(), deposit)
-	if err != nil {
-		problem.Render(r.Context(), w, err)
-		return
-	}
-
 	// Check if outgoing transaction exists
 	row, err := c.Store.GetEthereumSignature(r.Context(), store.Withdraw, deposit.ID)
 	if err != nil && err != sql.ErrNoRows {
@@ -39,15 +33,21 @@ func (c *EthereumWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 		responseBytes, err := json.Marshal(EthereumSignatureResponse{
 			Address:    row.Address,
 			Signature:  row.Signature,
-			DepositID:  deposit.ID,
+			DepositID:  row.DepositID,
 			Expiration: row.Expiration,
-			Token:      details.Token.String(),
+			Token:      row.Token,
 		})
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 		} else {
 			_, _ = w.Write(responseBytes)
 		}
+		return
+	}
+
+	_, err = c.EthereumWithdrawalValidator.CanWithdraw(r.Context(), deposit)
+	if err != nil {
+		problem.Render(r.Context(), w, err)
 		return
 	}
 

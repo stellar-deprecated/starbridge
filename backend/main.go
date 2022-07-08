@@ -223,6 +223,7 @@ func (w *Worker) processEthereumRefundRequest(sr store.SignatureRequest) error {
 		Action:     sr.Action,
 		DepositID:  sr.DepositID,
 		Expiration: expiration,
+		Token:      deposit.Token,
 	})
 	if err != nil {
 		return errors.Wrap(err, "error upserting etherum signature")
@@ -262,6 +263,7 @@ func (w *Worker) processEthereumWithdrawalRequest(sr store.SignatureRequest) err
 		Action:     sr.Action,
 		DepositID:  sr.DepositID,
 		Expiration: details.Deadline.Unix(),
+		Token:      details.Token.String(),
 	})
 	if err != nil {
 		return errors.Wrap(err, "error upserting etherum signature")
