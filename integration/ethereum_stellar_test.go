@@ -481,6 +481,9 @@ func TestStellarRefund(t *testing.T) {
 		WithdrawalWindow:       time.Second,
 	})
 
+	ethRPCClient, err := ethclient.Dial(EthereumRPCURL)
+	require.NoError(t, err)
+
 	account, err := itest.HorizonClient().AccountDetail(horizonclient.AccountRequest{
 		AccountID: itest.clientKey.Address(),
 	})
@@ -509,10 +512,11 @@ func TestStellarRefund(t *testing.T) {
 		stores[i] = itest.app[i].NewStore()
 	}
 
+	var deposit store.StellarDeposit
 	for {
 		ready := 0
 		for i := 0; i < servers; i++ {
-			_, err = stores[i].GetStellarDeposit(context.Background(), tx.Hash)
+			deposit, err = stores[i].GetStellarDeposit(context.Background(), tx.Hash)
 			if err == sql.ErrNoRows {
 				continue
 			}
@@ -525,8 +529,32 @@ func TestStellarRefund(t *testing.T) {
 		time.Sleep(time.Second)
 	}
 
-	// Wait for WithdrawalWindow to pass
-	time.Sleep(5 * time.Second)
+	// Wait for WithdrawalWindow to pass in Stellar...
+	depositTime := time.Unix(int64(deposit.LedgerTime), 0)
+	for {
+		ready := 0
+		for i := 0; i < servers; i++ {
+			lastCloseTime, err := stores[i].GetLastLedgerCloseTime(context.Background())
+			require.NoError(t, err)
+			if lastCloseTime.After(depositTime.Add(time.Second)) {
+				ready++
+			}
+		}
+		if ready == servers {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+
+	// ...and Ethereum
+	for {
+		header, err := ethRPCClient.HeaderByNumber(context.Background(), nil)
+		require.NoError(t, err)
+		if time.Unix(int64(header.Time), 0).After(depositTime.Add(time.Second)) {
+			break
+		}
+		time.Sleep(time.Second)
+	}
 
 	g := new(errgroup.Group)
 	postData := url.Values{
