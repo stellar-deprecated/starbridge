@@ -13,7 +13,7 @@ type StellarDeposit struct {
 	ID string `db:"id"`
 	// Asset is the string encoding of the Stellar assets
 	// which were deposited to the bridge
-	Asset string `db:"token"`
+	Asset string `db:"asset"`
 	// Sender is the address of the account which deposited the tokens
 	Sender string `db:"sender"`
 	// Destination is the intended recipient of the bridge transfer

@@ -5,36 +5,26 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/stellar/go/support/render/problem"
 	"github.com/stellar/starbridge/backend"
-	"github.com/stellar/starbridge/ethereum"
+
+	"github.com/stellar/go/support/render/problem"
 	"github.com/stellar/starbridge/store"
 )
 
-type EthereumSignatureResponse struct {
-	Address    string `json:"address"`
-	Signature  string `json:"signature"`
-	DepositID  string `json:"deposit_id"`
-	Expiration int64  `json:"expiration,string"`
-	Token      string `json:"token"`
+type EthereumWithdrawalHandler struct {
+	Store                       *store.DB
+	EthereumWithdrawalValidator backend.EthereumWithdrawalValidator
 }
 
-type EthereumRefundHandler struct {
-	Observer                ethereum.Observer
-	Store                   *store.DB
-	EthereumRefundValidator backend.EthereumRefundValidator
-	EthereumFinalityBuffer  uint64
-}
-
-func (c *EthereumRefundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	deposit, err := getEthereumDeposit(c.Observer, c.Store, c.EthereumFinalityBuffer, r)
+func (c *EthereumWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	deposit, err := getStellarDeposit(c.Store, r)
 	if err != nil {
 		problem.Render(r.Context(), w, err)
 		return
 	}
 
 	// Check if outgoing transaction exists
-	row, err := c.Store.GetEthereumSignature(r.Context(), store.Refund, deposit.ID)
+	row, err := c.Store.GetEthereumSignature(r.Context(), store.Withdraw, deposit.ID)
 	if err != nil && err != sql.ErrNoRows {
 		problem.Render(r.Context(), w, err)
 		return
@@ -55,14 +45,15 @@ func (c *EthereumRefundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err = c.EthereumRefundValidator.CanRefund(r.Context(), deposit); err != nil {
+	_, err = c.EthereumWithdrawalValidator.CanWithdraw(r.Context(), deposit)
+	if err != nil {
 		problem.Render(r.Context(), w, err)
 		return
 	}
 
 	err = c.Store.InsertSignatureRequest(r.Context(), store.SignatureRequest{
-		DepositChain: store.Ethereum,
-		Action:       store.Refund,
+		DepositChain: store.Stellar,
+		Action:       store.Withdraw,
 		DepositID:    deposit.ID,
 	})
 	if err != nil {

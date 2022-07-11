@@ -1,11 +1,14 @@
 package txobserver
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/hex"
 	"net/http"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/pkg/errors"
 	"github.com/stellar/go/clients/horizonclient"
@@ -288,12 +291,18 @@ func (o *Observer) ingestIncomingPayment(payment operations.Payment) error {
 		assetString = payment.Asset.Code + ":" + payment.Asset.Issuer
 	}
 
+	var destinationAddress string
+	memoBytes, err := base64.StdEncoding.DecodeString(payment.Transaction.Memo)
+	if err == nil && bytes.Equal(common.BytesToAddress(memoBytes).Hash().Bytes(), memoBytes) {
+		destinationAddress = common.BytesToAddress(memoBytes).String()
+	}
+
 	deposit := store.StellarDeposit{
 		ID:          payment.Transaction.Hash,
 		Asset:       assetString,
 		LedgerTime:  payment.LedgerCloseTime.Unix(),
 		Sender:      payment.From,
-		Destination: payment.Transaction.Memo,
+		Destination: destinationAddress,
 		Amount:      payment.Amount,
 	}
 	if err := o.store.InsertStellarDeposit(context.TODO(), deposit); err != nil {

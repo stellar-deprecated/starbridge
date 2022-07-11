@@ -54,6 +54,8 @@ type Config struct {
 	EthereumBridgeConfigVersion uint32 `toml:"ethereum_bridge_config_version" valid:"int"`
 	EthereumPrivateKey          string `toml:"ethereum_private_key" valid:"-"`
 
+	AssetMapping []backend.AssetMappingConfigEntry `toml:"asset_mapping" valid:"-"`
+
 	EthereumFinalityBuffer uint64
 	WithdrawalWindow       time.Duration
 }
@@ -86,7 +88,7 @@ func NewApp(config Config) *App {
 		log.WithField("err", err).Fatal("could not create ethereum observer")
 	}
 	app.initHTTP(config, client, ethObserver)
-	app.initWorker(config, client)
+	app.initWorker(config, client, ethObserver)
 	app.initLogger()
 	app.initPrometheus()
 
@@ -131,7 +133,7 @@ func (a *App) initDB(config Config) {
 	}
 }
 
-func (a *App) initWorker(config Config, client *horizonclient.Client) {
+func (a *App) initWorker(config Config, client *horizonclient.Client, ethObserver ethereum.Observer) {
 	var (
 		signerKey *keypair.Full
 		err       error
@@ -141,6 +143,11 @@ func (a *App) initWorker(config Config, client *horizonclient.Client) {
 		if err != nil {
 			log.Fatalf("cannot pase signer secret key: %v", err)
 		}
+	}
+
+	converter, err := backend.NewAssetConverter(config.AssetMapping)
+	if err != nil {
+		log.Fatal("unable to create asset converter", err)
 	}
 
 	ethSigner, err := ethereum.NewSigner(config.EthereumPrivateKey, config.EthereumBridgeConfigVersion)
@@ -164,6 +171,13 @@ func (a *App) initWorker(config Config, client *horizonclient.Client) {
 		StellarWithdrawalValidator: backend.StellarWithdrawalValidator{
 			Session:          a.session.Clone(),
 			WithdrawalWindow: config.WithdrawalWindow,
+			Converter:        converter,
+		},
+		EthereumWithdrawalValidator: backend.EthereumWithdrawalValidator{
+			Observer:               ethObserver,
+			EthereumFinalityBuffer: config.EthereumFinalityBuffer,
+			WithdrawalWindow:       config.WithdrawalWindow,
+			Converter:              converter,
 		},
 		EthereumRefundValidator: backend.EthereumRefundValidator{
 			Session:          a.session.Clone(),
@@ -173,6 +187,11 @@ func (a *App) initWorker(config Config, client *horizonclient.Client) {
 }
 
 func (a *App) initHTTP(config Config, client *horizonclient.Client, ethObserver ethereum.Observer) {
+	converter, err := backend.NewAssetConverter(config.AssetMapping)
+	if err != nil {
+		log.Fatal("unable to create asset converter", err)
+	}
+
 	httpServer, err := httpx.NewServer(httpx.ServerConfig{
 		Ctx:                a.appCtx,
 		Port:               config.Port,
@@ -185,8 +204,18 @@ func (a *App) initHTTP(config Config, client *horizonclient.Client, ethObserver 
 			StellarWithdrawalValidator: backend.StellarWithdrawalValidator{
 				Session:          a.session.Clone(),
 				WithdrawalWindow: config.WithdrawalWindow,
+				Converter:        converter,
 			},
 			EthereumFinalityBuffer: config.EthereumFinalityBuffer,
+		},
+		EthereumWithdrawalHandler: &controllers.EthereumWithdrawalHandler{
+			Store: a.NewStore(),
+			EthereumWithdrawalValidator: backend.EthereumWithdrawalValidator{
+				Observer:               ethObserver,
+				EthereumFinalityBuffer: config.EthereumFinalityBuffer,
+				WithdrawalWindow:       config.WithdrawalWindow,
+				Converter:              converter,
+			},
 		},
 		EthereumRefundHandler: &controllers.EthereumRefundHandler{
 			Observer: ethObserver,
