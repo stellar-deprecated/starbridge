@@ -15,14 +15,12 @@ import (
 	"github.com/stellar/starbridge/store"
 )
 
-var (
-	RefundAlreadyExecuted = problem.P{
-		Type:   "refund_already_executed",
-		Title:  "Refund Already Executed",
-		Status: http.StatusBadRequest,
-		Detail: "The refund has already been executed.",
-	}
-)
+var RefundAlreadyExecuted = problem.P{
+	Type:   "refund_already_executed",
+	Title:  "Refund Already Executed",
+	Status: http.StatusBadRequest,
+	Detail: "The refund has already been executed.",
+}
 
 // StellarRefundValidator checks if it is possible to
 // refund a deposit to depositor's Stellar account.
