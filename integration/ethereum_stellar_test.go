@@ -553,15 +553,20 @@ func TestStellarRefund(t *testing.T) {
 		time.Sleep(time.Second)
 	}
 
+	t.Log("Stellar time reached withdrawal deadline")
+
 	// ...and Ethereum
 	for {
 		header, err := ethRPCClient.HeaderByNumber(context.Background(), nil)
 		require.NoError(t, err)
+		t.Log("Block ", header.Number, " time ", header.Time)
 		if time.Unix(int64(header.Time), 0).After(depositTime.Add(time.Second)) {
 			break
 		}
 		time.Sleep(time.Second)
 	}
+
+	t.Log("Ethereum time reached withdrawal deadline")
 
 	g := new(errgroup.Group)
 	postData := url.Values{
