@@ -530,12 +530,6 @@ func TestStellarRefund(t *testing.T) {
 		time.Sleep(time.Second)
 	}
 
-	// Close Ethereum block
-	ethClient, err := rpc.DialContext(context.Background(), EthereumRPCURL)
-	require.NoError(t, err)
-	err = ethClient.Call(nil, "evm_mine")
-	require.NoError(t, err)
-
 	// Wait for WithdrawalWindow to pass in Stellar...
 	depositTime := time.Unix(int64(deposit.LedgerTime), 0)
 	for {
@@ -563,6 +557,13 @@ func TestStellarRefund(t *testing.T) {
 		if time.Unix(int64(header.Time), 0).After(depositTime.Add(time.Second)) {
 			break
 		}
+
+		// Close Ethereum block
+		ethClient, err := rpc.DialContext(context.Background(), EthereumRPCURL)
+		require.NoError(t, err)
+		err = ethClient.Call(nil, "evm_mine")
+		require.NoError(t, err)
+
 		time.Sleep(time.Second)
 	}
 
