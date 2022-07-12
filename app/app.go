@@ -173,6 +173,12 @@ func (a *App) initWorker(config Config, client *horizonclient.Client, ethObserve
 			WithdrawalWindow: config.WithdrawalWindow,
 			Converter:        converter,
 		},
+		StellarRefundValidator: backend.StellarRefundValidator{
+			Session:                a.session.Clone(),
+			WithdrawalWindow:       config.WithdrawalWindow,
+			Observer:               ethObserver,
+			EthereumFinalityBuffer: config.EthereumFinalityBuffer,
+		},
 		EthereumWithdrawalValidator: backend.EthereumWithdrawalValidator{
 			Observer:               ethObserver,
 			EthereumFinalityBuffer: config.EthereumFinalityBuffer,
