@@ -28,6 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stellar/go/strkey"
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/support/render/problem"
@@ -528,6 +529,12 @@ func TestStellarRefund(t *testing.T) {
 		}
 		time.Sleep(time.Second)
 	}
+
+	// Close Ethereum block
+	ethClient, err := rpc.DialContext(context.Background(), EthereumRPCURL)
+	require.NoError(t, err)
+	err = ethClient.Call(nil, "evm_mine")
+	require.NoError(t, err)
 
 	// Wait for WithdrawalWindow to pass in Stellar...
 	depositTime := time.Unix(int64(deposit.LedgerTime), 0)
