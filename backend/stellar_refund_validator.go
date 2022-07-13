@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stellar/go/support/db"
-	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/support/render/problem"
 
 	"github.com/stellar/go/support/errors"
@@ -16,14 +15,12 @@ import (
 	"github.com/stellar/starbridge/store"
 )
 
-var (
-	RefundAlreadyExecuted = problem.P{
-		Type:   "refund_already_executed",
-		Title:  "Refund Already Executed",
-		Status: http.StatusBadRequest,
-		Detail: "The refund has already been executed.",
-	}
-)
+var RefundAlreadyExecuted = problem.P{
+	Type:   "refund_already_executed",
+	Title:  "Refund Already Executed",
+	Status: http.StatusBadRequest,
+	Detail: "The refund has already been executed.",
+}
 
 // StellarRefundValidator checks if it is possible to
 // refund a deposit to depositor's Stellar account.
@@ -69,8 +66,6 @@ func (s StellarRefundValidator) CanRefund(ctx context.Context, deposit store.Ste
 		return StellarRefundDetails{}, errors.Wrap(err, "error getting last ledger close time")
 	}
 	withdrawalDeadline := time.Unix(deposit.LedgerTime, 0).Add(s.WithdrawalWindow)
-	log.Info("lastLedgerCloseTime", lastLedgerCloseTime)
-	log.Info("withdrawalDeadline", withdrawalDeadline)
 	if !lastLedgerCloseTime.After(withdrawalDeadline) {
 		return StellarRefundDetails{}, WithdrawalWindowStillActive
 	}
@@ -102,8 +97,6 @@ func (s StellarRefundValidator) CanRefund(ctx context.Context, deposit store.Ste
 		return StellarRefundDetails{}, errors.Wrap(err, "error getting block from ethereum observer")
 	}
 
-	log.Info("requestStatus", requestStatus)
-	log.Info("block.Time", block.Time)
 	if !block.Time.After(withdrawalDeadline) {
 		return StellarRefundDetails{}, WithdrawalWindowStillActive
 	}
