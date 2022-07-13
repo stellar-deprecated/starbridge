@@ -31,7 +31,7 @@ func (c *StellarRefundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 	if err == nil {
 		sourceAccount, err := c.StellarClient.AccountDetail(horizonclient.AccountRequest{
-			AccountID: deposit.Destination,
+			AccountID: deposit.Sender,
 		})
 		if err != nil {
 			problem.Render(r.Context(), w, err)
