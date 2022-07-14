@@ -668,4 +668,24 @@ func TestStellarRefund(t *testing.T) {
 		}
 	}
 	require.Equal(t, servers, numFound)
+
+	g = new(errgroup.Group)
+	for i := 0; i < servers; i++ {
+		i := i
+		g.Go(func() error {
+			port := 9000 + i
+			url := fmt.Sprintf("http://localhost:%d/stellar/refund", port)
+			resp, err := itest.Client().PostForm(url, postData)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+			var p problem.P
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&p))
+			require.Equal(t, "withdrawal_already_executed", p.Type)
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		t.Fatal(err)
+	}
 }

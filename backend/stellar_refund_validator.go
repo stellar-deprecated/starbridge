@@ -58,30 +58,11 @@ func (s StellarRefundValidator) CanRefund(ctx context.Context, deposit store.Ste
 		return StellarRefundDetails{}, errors.Wrap(err, "error getting last ledger sequence")
 	}
 
-	// Checks on Stellar side:
-	// - Ensure that currently ingested ledger is past the withdrawal window
-	// - Ensure that refund tx has not been already executed
-	lastLedgerCloseTime, err := dbStore.GetLastLedgerCloseTime(ctx)
-	if err != nil {
-		return StellarRefundDetails{}, errors.Wrap(err, "error getting last ledger close time")
-	}
-	withdrawalDeadline := time.Unix(deposit.LedgerTime, 0).Add(s.WithdrawalWindow)
-	if !lastLedgerCloseTime.After(withdrawalDeadline) {
-		return StellarRefundDetails{}, WithdrawalWindowStillActive
-	}
-
-	// Check if refund tx was seen without signature request
-	exists, err := dbStore.HistoryStellarTransactionExists(ctx, deposit.ID)
-	if err != nil {
-		return StellarRefundDetails{}, errors.Wrap(err, "error getting history stellar transaction by memo hash")
-	}
-	if exists {
-		return StellarRefundDetails{}, RefundAlreadyExecuted
-	}
-
 	// rollback to release used DB connection because further checks
 	// do not involve DB
 	_ = dbStore.Session.Rollback()
+
+	withdrawalDeadline := time.Unix(deposit.LedgerTime, 0).Add(s.WithdrawalWindow)
 
 	// Checks on Ethereum side:
 	// - Ensure that there was no withdrawal to Ethereum account
@@ -90,6 +71,10 @@ func (s StellarRefundValidator) CanRefund(ctx context.Context, deposit store.Ste
 	requestStatus, err := s.Observer.GetRequestStatus(ctx, depositID)
 	if err != nil {
 		return StellarRefundDetails{}, errors.Wrap(err, "error getting request status from ethereum observer")
+	}
+
+	if requestStatus.BlockNumber <= s.EthereumFinalityBuffer {
+		return StellarRefundDetails{}, EthereumNodeBehind
 	}
 
 	block, err := s.Observer.GetBlockByNumber(ctx, requestStatus.BlockNumber-s.EthereumFinalityBuffer)
