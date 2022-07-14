@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"strings"
 
 	sq "github.com/Masterminds/squirrel"
 )
@@ -36,6 +37,7 @@ type EthereumDeposit struct {
 type EthereumSignature struct {
 	Address    string `db:"address"`
 	Token      string `db:"token"`
+	Amount     string `db:"amount"`
 	Signature  string `db:"signature"`
 	Expiration int64  `db:"expiration"`
 	Action     Action `db:"requested_action"`
@@ -44,7 +46,7 @@ type EthereumSignature struct {
 
 func (m *DB) GetEthereumDeposit(ctx context.Context, id string) (EthereumDeposit, error) {
 	sql := sq.Select("*").From("ethereum_deposits").Where(
-		sq.Eq{"id": id},
+		sq.Eq{"id": strings.ToLower(id)},
 	)
 
 	var result EthereumDeposit
@@ -58,7 +60,7 @@ func (m *DB) GetEthereumDeposit(ctx context.Context, id string) (EthereumDeposit
 func (m *DB) InsertEthereumDeposit(ctx context.Context, deposit EthereumDeposit) error {
 	query := sq.Insert("ethereum_deposits").
 		SetMap(map[string]interface{}{
-			"id":           deposit.ID,
+			"id":           strings.ToLower(deposit.ID),
 			"hash":         deposit.Hash,
 			"log_index":    deposit.LogIndex,
 			"block_number": deposit.BlockNumber,
@@ -76,7 +78,7 @@ func (m *DB) InsertEthereumDeposit(ctx context.Context, deposit EthereumDeposit)
 func (m *DB) GetEthereumSignature(ctx context.Context, action Action, depositID string) (EthereumSignature, error) {
 	sql := sq.Select("*").From("ethereum_signatures").Where(map[string]interface{}{
 		"requested_action": action,
-		"deposit_id":       depositID,
+		"deposit_id":       strings.ToLower(depositID),
 	})
 
 	var result EthereumSignature
@@ -94,13 +96,14 @@ func (m *DB) UpsertEthereumSignature(ctx context.Context, newSig EthereumSignatu
 			"signature":        newSig.Signature,
 			"expiration":       newSig.Expiration,
 			"requested_action": newSig.Action,
-			"deposit_id":       newSig.DepositID,
+			"deposit_id":       strings.ToLower(newSig.DepositID),
 			"token":            newSig.Token,
+			"amount":           newSig.Amount,
 		}).
 		Suffix("ON CONFLICT (requested_action, deposit_id) " +
 			"DO UPDATE SET " +
 			"signature=EXCLUDED.signature, address=EXCLUDED.address, " +
-			"expiration=EXCLUDED.expiration, token=EXCLUDED.token",
+			"expiration=EXCLUDED.expiration, token=EXCLUDED.token, amount=EXCLUDED.amount",
 		)
 
 	_, err := m.Session.Exec(ctx, query)

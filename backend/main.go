@@ -26,8 +26,6 @@ import (
 )
 
 type Worker struct {
-	Ctx context.Context
-
 	Store *store.DB
 
 	StellarClient              *horizonclient.Client
@@ -44,16 +42,16 @@ type Worker struct {
 	log *log.Entry
 }
 
-func (w *Worker) Run() {
+func (w *Worker) Run(ctx context.Context) {
 	w.log = log.WithField("service", "backend")
 
 	w.log.Info("Starting worker")
 
-	for w.Ctx.Err() == nil {
+	for ctx.Err() == nil {
 		// Process all new ledgers before processing signature requests
-		w.StellarObserver.ProcessNewLedgers()
+		w.StellarObserver.ProcessNewLedgers(ctx)
 
-		signatureRequests, err := w.Store.GetSignatureRequests(context.TODO())
+		signatureRequests, err := w.Store.GetSignatureRequests(ctx)
 		if err != nil {
 			w.log.WithField("err", err).Error("cannot get signature requests")
 			time.Sleep(time.Second)
@@ -73,18 +71,18 @@ func (w *Worker) Run() {
 			case store.Withdraw:
 				switch sr.DepositChain {
 				case store.Ethereum:
-					err = w.processStellarWithdrawalRequest(sr)
+					err = w.processStellarWithdrawalRequest(ctx, sr)
 				case store.Stellar:
-					err = w.processEthereumWithdrawalRequest(sr)
+					err = w.processEthereumWithdrawalRequest(ctx, sr)
 				default:
 					err = fmt.Errorf("withdrawals for deposit chain %v is not supported", sr.DepositChain)
 				}
 			case store.Refund:
 				switch sr.DepositChain {
 				case store.Ethereum:
-					err = w.processEthereumRefundRequest(sr)
+					err = w.processEthereumRefundRequest(ctx, sr)
 				case store.Stellar:
-					err = w.processStellarRefundRequest(sr)
+					err = w.processStellarRefundRequest(ctx, sr)
 				default:
 					err = fmt.Errorf("refunds for deposit chain %v is not supported", sr.DepositChain)
 				}
@@ -96,35 +94,35 @@ func (w *Worker) Run() {
 				w.log.WithFields(log.F{"err": err, "request": sr}).
 					Error("Cannot process signature request")
 				if p, ok := err.(problem.P); ok && p.Status >= 400 && p.Status < 500 {
-					w.deleteRequest(sr)
+					w.deleteRequest(ctx, sr)
 				}
 			} else {
 				w.log.WithField("request", sr).
 					Info("Processed signature request successfully")
-				w.deleteRequest(sr)
+				w.deleteRequest(ctx, sr)
 			}
 		}
 	}
 }
 
-func (w *Worker) deleteRequest(sr store.SignatureRequest) {
-	err := w.Store.DeleteSignatureRequest(context.TODO(), sr)
+func (w *Worker) deleteRequest(ctx context.Context, sr store.SignatureRequest) {
+	err := w.Store.DeleteSignatureRequest(ctx, sr)
 	if err != nil {
 		w.log.WithFields(log.F{"err": err, "request": sr}).
 			Error("Error removing signature request")
 	}
 }
 
-func (w *Worker) processStellarWithdrawalRequest(sr store.SignatureRequest) error {
+func (w *Worker) processStellarWithdrawalRequest(ctx context.Context, sr store.SignatureRequest) error {
 	if sr.DepositChain != store.Ethereum {
 		return fmt.Errorf("deposits from %v are not supported", sr.DepositChain)
 	}
-	deposit, err := w.Store.GetEthereumDeposit(context.TODO(), sr.DepositID)
+	deposit, err := w.Store.GetEthereumDeposit(ctx, sr.DepositID)
 	if err != nil {
 		return errors.Wrap(err, "error getting ethereum deposit")
 	}
 
-	details, err := w.StellarWithdrawalValidator.CanWithdraw(context.TODO(), deposit)
+	details, err := w.StellarWithdrawalValidator.CanWithdraw(ctx, deposit)
 	if err != nil {
 		return errors.Wrap(err, "error validating withdraw conditions")
 	}
@@ -185,7 +183,7 @@ func (w *Worker) processStellarWithdrawalRequest(sr store.SignatureRequest) erro
 		SourceAccount: details.Recipient,
 		Sequence:      tx.SeqNum(),
 	}
-	err = w.Store.UpsertOutgoingStellarTransaction(context.TODO(), outgoingTx)
+	err = w.Store.UpsertOutgoingStellarTransaction(ctx, outgoingTx)
 	if err != nil {
 		return errors.Wrap(err, "error upserting outgoing stellar transaction")
 	}
@@ -193,16 +191,16 @@ func (w *Worker) processStellarWithdrawalRequest(sr store.SignatureRequest) erro
 	return nil
 }
 
-func (w *Worker) processStellarRefundRequest(sr store.SignatureRequest) error {
+func (w *Worker) processStellarRefundRequest(ctx context.Context, sr store.SignatureRequest) error {
 	if sr.DepositChain != store.Stellar {
 		return fmt.Errorf("deposits from %v are not supported", sr.DepositChain)
 	}
-	deposit, err := w.Store.GetStellarDeposit(context.TODO(), sr.DepositID)
+	deposit, err := w.Store.GetStellarDeposit(ctx, sr.DepositID)
 	if err != nil {
 		return errors.Wrap(err, "error getting ethereum deposit")
 	}
 
-	details, err := w.StellarRefundValidator.CanRefund(context.TODO(), deposit)
+	details, err := w.StellarRefundValidator.CanRefund(ctx, deposit)
 	if err != nil {
 		return errors.Wrap(err, "error validating refund conditions")
 	}
@@ -264,7 +262,7 @@ func (w *Worker) processStellarRefundRequest(sr store.SignatureRequest) error {
 		SourceAccount: deposit.Sender,
 		Sequence:      tx.SeqNum(),
 	}
-	err = w.Store.UpsertOutgoingStellarTransaction(context.TODO(), outgoingTx)
+	err = w.Store.UpsertOutgoingStellarTransaction(ctx, outgoingTx)
 	if err != nil {
 		return errors.Wrap(err, "error upserting outgoing stellar transaction")
 	}
@@ -272,20 +270,20 @@ func (w *Worker) processStellarRefundRequest(sr store.SignatureRequest) error {
 	return nil
 }
 
-func (w *Worker) processEthereumRefundRequest(sr store.SignatureRequest) error {
+func (w *Worker) processEthereumRefundRequest(ctx context.Context, sr store.SignatureRequest) error {
 	if sr.DepositChain != store.Ethereum {
 		return fmt.Errorf("deposits from %v are not supported", sr.DepositChain)
 	}
-	deposit, err := w.Store.GetEthereumDeposit(context.TODO(), sr.DepositID)
+	deposit, err := w.Store.GetEthereumDeposit(ctx, sr.DepositID)
 	if err != nil {
 		return errors.Wrap(err, "error getting ethereum deposit")
 	}
 
-	if err = w.EthereumRefundValidator.CanRefund(context.TODO(), deposit); err != nil {
+	if err = w.EthereumRefundValidator.CanRefund(ctx, deposit); err != nil {
 		return errors.Wrap(err, "error validating refund conditions")
 	}
 
-	amount, ok := new(big.Int).SetString(deposit.Amount, 10)
+	refundAmount, ok := new(big.Int).SetString(deposit.Amount, 10)
 	if !ok {
 		return errors.Errorf("cannot convert value in wei to bit.Rat: %s", deposit.Amount)
 	}
@@ -296,19 +294,20 @@ func (w *Worker) processEthereumRefundRequest(sr store.SignatureRequest) error {
 		expiration,
 		common.HexToAddress(deposit.Sender),
 		common.HexToAddress(deposit.Token),
-		amount,
+		refundAmount,
 	)
 	if err != nil {
 		return errors.Wrap(err, "error signing refund")
 	}
 
-	err = w.Store.UpsertEthereumSignature(context.TODO(), store.EthereumSignature{
+	err = w.Store.UpsertEthereumSignature(ctx, store.EthereumSignature{
 		Address:    w.EthereumSigner.Address().String(),
 		Signature:  hex.EncodeToString(sig),
 		Action:     sr.Action,
 		DepositID:  sr.DepositID,
 		Expiration: expiration,
 		Token:      deposit.Token,
+		Amount:     deposit.Amount,
 	})
 	if err != nil {
 		return errors.Wrap(err, "error upserting etherum signature")
@@ -317,16 +316,16 @@ func (w *Worker) processEthereumRefundRequest(sr store.SignatureRequest) error {
 	return nil
 }
 
-func (w *Worker) processEthereumWithdrawalRequest(sr store.SignatureRequest) error {
+func (w *Worker) processEthereumWithdrawalRequest(ctx context.Context, sr store.SignatureRequest) error {
 	if sr.DepositChain != store.Stellar {
 		return fmt.Errorf("deposits from %v are not supported", sr.DepositChain)
 	}
-	deposit, err := w.Store.GetStellarDeposit(context.TODO(), sr.DepositID)
+	deposit, err := w.Store.GetStellarDeposit(ctx, sr.DepositID)
 	if err != nil {
 		return errors.Wrap(err, "error getting stellar deposit")
 	}
 
-	details, err := w.EthereumWithdrawalValidator.CanWithdraw(context.TODO(), deposit)
+	details, err := w.EthereumWithdrawalValidator.CanWithdraw(ctx, deposit)
 	if err != nil {
 		return errors.Wrap(err, "error validating withdrawal conditions")
 	}
@@ -342,13 +341,14 @@ func (w *Worker) processEthereumWithdrawalRequest(sr store.SignatureRequest) err
 		return errors.Wrap(err, "error signing withdrawal")
 	}
 
-	err = w.Store.UpsertEthereumSignature(context.TODO(), store.EthereumSignature{
+	err = w.Store.UpsertEthereumSignature(ctx, store.EthereumSignature{
 		Address:    w.EthereumSigner.Address().String(),
 		Signature:  hex.EncodeToString(sig),
 		Action:     sr.Action,
 		DepositID:  sr.DepositID,
 		Expiration: details.Deadline.Unix(),
 		Token:      details.Token.String(),
+		Amount:     details.Amount.String(),
 	})
 	if err != nil {
 		return errors.Wrap(err, "error upserting etherum signature")

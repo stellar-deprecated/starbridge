@@ -32,11 +32,11 @@ func (m *DB) InsertSignatureRequest(ctx context.Context, request SignatureReques
 	sql := sq.Insert("signature_requests").SetMap(map[string]interface{}{
 		"deposit_chain":    request.DepositChain,
 		"requested_action": request.Action,
-		"deposit_id":       request.DepositID,
+		"deposit_id":       strings.ToLower(request.DepositID),
 	})
 	_, err := m.Session.Exec(ctx, sql)
 	// Ignore duplicate violations
-	if err != nil && !strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+	if err != nil && !IsDuplicateError(err) {
 		return err
 	}
 
@@ -57,7 +57,7 @@ func (m *DB) GetSignatureRequests(ctx context.Context) ([]SignatureRequest, erro
 func (m *DB) DeleteSignatureRequest(ctx context.Context, request SignatureRequest) error {
 	del := sq.Delete("signature_requests").Where(map[string]interface{}{
 		"deposit_chain":    request.DepositChain,
-		"deposit_id":       request.DepositID,
+		"deposit_id":       strings.ToLower(request.DepositID),
 		"requested_action": request.Action,
 	})
 	_, err := m.Session.Exec(ctx, del)

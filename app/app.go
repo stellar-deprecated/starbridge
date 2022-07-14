@@ -10,15 +10,16 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/stellar/starbridge/ethereum"
-	"github.com/stellar/starbridge/stellar/controllers"
-
 	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/keypair"
 	"github.com/stellar/go/support/db"
 	"github.com/stellar/go/support/log"
+
 	"github.com/stellar/starbridge/backend"
+	"github.com/stellar/starbridge/controllers"
+	"github.com/stellar/starbridge/ethereum"
 	"github.com/stellar/starbridge/httpx"
 	"github.com/stellar/starbridge/stellar/signer"
 	"github.com/stellar/starbridge/stellar/txbuilder"
@@ -74,7 +75,6 @@ func NewApp(config Config) *App {
 	app.initDB(config)
 	app.initGracefulShutdown()
 	app.stellarObserver = txobserver.NewObserver(
-		app.appCtx,
 		config.StellarBridgeAccount,
 		client,
 		app.NewStore(),
@@ -156,7 +156,6 @@ func (a *App) initWorker(config Config, client *horizonclient.Client, ethObserve
 	}
 
 	a.worker = &backend.Worker{
-		Ctx:           a.appCtx,
 		Store:         a.NewStore(),
 		StellarClient: client,
 		StellarBuilder: &txbuilder.Builder{
@@ -285,7 +284,7 @@ func (a *App) RunHTTPServer() {
 // RunBackendWorker starts backend worker responsible for building and signing
 // transactions
 func (a *App) RunBackendWorker() {
-	a.worker.Run()
+	a.worker.Run(a.appCtx)
 }
 
 func (a *App) Close() {
