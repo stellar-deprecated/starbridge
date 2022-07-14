@@ -680,7 +680,7 @@ func TestStellarRefund(t *testing.T) {
 			require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 			var p problem.P
 			require.NoError(t, json.NewDecoder(resp.Body).Decode(&p))
-			require.Equal(t, "refund_already_executed", p.Type)
+			require.Equal(t, "Refund Already Executed", p.Title)
 			return nil
 		})
 	}
