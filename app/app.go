@@ -39,7 +39,7 @@ type App struct {
 }
 
 type Config struct {
-	Port      uint16 `valid:"-"`
+	Port      uint16 `toml:"port" valid:"-"`
 	AdminPort uint16 `toml:"admin_port" valid:"-"`
 
 	PostgresDSN string `toml:"postgres_dsn" valid:"-"`
@@ -51,13 +51,13 @@ type Config struct {
 
 	EthereumRPCURL              string `toml:"ethereum_rpc_url" valid:"-"`
 	EthereumBridgeAddress       string `toml:"ethereum_bridge_address" valid:"-"`
-	EthereumBridgeConfigVersion uint32 `toml:"ethereum_bridge_config_version" valid:"int"`
+	EthereumBridgeConfigVersion uint32 `toml:"ethereum_bridge_config_version" valid:"-"`
 	EthereumPrivateKey          string `toml:"ethereum_private_key" valid:"-"`
 
 	AssetMapping []backend.AssetMappingConfigEntry `toml:"asset_mapping" valid:"-"`
 
-	EthereumFinalityBuffer uint64
-	WithdrawalWindow       time.Duration
+	EthereumFinalityBuffer uint64        `toml:"-" valid:"-"`
+	WithdrawalWindow       time.Duration `toml:"-" valid:"-"`
 }
 
 func NewApp(config Config) *App {
