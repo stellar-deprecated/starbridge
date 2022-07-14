@@ -34,6 +34,7 @@ type ServerConfig struct {
 	PrometheusRegistry *prometheus.Registry
 
 	StellarWithdrawalHandler  *controllers.StellarWithdrawalHandler
+	StellarRefundHandler      *controllers.StellarRefundHandler
 	EthereumWithdrawalHandler *controllers.EthereumWithdrawalHandler
 	EthereumRefundHandler     *controllers.EthereumRefundHandler
 }
@@ -106,6 +107,7 @@ func (s *Server) initMux(serverConfig ServerConfig) {
 	mux.Method(http.MethodPost, "/ethereum/withdraw/stellar", serverConfig.StellarWithdrawalHandler)
 	mux.Method(http.MethodPost, "/stellar/withdraw/ethereum", serverConfig.EthereumWithdrawalHandler)
 	mux.Method(http.MethodPost, "/ethereum/refund", serverConfig.EthereumRefundHandler)
+	mux.Method(http.MethodPost, "/stellar/refund", serverConfig.StellarRefundHandler)
 
 	staticServer := http.FileServer(http.FS(html.Files))
 	mux.Handle("/*", staticServer)

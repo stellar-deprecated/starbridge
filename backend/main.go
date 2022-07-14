@@ -9,11 +9,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
+
 	"github.com/stellar/go/amount"
 	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/support/log"
 	"github.com/stellar/go/support/render/problem"
+	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
 
 	"github.com/stellar/starbridge/ethereum"
@@ -28,11 +30,13 @@ type Worker struct {
 
 	Store *store.DB
 
-	StellarClient               *horizonclient.Client
-	StellarBuilder              *txbuilder.Builder
-	StellarSigner               *signer.Signer
-	StellarObserver             *txobserver.Observer
-	StellarWithdrawalValidator  StellarWithdrawalValidator
+	StellarClient              *horizonclient.Client
+	StellarBuilder             *txbuilder.Builder
+	StellarSigner              *signer.Signer
+	StellarObserver            *txobserver.Observer
+	StellarWithdrawalValidator StellarWithdrawalValidator
+	StellarRefundValidator     StellarRefundValidator
+
 	EthereumRefundValidator     EthereumRefundValidator
 	EthereumWithdrawalValidator EthereumWithdrawalValidator
 	EthereumSigner              ethereum.Signer
@@ -79,6 +83,8 @@ func (w *Worker) Run() {
 				switch sr.DepositChain {
 				case store.Ethereum:
 					err = w.processEthereumRefundRequest(sr)
+				case store.Stellar:
+					err = w.processStellarRefundRequest(sr)
 				default:
 					err = fmt.Errorf("refunds for deposit chain %v is not supported", sr.DepositChain)
 				}
@@ -177,6 +183,85 @@ func (w *Worker) processStellarWithdrawalRequest(sr store.SignatureRequest) erro
 		Action:        sr.Action,
 		DepositID:     sr.DepositID,
 		SourceAccount: details.Recipient,
+		Sequence:      tx.SeqNum(),
+	}
+	err = w.Store.UpsertOutgoingStellarTransaction(context.TODO(), outgoingTx)
+	if err != nil {
+		return errors.Wrap(err, "error upserting outgoing stellar transaction")
+	}
+
+	return nil
+}
+
+func (w *Worker) processStellarRefundRequest(sr store.SignatureRequest) error {
+	if sr.DepositChain != store.Stellar {
+		return fmt.Errorf("deposits from %v are not supported", sr.DepositChain)
+	}
+	deposit, err := w.Store.GetStellarDeposit(context.TODO(), sr.DepositID)
+	if err != nil {
+		return errors.Wrap(err, "error getting ethereum deposit")
+	}
+
+	details, err := w.StellarRefundValidator.CanRefund(context.TODO(), deposit)
+	if err != nil {
+		return errors.Wrap(err, "error validating refund conditions")
+	}
+
+	// Load source account sequence
+	sourceAccount, err := w.StellarClient.AccountDetail(horizonclient.AccountRequest{
+		AccountID: deposit.Sender,
+	})
+	if err != nil {
+		return errors.Wrap(err, "error getting account details")
+	}
+	if sourceAccount.SequenceLedger > 0 {
+		if details.LedgerSequence < sourceAccount.SequenceLedger {
+			return errors.New("skipping, account sequence ledger is higher than last ledger ingested")
+		}
+	} else {
+		if details.LedgerSequence < sourceAccount.LastModifiedLedger {
+			return errors.New("skipping, account sequence possibly bumped after last ledger ingested")
+		}
+	}
+
+	// All good: build, sign and persist outgoing transaction
+	depositIDBytes, err := hex.DecodeString(deposit.ID)
+	if err != nil {
+		return errors.Wrap(err, "error decoding deposit id")
+	}
+
+	tx, err := w.StellarBuilder.BuildTransaction(
+		deposit.Asset,
+		deposit.Sender,
+		deposit.Sender,
+		deposit.Amount,
+		sourceAccount.Sequence+1,
+		txnbuild.TimeoutInfinite,
+		depositIDBytes,
+	)
+	if err != nil {
+		return errors.Wrap(err, "error building outgoing stellar transaction")
+	}
+
+	signature, err := w.StellarSigner.Sign(tx)
+	if err != nil {
+		return errors.Wrap(err, "error signing outgoing stellar transaction")
+	}
+
+	// TODO, we need xdr.TransactionEnvelope.AppendSignature.
+	sigs := tx.Signatures()
+	tx.V1.Signatures = append(sigs, signature)
+
+	txBase64, err := xdr.MarshalBase64(tx)
+	if err != nil {
+		return errors.Wrap(err, "error marshaling outgoing stellar transaction")
+	}
+
+	outgoingTx := store.OutgoingStellarTransaction{
+		Envelope:      txBase64,
+		Action:        sr.Action,
+		DepositID:     sr.DepositID,
+		SourceAccount: deposit.Sender,
 		Sequence:      tx.SeqNum(),
 	}
 	err = w.Store.UpsertOutgoingStellarTransaction(context.TODO(), outgoingTx)

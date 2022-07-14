@@ -28,6 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stellar/go/strkey"
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/support/render/problem"
@@ -470,4 +471,221 @@ func TestStellarToEthereumWithdrawal(t *testing.T) {
 	ethRPCClient, err := ethclient.Dial(EthereumRPCURL)
 	require.NoError(t, err)
 	withdrawFromEthereum(t, ethRPCClient, servers, big.NewInt(int64(amount.MustParse("3"))), responses)
+}
+
+func TestStellarRefund(t *testing.T) {
+	const servers int = 3
+
+	itest := NewIntegrationTest(t, Config{
+		Servers:                servers,
+		EthereumFinalityBuffer: 0,
+		WithdrawalWindow:       time.Second,
+	})
+
+	ethRPCClient, err := ethclient.Dial(EthereumRPCURL)
+	require.NoError(t, err)
+
+	account, err := itest.HorizonClient().AccountDetail(horizonclient.AccountRequest{
+		AccountID: itest.clientKey.Address(),
+	})
+	require.NoError(t, err)
+
+	tx := itest.MustSubmitTransaction(itest.clientKey, txnbuild.TransactionParams{
+		SourceAccount: &account,
+		Operations: []txnbuild.Operation{
+			&txnbuild.Payment{
+				Destination: itest.mainAccount.GetAccountID(),
+				Amount:      "3",
+				Asset:       txnbuild.NativeAsset{},
+			},
+		},
+		BaseFee: txnbuild.MinBaseFee,
+		Memo:    txnbuild.MemoHash(ethereumSenderAddress(t).Hash()),
+		Preconditions: txnbuild.Preconditions{
+			TimeBounds: txnbuild.NewInfiniteTimeout(),
+		},
+		IncrementSequenceNum: true,
+	})
+	require.True(t, tx.Successful)
+
+	stores := make([]*store.DB, servers)
+	for i := 0; i < servers; i++ {
+		stores[i] = itest.app[i].NewStore()
+	}
+
+	var deposit store.StellarDeposit
+	for {
+		ready := 0
+		for i := 0; i < servers; i++ {
+			deposit, err = stores[i].GetStellarDeposit(context.Background(), tx.Hash)
+			if err == sql.ErrNoRows {
+				continue
+			}
+			require.NoError(t, err)
+			ready++
+		}
+		if ready == servers {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+
+	// Wait for WithdrawalWindow to pass in Stellar...
+	depositTime := time.Unix(int64(deposit.LedgerTime), 0)
+	for {
+		ready := 0
+		for i := 0; i < servers; i++ {
+			lastCloseTime, err := stores[i].GetLastLedgerCloseTime(context.Background())
+			require.NoError(t, err)
+			if lastCloseTime.After(depositTime.Add(time.Second)) {
+				ready++
+			}
+		}
+		if ready == servers {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+
+	t.Log("Stellar time reached withdrawal deadline")
+
+	// ...and Ethereum
+	for {
+		header, err := ethRPCClient.HeaderByNumber(context.Background(), nil)
+		require.NoError(t, err)
+		t.Log("Block ", header.Number, " time ", header.Time)
+		if time.Unix(int64(header.Time), 0).After(depositTime.Add(time.Second)) {
+			break
+		}
+
+		// Close Ethereum block
+		ethClient, err := rpc.DialContext(context.Background(), EthereumRPCURL)
+		require.NoError(t, err)
+		err = ethClient.Call(nil, "evm_mine")
+		require.NoError(t, err)
+
+		time.Sleep(time.Second)
+	}
+
+	t.Log("Ethereum time reached withdrawal deadline")
+
+	g := new(errgroup.Group)
+	postData := url.Values{
+		"transaction_hash": {tx.Hash},
+	}
+	txs := make([]string, servers)
+
+	for i := 0; i < servers; i++ {
+		i := i
+		g.Go(func() error {
+			port := 9000 + i
+		loop:
+			for {
+				time.Sleep(time.Second)
+				url := fmt.Sprintf("http://localhost:%d/stellar/refund", port)
+				resp, err := itest.Client().PostForm(url, postData)
+				require.NoError(t, err)
+				switch resp.StatusCode {
+				case http.StatusAccepted:
+					t.Log("Signing request accepted, waiting...")
+					continue loop
+				case http.StatusOK:
+					t.Log("Signing request processed")
+				default:
+					return errors.Errorf("Unknown status code: %s", resp.Status)
+				}
+				body, err := ioutil.ReadAll(resp.Body)
+				require.NoError(t, err)
+				txEnvelope := string(body)
+				txs[i] = txEnvelope
+
+				// Try to submit tx with just one signature
+				_, err = itest.HorizonClient().SubmitTransactionXDR(txEnvelope)
+				require.Error(t, err)
+				return nil
+			}
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Concat signatures
+	gtx, err := txnbuild.TransactionFromXDR(txs[0])
+	require.NoError(t, err)
+	expectedTxHash, err := gtx.HashHex(StandaloneNetworkPassphrase)
+
+	mainTx, ok := gtx.Transaction()
+	require.True(t, ok)
+
+	require.NoError(t, err)
+	require.Equal(t, "3."+strings.Repeat("0", 7), mainTx.Operations()[0].(*txnbuild.Payment).Amount)
+
+	// Add as many sigs as needed and not a single more
+	for i := 1; i < servers/2+1; i++ {
+		gtx, err := txnbuild.TransactionFromXDR(txs[i])
+		require.NoError(t, err)
+		tx, ok := gtx.Transaction()
+		require.True(t, ok)
+
+		// TODO timebound time should be provided in HTTP request and checked by Starbridge
+		txHash, err := gtx.HashHex(StandaloneNetworkPassphrase)
+		require.NoError(t, err)
+		require.Equal(t, expectedTxHash, txHash)
+
+		sig := tx.Signatures()
+
+		mainTx, err = mainTx.AddSignatureDecorated(sig...)
+		require.NoError(t, err)
+	}
+
+	// ...and add client signature (because it's tx source)
+	mainTx, err = mainTx.Sign(StandaloneNetworkPassphrase, itest.clientKey)
+	require.NoError(t, err)
+
+	b64, err := mainTx.Base64()
+	require.NoError(t, err)
+
+	_, err = itest.HorizonClient().SubmitTransaction(mainTx)
+	require.NoErrorf(t, err, "error submitting: %s", b64)
+
+	memoHex := mainTx.ToXDR().Memo().MustHash().HexString()
+	numFound := 0
+	for attempts := 0; attempts < 10; attempts++ {
+		for i := 0; i < servers; i++ {
+			found, err := stores[i].HistoryStellarTransactionExists(context.Background(), memoHex)
+			require.NoError(t, err)
+			if found {
+				numFound++
+			}
+		}
+		if numFound == servers {
+			break
+		} else {
+			numFound = 0
+			time.Sleep(time.Second)
+		}
+	}
+	require.Equal(t, servers, numFound)
+
+	g = new(errgroup.Group)
+	for i := 0; i < servers; i++ {
+		i := i
+		g.Go(func() error {
+			port := 9000 + i
+			url := fmt.Sprintf("http://localhost:%d/stellar/refund", port)
+			resp, err := itest.Client().PostForm(url, postData)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+			var p problem.P
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&p))
+			require.Equal(t, "Refund Already Executed", p.Title)
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		t.Fatal(err)
+	}
 }

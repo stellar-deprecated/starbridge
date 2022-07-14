@@ -173,6 +173,12 @@ func (a *App) initWorker(config Config, client *horizonclient.Client, ethObserve
 			WithdrawalWindow: config.WithdrawalWindow,
 			Converter:        converter,
 		},
+		StellarRefundValidator: backend.StellarRefundValidator{
+			Session:                a.session.Clone(),
+			WithdrawalWindow:       config.WithdrawalWindow,
+			Observer:               ethObserver,
+			EthereumFinalityBuffer: config.EthereumFinalityBuffer,
+		},
 		EthereumWithdrawalValidator: backend.EthereumWithdrawalValidator{
 			Observer:               ethObserver,
 			EthereumFinalityBuffer: config.EthereumFinalityBuffer,
@@ -225,6 +231,16 @@ func (a *App) initHTTP(config Config, client *horizonclient.Client, ethObserver 
 				WithdrawalWindow: config.WithdrawalWindow,
 			},
 			EthereumFinalityBuffer: config.EthereumFinalityBuffer,
+		},
+		StellarRefundHandler: &controllers.StellarRefundHandler{
+			StellarClient: client,
+			Store:         a.NewStore(),
+			StellarRefundValidator: backend.StellarRefundValidator{
+				Session:                a.session.Clone(),
+				WithdrawalWindow:       config.WithdrawalWindow,
+				Observer:               ethObserver,
+				EthereumFinalityBuffer: config.EthereumFinalityBuffer,
+			},
 		},
 	})
 	if err != nil {
