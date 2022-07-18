@@ -25,6 +25,7 @@ CREATE UNIQUE INDEX outgoing_stellar_transaction_for_action ON outgoing_stellar_
 CREATE TABLE ethereum_signatures (
    address TEXT NOT NULL,
    token TEXT NOT NULL,
+   amount TEXT NOT NULL,
    signature TEXT NOT NULL,
    expiration BIGINT NOT NULL ,
    requested_action character varying(40) NOT NULL,

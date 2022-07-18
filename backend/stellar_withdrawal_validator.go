@@ -94,7 +94,7 @@ func (s StellarWithdrawalValidator) CanWithdraw(ctx context.Context, deposit sto
 		_ = dbStore.Session.Rollback()
 	}()
 
-	lastLedgerSequence, err := dbStore.GetLastLedgerSequence(context.Background())
+	lastLedgerSequence, err := dbStore.GetLastLedgerSequence(ctx)
 	if err != nil {
 		return StellarWithdrawalDetails{}, errors.Wrap(err, "error getting last ledger sequence")
 	}

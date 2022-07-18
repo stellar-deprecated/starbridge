@@ -53,7 +53,7 @@ func (s StellarRefundValidator) CanRefund(ctx context.Context, deposit store.Ste
 		_ = dbStore.Session.Rollback()
 	}()
 
-	lastLedgerSequence, err := dbStore.GetLastLedgerSequence(context.Background())
+	lastLedgerSequence, err := dbStore.GetLastLedgerSequence(ctx)
 	if err != nil {
 		return StellarRefundDetails{}, errors.Wrap(err, "error getting last ledger sequence")
 	}

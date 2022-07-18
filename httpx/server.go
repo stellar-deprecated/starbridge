@@ -14,8 +14,8 @@ import (
 	"github.com/stellar/go/support/errors"
 	stellarhttp "github.com/stellar/go/support/http"
 	"github.com/stellar/go/support/log"
+	"github.com/stellar/starbridge/controllers"
 	"github.com/stellar/starbridge/html"
-	"github.com/stellar/starbridge/stellar/controllers"
 )
 
 type ServerMetrics struct {

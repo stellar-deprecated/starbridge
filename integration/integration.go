@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stellar/starbridge/client"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stellar/starbridge/backend"
 
@@ -35,6 +37,7 @@ const (
 	EthereumBridgeAddress       = "0x31995201773dA53F950f15278Ea1538eA37A68A1"
 	EthereumXLMTokenAddress     = "0x4Ee50847CD1278DBE87190080DD53055672755F6"
 	EthereumRPCURL              = "http://127.0.0.1:8545"
+	ethereumSenderPrivateKey    = "c1a4af60400ffd1473ada8425cff9f91b533194d6dd30424a17f356e418ac35b"
 )
 
 var (
@@ -74,6 +77,8 @@ type Test struct {
 	signerKeys  []*keypair.Full
 	clientKey   *keypair.Full
 	mainAccount txnbuild.Account
+
+	bridgeClient client.BridgeClient
 }
 
 // NewIntegrationTest starts a new environment for integration test.
@@ -169,6 +174,23 @@ func NewIntegrationTest(t *testing.T, config Config) *Test {
 		[]*keypair.Full{test.mainKey, test.clientKey},
 		ops...,
 	)
+
+	test.bridgeClient = client.BridgeClient{
+		ValidatorURLs: []string{
+			"http://localhost:9000",
+			"http://localhost:9001",
+			"http://localhost:9002",
+		},
+		EthereumURL:                 EthereumRPCURL,
+		EthereumChainID:             31337,
+		HorizonURL:                  test.horizonClient.HorizonURL,
+		NetworkPassphrase:           StandaloneNetworkPassphrase,
+		EthereumBridgeAddress:       EthereumBridgeAddress,
+		StellarBridgeAccount:        test.mainAccount.GetAccountID(),
+		EthereumBridgeConfigVersion: 0,
+		StellarPrivateKey:           test.clientKey.Seed(),
+		EthereumPrivateKey:          ethereumSenderPrivateKey,
+	}
 
 	return test
 }

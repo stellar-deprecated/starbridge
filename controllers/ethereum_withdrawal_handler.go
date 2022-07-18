@@ -36,6 +36,7 @@ func (c *EthereumWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 			DepositID:  row.DepositID,
 			Expiration: row.Expiration,
 			Token:      row.Token,
+			Amount:     row.Amount,
 		})
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)

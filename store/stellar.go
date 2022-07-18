@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"strings"
 
 	sq "github.com/Masterminds/squirrel"
 )
@@ -44,7 +45,7 @@ type OutgoingStellarTransaction struct {
 
 func (m *DB) GetStellarDeposit(ctx context.Context, id string) (StellarDeposit, error) {
 	sql := sq.Select("*").From("stellar_deposits").Where(
-		sq.Eq{"id": id},
+		sq.Eq{"id": strings.ToLower(id)},
 	)
 
 	var result StellarDeposit
@@ -58,7 +59,7 @@ func (m *DB) GetStellarDeposit(ctx context.Context, id string) (StellarDeposit, 
 func (m *DB) InsertStellarDeposit(ctx context.Context, deposit StellarDeposit) error {
 	query := sq.Insert("stellar_deposits").
 		SetMap(map[string]interface{}{
-			"id":          deposit.ID,
+			"id":          strings.ToLower(deposit.ID),
 			"ledger_time": deposit.LedgerTime,
 			"amount":      deposit.Amount,
 			"destination": deposit.Destination,
@@ -73,9 +74,9 @@ func (m *DB) InsertStellarDeposit(ctx context.Context, deposit StellarDeposit) e
 func (m *DB) InsertHistoryStellarTransaction(ctx context.Context, tx HistoryStellarTransaction) error {
 	query := sq.Insert("history_stellar_transactions").
 		SetMap(map[string]interface{}{
-			"hash":      tx.Hash,
+			"hash":      strings.ToLower(tx.Hash),
 			"envelope":  tx.Envelope,
-			"memo_hash": tx.MemoHash,
+			"memo_hash": strings.ToLower(tx.MemoHash),
 		})
 
 	_, err := m.Session.Exec(ctx, query)
@@ -84,7 +85,7 @@ func (m *DB) InsertHistoryStellarTransaction(ctx context.Context, tx HistoryStel
 
 func (m *DB) HistoryStellarTransactionExists(ctx context.Context, memoHash string) (bool, error) {
 	stmt := sq.Select("1").From("history_stellar_transactions").
-		Where(sq.Eq{"memo_hash": memoHash})
+		Where(sq.Eq{"memo_hash": strings.ToLower(memoHash)})
 
 	var result int
 	err := m.Session.Get(ctx, &result, stmt)
@@ -99,7 +100,7 @@ func (m *DB) HistoryStellarTransactionExists(ctx context.Context, memoHash strin
 func (m *DB) GetOutgoingStellarTransaction(ctx context.Context, action Action, depositID string) (OutgoingStellarTransaction, error) {
 	sql := sq.Select("*").From("outgoing_stellar_transactions").Where(map[string]interface{}{
 		"requested_action": action,
-		"deposit_id":       depositID,
+		"deposit_id":       strings.ToLower(depositID),
 	})
 
 	var result OutgoingStellarTransaction
@@ -115,7 +116,7 @@ func (m *DB) UpsertOutgoingStellarTransaction(ctx context.Context, newtx Outgoin
 		SetMap(map[string]interface{}{
 			"envelope":         newtx.Envelope,
 			"requested_action": newtx.Action,
-			"deposit_id":       newtx.DepositID,
+			"deposit_id":       strings.ToLower(newtx.DepositID),
 			"sequence":         newtx.Sequence,
 			"source_account":   newtx.SourceAccount,
 		}).

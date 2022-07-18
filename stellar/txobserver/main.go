@@ -20,8 +20,6 @@ import (
 )
 
 type Observer struct {
-	ctx context.Context
-
 	bridgeAccount string
 
 	client *horizonclient.Client
@@ -33,20 +31,20 @@ type Observer struct {
 }
 
 func NewObserver(
-	ctx context.Context,
 	bridgeAccount string,
 	client *horizonclient.Client,
 	store *store.DB,
 ) *Observer {
 	o := &Observer{
-		ctx:           ctx,
 		bridgeAccount: bridgeAccount,
 		client:        client,
 		store:         store,
 		log:           slog.DefaultLogger.WithField("service", "stellar_txobserver"),
 	}
 
-	ledgerSeq, err := o.store.GetLastLedgerSequence(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	ledgerSeq, err := o.store.GetLastLedgerSequence(ctx)
 	if err != nil {
 		o.log.Fatalf("Unable to load last ledger sequence from db: %v", err)
 	}
@@ -61,10 +59,10 @@ func NewObserver(
 	return o
 }
 
-func (o *Observer) ProcessNewLedgers() {
-	for o.ctx.Err() == nil {
+func (o *Observer) ProcessNewLedgers(ctx context.Context) {
+	for ctx.Err() == nil {
 		if o.catchup {
-			err := o.catchupLedgers()
+			err := o.catchupLedgers(ctx)
 			if err != nil {
 				o.log.WithFields(slog.F{"error": err}).Error("Error catching up")
 			} else {
@@ -83,7 +81,7 @@ func (o *Observer) ProcessNewLedgers() {
 			} else {
 				o.log.WithField("sequence", o.ledgerSequence).Info("Processing ledger...")
 
-				err = o.ingestLedger(ledger)
+				err = o.ingestLedger(ctx, ledger)
 				if err != nil {
 					o.log.WithFields(slog.F{"error": err, "sequence": o.ledgerSequence}).Error("Error processing a single ledger details")
 				} else {
@@ -96,7 +94,7 @@ func (o *Observer) ProcessNewLedgers() {
 	}
 }
 
-func (o *Observer) catchupLedgers() error {
+func (o *Observer) catchupLedgers(ctx context.Context) error {
 	root, err := o.client.Root()
 	if err != nil {
 		o.log.Fatalf("Unable to access Horizon (%s) root resource: %v", o.client.HorizonURL, err)
@@ -118,7 +116,7 @@ func (o *Observer) catchupLedgers() error {
 	// Process past bridge account payments
 	cursor := toid.AfterLedger(ledgerSeq).String()
 	var lastOp operations.Operation
-	for o.ctx.Err() == nil {
+	for ctx.Err() == nil {
 		ops, err := o.client.Payments(horizonclient.OperationRequest{
 			ForAccount:    o.bridgeAccount,
 			Cursor:        cursor,
@@ -135,7 +133,7 @@ func (o *Observer) catchupLedgers() error {
 			break
 		}
 
-		err = o.ingestPage(ops.Embedded.Records)
+		err = o.ingestPage(ctx, ops.Embedded.Records)
 		if err != nil {
 			return err
 		}
@@ -144,8 +142,8 @@ func (o *Observer) catchupLedgers() error {
 		cursor = lastOp.PagingToken()
 	}
 
-	if o.ctx.Err() != nil {
-		return o.ctx.Err()
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
 
 	// At this point we reached the beginning of account history. Ensure the
@@ -156,7 +154,7 @@ func (o *Observer) catchupLedgers() error {
 
 	// Update sequence number to the ledgerSeq-1
 	// Ledger close time will be updated after returning to ProcessNewLedgers.
-	err = o.store.UpdateLastLedgerSequence(context.TODO(), uint32(ledgerSeq)-1)
+	err = o.store.UpdateLastLedgerSequence(ctx, uint32(ledgerSeq)-1)
 	if err != nil {
 		return errors.Wrap(err, "error updating last ledger sequence")
 	}
@@ -171,7 +169,7 @@ func (o *Observer) catchupLedgers() error {
 	return nil
 }
 
-func (o *Observer) ingestLedger(ledger horizon.Ledger) error {
+func (o *Observer) ingestLedger(ctx context.Context, ledger horizon.Ledger) error {
 	err := o.store.Session.Begin()
 	if err != nil {
 		return errors.Wrap(err, "error starting a transaction")
@@ -198,7 +196,7 @@ func (o *Observer) ingestLedger(ledger horizon.Ledger) error {
 			break
 		}
 
-		err = o.ingestPage(ops.Embedded.Records)
+		err = o.ingestPage(ctx, ops.Embedded.Records)
 		if err != nil {
 			return err
 		}
@@ -207,12 +205,12 @@ func (o *Observer) ingestLedger(ledger horizon.Ledger) error {
 		cursor = lastOp.PagingToken()
 	}
 
-	err = o.store.UpdateLastLedgerSequence(context.TODO(), uint32(ledger.Sequence))
+	err = o.store.UpdateLastLedgerSequence(ctx, uint32(ledger.Sequence))
 	if err != nil {
 		return errors.Wrap(err, "error updating last ledger sequence")
 	}
 
-	err = o.store.UpdateLastLedgerCloseTime(context.TODO(), ledger.ClosedAt)
+	err = o.store.UpdateLastLedgerCloseTime(ctx, ledger.ClosedAt)
 	if err != nil {
 		return errors.Wrap(err, "error updating last ledger sequence")
 	}
@@ -234,7 +232,7 @@ func validTransaction(horizonTx *horizon.Transaction) bool {
 		horizonTx.OperationCount == 1
 }
 
-func (o *Observer) ingestPage(ops []operations.Operation) error {
+func (o *Observer) ingestPage(ctx context.Context, ops []operations.Operation) error {
 	for _, op := range ops {
 		payment, ok := op.(operations.Payment)
 		// only consider payment operations
@@ -248,11 +246,11 @@ func (o *Observer) ingestPage(ops []operations.Operation) error {
 		}
 
 		if payment.From == o.bridgeAccount {
-			if err := o.ingestOutgoingPayment(payment); err != nil {
+			if err := o.ingestOutgoingPayment(ctx, payment); err != nil {
 				return err
 			}
 		} else if payment.To == o.bridgeAccount {
-			if err := o.ingestIncomingPayment(payment); err != nil {
+			if err := o.ingestIncomingPayment(ctx, payment); err != nil {
 				return err
 			}
 		}
@@ -261,7 +259,7 @@ func (o *Observer) ingestPage(ops []operations.Operation) error {
 	return nil
 }
 
-func (o *Observer) ingestOutgoingPayment(payment operations.Payment) error {
+func (o *Observer) ingestOutgoingPayment(ctx context.Context, payment operations.Payment) error {
 	if payment.Transaction.MemoType != "hash" || payment.Transaction.Memo == "" {
 		return nil
 	}
@@ -271,7 +269,7 @@ func (o *Observer) ingestOutgoingPayment(payment operations.Payment) error {
 		return errors.Wrapf(err, "error decoding memo: %s", payment.Transaction.Memo)
 	}
 
-	err = o.store.InsertHistoryStellarTransaction(context.TODO(), store.HistoryStellarTransaction{
+	err = o.store.InsertHistoryStellarTransaction(ctx, store.HistoryStellarTransaction{
 		Hash:     payment.Transaction.Hash,
 		Envelope: payment.Transaction.EnvelopeXdr,
 		MemoHash: hex.EncodeToString(memoBytes),
@@ -283,7 +281,7 @@ func (o *Observer) ingestOutgoingPayment(payment operations.Payment) error {
 	return nil
 }
 
-func (o *Observer) ingestIncomingPayment(payment operations.Payment) error {
+func (o *Observer) ingestIncomingPayment(ctx context.Context, payment operations.Payment) error {
 	var assetString string
 	if payment.Asset.Type == "native" {
 		assetString = "native"
@@ -305,7 +303,7 @@ func (o *Observer) ingestIncomingPayment(payment operations.Payment) error {
 		Destination: destinationAddress,
 		Amount:      payment.Amount,
 	}
-	if err := o.store.InsertStellarDeposit(context.TODO(), deposit); err != nil {
+	if err := o.store.InsertStellarDeposit(ctx, deposit); err != nil {
 		return errors.Wrapf(err, "error inserting stellar deposit: %s", payment.Transaction.Hash)
 	}
 
