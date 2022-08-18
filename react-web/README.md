@@ -2,7 +2,6 @@
 
 This project was bootstrapped with [Create React App](https://create-react-app.dev/) using the [Typescript template](https://github.com/facebook/create-react-app/tree/master/packages/cra-template-typescript).
 
-
 ## Project Architecture
 
 You can check the project architecture [here](./src/docs/ARCHITECTURE.md)
@@ -14,7 +13,7 @@ You can check the project architecture [here](./src/docs/ARCHITECTURE.md)
 
 > We suggest use of [NVM](https://github.com/nvm-sh/nvm/blob/master/README.md) to manage your node versions.
 
-## Getting Started 
+## Getting Started
 
 ### Env vars config
 
@@ -28,6 +27,7 @@ npm install
 ```
 
 ### Running in development environment
+
 ```shell
 npm run start:dev
 ```
@@ -38,43 +38,25 @@ The project will be running at [http://localhost:3000/](http://localhost:3000/)
 
 - We use the [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/) to develop our tests.
 - You can use the [MSW](https://mswjs.io/) to mock your request to do integration tests in your pages.
-    - An example is available at `src/tests/request_mocks`
+  - An example is available at `src/tests/request_mocks`
 
-````shell
+```shell
 npm run test
-````
+```
 
 ### Creating a production build
 
 The following command will generate an optimized production build. The statics files will be generated at `build/` folder.
 
-````shell
+```shell
 npm run build
-````
+```
 
 You can read more about how to serve the statics [here](https://create-react-app.dev/docs/deployment/)
-
-
-## Storybook
-
-This boilerplate already has the storybook configured with some addons.
-
-- The storybook's configs are in the `.storybook` directory.
-
-### How to run it
-
-- To run the storybook at development version, you can use the command:
-    - `npm run storybook`
-    - The command above must open your browser at [http://localhost:6006]
-
-- How to build it for production:
-  - `npm run build-storybook`
-  - A directory with name `storybook-static` will be generated with all storybook statics.
 
 ## Scripts
 
 In the project directory, you can run all of [react-scripts](https://create-react-app.dev/docs/available-scripts) commands.
-
 
 ## Learn More
 
