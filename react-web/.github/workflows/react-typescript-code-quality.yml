@@ -1,0 +1,43 @@
+name: "React Typescript Code Quality Check"
+on:
+  pull_request:
+    types:
+      - synchronize
+      - opened
+    paths:
+      - react-typescript/**
+defaults:
+  run:
+    working-directory: react-typescript
+jobs:
+  test:
+    name: 'Test'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: "./react-typescript/package-lock.json"
+      - run: npm ci
+      - run: make coverage-test
+      - uses: codecov/codecov-action@v2
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
+          verbose: true
+  eslint:
+    name: "Eslint"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: "./react-typescript/package-lock.json"
+      - uses: reviewdog/action-eslint@v1
+        with:
+          level: "info"
+          workdir: 'react-typescript'

@@ -1,0 +1,79 @@
+{
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "project": "./tsconfig.json"
+  },
+  "env": {
+    "browser": true,
+    "es2021": true,
+    "jest": true
+  },
+  "plugins": [
+    "@typescript-eslint",
+    "react-hooks",
+    "jest",
+    "jest-dom",
+    "testing-library"
+  ],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/eslint-recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:react-hooks/recommended",
+    "plugin:jest-dom/recommended",
+    "plugin:testing-library/react",
+    "plugin:jest/recommended"
+  ],
+  "rules": {
+    "no-console": "warn",
+    "no-return-await": "error",
+    "no-empty-function": "error",
+    "@typescript-eslint/no-unused-vars": "warn",
+    "@typescript-eslint/array-type": "error",
+    "@typescript-eslint/no-explicit-any": [
+      "error",
+      {
+        "ignoreRestArgs": true
+      }
+    ],
+    "@typescript-eslint/explicit-function-return-type": [
+      "error",
+      { "allowHigherOrderFunctions": true }
+    ],
+    "@typescript-eslint/typedef": [
+      "error",
+      {
+        "parameter": true,
+        "propertyDeclaration": true
+      }
+    ],
+    "@typescript-eslint/consistent-indexed-object-style": ["error", "record"],
+    "@typescript-eslint/naming-convention": [
+      "error",
+      {
+        "selector": "variable",
+        "format": ["camelCase", "PascalCase"],
+        "types": ["function"]
+      },
+      {
+        "selector": "variable",
+        "format": ["camelCase", "UPPER_CASE"],
+        "types": ["string", "number", "boolean", "array"]
+      },
+      {
+        "selector": "function",
+        "format": ["camelCase"]
+      },
+      {
+        "selector": ["typeLike"],
+        "format": ["PascalCase"]
+      },
+      {
+        "selector": "interface",
+        "format": ["PascalCase"],
+        "prefix": ["I"]
+      }
+    ]
+  }
+}
