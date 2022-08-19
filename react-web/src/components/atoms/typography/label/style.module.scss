@@ -1,0 +1,26 @@
+.label {
+  font-weight: var(--font-weight-700);
+  line-height: var(--line-height-default);
+  color: var(--color-grayish);
+  transition: color 0.3s ease;
+}
+
+.fs-xsm {
+  font-size: var(--font-size-xsm);
+}
+
+.fs-normal {
+  font-size: var(--font-size-normal);
+}
+
+.default-color {
+  color: var(--color-grayish);
+}
+
+.success-color {
+  color: var(--color-green);
+}
+
+.focus-color {
+  color: var(--color-grayish-medium);
+}
