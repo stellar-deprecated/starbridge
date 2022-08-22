@@ -18,6 +18,7 @@ export interface IButtonProps
   isLoading?: boolean
   fullWidth?: boolean
   disabled?: boolean
+  onClick?: () => void
   children: string | React.ReactNode
 }
 
