@@ -26,7 +26,7 @@ export interface ILinkProps extends ITypographyDefaultProps {
 }
 
 const Link = ({
-  text = 'Link',
+  text = '',
   color = 'black',
   textDecoration = TypographyTextDecoration.underline,
   fontSize = FontSize.normal,
