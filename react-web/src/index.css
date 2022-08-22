@@ -1,6 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
 @import 'config/theme/css-variables.css';
-@import 'components/icons/style.css';
 
 body {
   margin: 0;
