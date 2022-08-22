@@ -1,7 +1,6 @@
 import classNames from 'classnames'
 
-import { FontSize } from 'components/enums/font-size'
-import { Status } from 'components/enums/status'
+import { FontSize, Status } from 'components/enums'
 
 import { ITypographyDefaultProps } from '..'
 import styles from './style.module.scss'
