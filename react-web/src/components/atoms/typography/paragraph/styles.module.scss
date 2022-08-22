@@ -1,0 +1,23 @@
+.paragraph {
+  font-size: var(--font-size-normal);
+  color: var(--primary-font-color);
+  font-weight: var(--font-weight-400);
+  line-height: var(--line-height-2xl);
+  margin: 0;
+}
+
+.semiBold {
+  font-weight: var(--font-weight-600);
+}
+
+.bold {
+  font-weight: var(--font-weight-700);
+}
+
+.light {
+  font-weight: var(--font-weight-300);
+}
+
+.medium {
+  font-weight: var(--font-weight-500);
+}
