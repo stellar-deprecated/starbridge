@@ -1,0 +1,26 @@
+.link {
+  font-size: var(--font-size-lg);
+  color: var(--color-grayish);
+  cursor: pointer;
+  font-weight: var(--font-weight-400);
+}
+
+.none {
+  text-decoration: none;
+}
+
+.underline {
+  text-decoration: underline;
+}
+
+.fs-xsm {
+  font-size: var(--font-size-xsm);
+}
+
+.fs-normal {
+  font-size: var(--font-size-normal);
+}
+
+.fs-lg {
+  font-size: var(--font-size-lg);
+}
