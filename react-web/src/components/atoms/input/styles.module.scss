@@ -1,0 +1,77 @@
+.inputContainer {
+  display: flex;
+  vertical-align: center;
+  align-items: center;
+  position: relative;
+}
+
+.icon {
+  position: absolute;
+  right: 16px;
+
+  & > img,
+  svg {
+    width: 15px;
+    height: 15px;
+  }
+}
+
+.input {
+  // border: 1px solid var(--color-secondary-dark);
+  border-radius: var(--border-radius-input);
+  width: 100%;
+  transition: border 0.3s ease;
+  font-weight: var(--font-weight-500);
+  font-size: var(--font-size-lg);
+  color: var(--primary-font-color);
+  padding: 15px 16px;
+  outline: none;
+  width: 100%;
+  line-height: var(--line-height-2xl);
+  background-color: var(--color-whiteish-light);
+
+  &:focus,
+  &:focus-within {
+    border-color: var(--color-primary);
+  }
+
+  &:disabled {
+    background-color: var(--color-whiteish-dark);
+  }
+
+  &::placeholder {
+    /* Chrome, Firefox, Opera, Safari 10.1+ */
+    color: var(--secondary-font-color);
+  }
+
+  &::-ms-input-placeholder {
+    /* Internet Explorer 10-11, Edge */
+    color: var(--secondary-font-color);
+  }
+}
+
+.errorInput {
+  border-color: var(--color-danger);
+  padding-right: 48px;
+
+  &:focus,
+  &:focus-within {
+    border-color: var(--color-danger);
+  }
+}
+
+.successInput {
+  border-color: var(--color-primary);
+  padding-right: 48px;
+
+  &:focus,
+  &:focus-within {
+    border-color: var(--color-primary);
+  }
+}
+
+.disabled {
+  pointer-events: none;
+  cursor: not-allowed;
+  background-color: var(--color-transparent-dark-blue);
+}
