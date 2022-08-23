@@ -34,7 +34,7 @@
   /* ##### Borders ####### */
   --border-radius-small: 1px;
   --border-radius-default: 2px;
-  --border-radius-input: 4px;
+  --border-radius-input: 8px;
 
   /* Border Colors */
   --border-primary-dark: 1px solid var(--color-primary-dark);
