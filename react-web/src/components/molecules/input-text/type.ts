@@ -1,8 +1,6 @@
 import React from 'react'
 
-import { Status } from 'components/enums'
-
-export interface InputProps {
+export interface IInputProps {
   /**
    * The HTML id of the component, if not provided the name prop will be used as a default
    */
@@ -22,23 +20,10 @@ export interface InputProps {
    */
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void
   /**
-   * The input on blur event
-   * This prop is required when you use react-hook-forms
-   */
-  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void
-  /**
    * Classname to add custom css
    */
   className?: string
-  /**
-   * Is the input disabled?
-   * The default value is `false`
-   */
-  disabled?: boolean
-  /**
-   * The input status
-   */
-  status?: Status
+
   /**
    * The input placeholder
    */
