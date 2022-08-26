@@ -59,7 +59,7 @@ const SignTransactionModal = (
           onClick={onSignTransactionClick}
           fullWidth
         >
-          Sign Transaciton
+          Sign Transaction
         </Button>
         <Button variant={ButtonVariant.ghost} onClick={onCancelClick} fullWidth>
           Cancel
