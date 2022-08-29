@@ -1,5 +1,4 @@
-import { Route } from 'react-router'
-import { Link } from 'react-router-dom'
+import { BrowserRouter as Router, Link } from 'react-router-dom'
 
 import classNames from 'classnames'
 
@@ -29,13 +28,15 @@ const Header = ({
   return (
     <header className={classNames(styles.header, className)}>
       <nav>
-        {/* <Link to="/"> */}
-        <Heading
-          level={TypographyHeadingLevel.h3}
-          text="Starbridge"
-          className={styles.title}
-        />
-        {/* </Link> */}
+        <Router>
+          <Link to="/">
+            <Heading
+              level={TypographyHeadingLevel.h3}
+              text="Starbridge"
+              className={styles.title}
+            />
+          </Link>
+        </Router>
       </nav>
       <div className={styles.containerButton}>
         <Button
@@ -52,6 +53,7 @@ const Header = ({
           iconLeft={<img src={Weth} alt="Weth" />}
           className={styles.loginButton}
           variant={ButtonVariant.tertiary}
+          disabled
           onClick={(): void => {
             handleOnLoginPress
           }}
