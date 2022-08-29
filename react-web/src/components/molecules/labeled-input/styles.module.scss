@@ -1,3 +1,8 @@
+.container {
+  max-width: 600;
+  margin: 32;
+}
+
 .inputContainer {
   display: flex;
   flex-direction: column;
@@ -51,6 +56,10 @@
   flex-direction: row;
   justify-content: space-between;
   margin-top: 40px;
+
+  input {
+    background-color: var(--color-whiteish-light);
+  }
 }
 
 .inputRow {
