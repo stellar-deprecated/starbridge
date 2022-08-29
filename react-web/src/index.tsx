@@ -9,7 +9,10 @@ import './index.css'
 
 ReactDOM.render(
   <React.StrictMode>
-    <Header />
+    <Header
+      labelWalletButton={'Not Connected'}
+      labelLoginButton={'Not Connected'}
+    />
     <App />
   </React.StrictMode>,
   document.getElementById('root')
