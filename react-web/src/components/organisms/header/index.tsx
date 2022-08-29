@@ -18,12 +18,16 @@ interface IHeaderProps {
   className?: string
   handleOnWalletPress?: () => void
   handleOnLoginPress?: () => void
+  labelWalletButton: string
+  labelLoginButton: string
 }
 
 const Header = ({
   className,
   handleOnWalletPress,
   handleOnLoginPress,
+  labelWalletButton,
+  labelLoginButton,
 }: IHeaderProps): JSX.Element => {
   return (
     <header className={classNames(styles.header, className)}>
@@ -42,11 +46,12 @@ const Header = ({
         <Button
           iconLeft={<img src={Eth} alt="Eth" />}
           variant={ButtonVariant.tertiary}
+          disabled
           onClick={(): void => {
             handleOnWalletPress
           }}
         >
-          <Label text="0xb79...9268 " className={styles.labelButton} />
+          <Label text={labelWalletButton} className={styles.labelButton} />
         </Button>
 
         <Button
@@ -58,7 +63,7 @@ const Header = ({
             handleOnLoginPress
           }}
         >
-          <Label text="Not Connected " className={styles.labelButton} />
+          <Label text={labelLoginButton} className={styles.labelButton} />
         </Button>
       </div>
     </header>
