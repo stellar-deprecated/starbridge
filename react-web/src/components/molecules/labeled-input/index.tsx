@@ -2,9 +2,10 @@ import React, { useState } from 'react'
 
 import classNames from 'classnames'
 
-import { IInputProps } from 'components/molecules/input-text/type'
+import { IInputProps } from 'components/molecules/labeled-input/type'
 
 import Eth from 'app/core/resources/eth-icon.svg'
+import Weth from 'app/core/resources/weth-icon.svg'
 
 import { Label } from '../../atoms/typography/label'
 import styles from './styles.module.scss'
@@ -19,13 +20,13 @@ export enum CurrencyLabel {
   weth = 'WETH',
 }
 
-export interface IInputTextProps extends IInputProps {
+export interface ILabeledInputProps extends IInputProps {
   htmlType?: string
   currency: CurrencyLabel
   label: InputLabel
 }
 
-const InputText = React.forwardRef<HTMLInputElement, IInputTextProps>(
+const LabeledInput = React.forwardRef<HTMLInputElement, ILabeledInputProps>(
   (
     {
       name,
@@ -41,8 +42,16 @@ const InputText = React.forwardRef<HTMLInputElement, IInputTextProps>(
   ): JSX.Element => {
     const [hasBalanceInfo, setHasBalanceInfo] = useState(false)
 
+    const renderCurrencyInfo = (
+      evt: React.FormEvent<HTMLInputElement>
+    ): void => {
+      evt.currentTarget.value
+        ? setHasBalanceInfo(true)
+        : setHasBalanceInfo(false)
+    }
+
     return (
-      <div style={{ maxWidth: 600, margin: 32 }}>
+      <div className={styles.container}>
         <div className={classNames(styles.inputContainer)}>
           <div className={styles.inputRow}>
             <Label text={label} className={styles.mainLabel} />
@@ -55,17 +64,11 @@ const InputText = React.forwardRef<HTMLInputElement, IInputTextProps>(
               )}
             </div>
           </div>
-          <div
-            className={classNames(
-              styles.inputFooter,
-
-              className
-            )}
-          >
+          <div className={classNames(styles.inputFooter, className)}>
             <input
               id={id ?? name}
               className={classNames(styles.input, className)}
-              onChange={(): void => setHasBalanceInfo(true)}
+              onChange={(evt): void => renderCurrencyInfo(evt)}
               type={htmlType}
               name={name}
               {...restProps}
@@ -73,7 +76,11 @@ const InputText = React.forwardRef<HTMLInputElement, IInputTextProps>(
             />
 
             <div className={styles.currencyContainer}>
-              <img src={Eth} className={styles.icon} alt={currency} />
+              <img
+                src={currency === CurrencyLabel.eth ? Eth : Weth}
+                className={styles.icon}
+                alt={currency}
+              />
               <Label text={currency} className={styles.currencyLabel} />
             </div>
           </div>
@@ -83,4 +90,4 @@ const InputText = React.forwardRef<HTMLInputElement, IInputTextProps>(
   }
 )
 
-export { InputText }
+export { LabeledInput }
