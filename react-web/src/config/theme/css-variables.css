@@ -6,11 +6,10 @@
   --color-black: #000000;
   --color-blackish: #2b2d34;
   --color-blackish-light: #41444d;
+  --color-blackish-with-opacity: rgba(43, 45, 52, 0.5);
 
   --color-grayish-dark: #6f6e77;
   --color-grayish: #86848d;
-
-  --color-grayish: #6f6e77;
   --color-grayish-medium: #c8c7cb;
   --color-grayish-light: #eeedef;
   --color-grayish-lightest: #f9f8f9;
