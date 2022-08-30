@@ -2,12 +2,16 @@ import { BrowserRouter as Router, Link } from 'react-router-dom'
 
 import classNames from 'classnames'
 
-import { Button, ButtonVariant } from 'components/atoms'
+import {
+  Button,
+  ButtonVariant,
+  Typography,
+  TypographyVariant,
+} from 'components/atoms'
 import {
   Heading,
   TypographyHeadingLevel,
 } from 'components/atoms/typography/heading'
-import { Label } from 'components/atoms/typography/label'
 
 import Eth from 'app/core/resources/eth.svg'
 import Weth from 'app/core/resources/weth.svg'
@@ -47,11 +51,13 @@ const Header = ({
           iconLeft={<img src={Eth} alt="Eth" />}
           variant={ButtonVariant.tertiary}
           disabled
-          onClick={(): void => {
-            handleOnWalletPress
-          }}
+          onClick={handleOnWalletPress}
         >
-          <Label text={labelWalletButton} className={styles.labelButton} />
+          <Typography
+            variant={TypographyVariant.label}
+            text={labelWalletButton}
+            className={styles.labelButton}
+          />
         </Button>
 
         <Button
@@ -59,11 +65,13 @@ const Header = ({
           className={styles.loginButton}
           variant={ButtonVariant.tertiary}
           disabled
-          onClick={(): void => {
-            handleOnLoginPress
-          }}
+          onClick={handleOnLoginPress}
         >
-          <Label text={labelLoginButton} className={styles.labelButton} />
+          <Typography
+            variant={TypographyVariant.label}
+            text={labelLoginButton}
+            className={styles.labelButton}
+          />
         </Button>
       </div>
     </header>
