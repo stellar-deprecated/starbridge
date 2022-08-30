@@ -2,7 +2,10 @@ import React, { useState } from 'react'
 
 import classNames from 'classnames'
 
-import { IInputProps } from 'components/molecules/labeled-input/type'
+import {
+  CurrencyLabel,
+  IInputProps,
+} from 'components/molecules/labeled-input/type'
 
 import Eth from 'app/core/resources/eth-icon.svg'
 import Weth from 'app/core/resources/weth-icon.svg'
@@ -15,15 +18,15 @@ export enum InputLabel {
   receive = 'Receive',
 }
 
-export enum CurrencyLabel {
-  eth = 'ETH',
-  weth = 'WETH',
-}
-
 export interface ILabeledInputProps extends IInputProps {
   htmlType?: string
   currency: CurrencyLabel
   label: InputLabel
+}
+
+export interface ICurrencyProps {
+  label: string
+  iconPath: string
 }
 
 const LabeledInput = React.forwardRef<HTMLInputElement, ILabeledInputProps>(
@@ -42,6 +45,14 @@ const LabeledInput = React.forwardRef<HTMLInputElement, ILabeledInputProps>(
   ): JSX.Element => {
     const [hasBalanceInfo, setHasBalanceInfo] = useState(false)
 
+    const getCurrencyData = (): ICurrencyProps => {
+      const data = {
+        [CurrencyLabel.eth]: { label: CurrencyLabel.eth, iconPath: Eth },
+        [CurrencyLabel.weth]: { label: CurrencyLabel.weth, iconPath: Weth },
+      }
+      return data[currency]
+    }
+
     const renderCurrencyInfo = (
       evt: React.FormEvent<HTMLInputElement>
     ): void => {
@@ -59,7 +70,7 @@ const LabeledInput = React.forwardRef<HTMLInputElement, ILabeledInputProps>(
               {hasBalanceInfo && (
                 <>
                   <Label text="Set Max" className={styles.balanceLabel} />
-                  <Label text={`Bal: 1.42 ${currency}`} />
+                  <Label text={`Bal: 1.42 ${getCurrencyData().label}`} />
                 </>
               )}
             </div>
@@ -77,11 +88,14 @@ const LabeledInput = React.forwardRef<HTMLInputElement, ILabeledInputProps>(
 
             <div className={styles.currencyContainer}>
               <img
-                src={currency === CurrencyLabel.eth ? Eth : Weth}
+                src={getCurrencyData().iconPath}
                 className={styles.icon}
                 alt={currency}
               />
-              <Label text={currency} className={styles.currencyLabel} />
+              <Label
+                text={getCurrencyData().label}
+                className={styles.currencyLabel}
+              />
             </div>
           </div>
         </div>
