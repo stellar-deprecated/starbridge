@@ -33,8 +33,3 @@ export interface IInputProps {
    */
   value?: string
 }
-
-export enum CurrencyLabel {
-  eth = 'ETH',
-  weth = 'WETH',
-}
