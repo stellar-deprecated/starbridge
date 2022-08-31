@@ -1,6 +1,5 @@
 import React from 'react'
 import {
-  Control,
   DeepMap,
   FieldError,
   FieldValues,
@@ -31,7 +30,6 @@ export const cloneElement = (
   const { onChange, onBlur, ...registerProps } = register(child.props.name)
   const composeOnChange = composeEvents(onChange, child.props?.onChange)
   const composeOnBlur = composeEvents(onBlur, child.props?.onBlur)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { labeledInputClassName, ...props } = child.props
   const elementToClone = { ...child, props }
   return React.cloneElement(elementToClone, {
@@ -47,10 +45,9 @@ interface IFormActions {
   register: UseFormRegister<any>
   errors: DeepMap<FieldValues, FieldError>
   isSubmitted: boolean
-  control?: Control<FieldValues>
 }
 
-export const renderFormElementWithLabel = (
+export const renderFormElement = (
   child: React.ReactElement,
   { errors, register, isSubmitted }: IFormActions
 ): React.ReactElement => {

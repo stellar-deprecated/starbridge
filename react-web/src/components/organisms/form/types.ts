@@ -6,7 +6,6 @@ export interface IFormProps {
   children: React.ReactNode | React.ReactNode[]
 
   onSubmit: (
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     values: Record<string | number, any>,
     event: React.BaseSyntheticEvent | undefined
   ) => Promise<void> | void

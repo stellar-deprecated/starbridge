@@ -9,7 +9,7 @@ import {
 } from 'components/molecules/labeled-input'
 import { IInputProps } from 'components/molecules/labeled-input/type'
 
-import { renderFormElementWithLabel } from './helpers'
+import { renderFormElement } from './helpers'
 import { IFormInputProps, IFormProps } from './types'
 
 const FORM_ELEMENT_MAP = {
@@ -50,14 +50,7 @@ const FormComponent = ({
       if (React.isValidElement(child)) {
         if (isFormComponent(child)) {
           const formActions = { errors, register, isSubmitted }
-          return renderFormElementWithLabel(child, formActions)
-        }
-        if (React.Children.toArray(child.props.children).length) {
-          return React.cloneElement(
-            child,
-            child.props,
-            renderFormElements(child.props.children)
-          )
+          return renderFormElement(child, formActions)
         }
       }
       return child
