@@ -7,8 +7,8 @@ import {
   IInputProps,
 } from 'components/molecules/labeled-input/type'
 
-import Eth from 'app/core/resources/eth-icon.svg'
-import Weth from 'app/core/resources/weth-icon.svg'
+import Eth from 'app/core/resources/eth.svg'
+import Weth from 'app/core/resources/weth.svg'
 
 import { Label } from '../../atoms/typography/label'
 import styles from './styles.module.scss'
