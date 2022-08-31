@@ -2,10 +2,8 @@ import React, { useState } from 'react'
 
 import classNames from 'classnames'
 
-import {
-  CurrencyLabel,
-  IInputProps,
-} from 'components/molecules/labeled-input/type'
+import { IInputProps } from 'components/molecules/labeled-input/type'
+import { CurrencyLabel } from 'components/types/currency'
 
 import Eth from 'app/core/resources/eth-icon.svg'
 import Weth from 'app/core/resources/weth-icon.svg'
