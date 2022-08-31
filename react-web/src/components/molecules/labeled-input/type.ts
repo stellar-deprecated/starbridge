@@ -35,8 +35,3 @@ export interface IInputProps {
 
   disabled?: boolean
 }
-
-export enum CurrencyLabel {
-  eth = 'ETH',
-  weth = 'WETH',
-}
