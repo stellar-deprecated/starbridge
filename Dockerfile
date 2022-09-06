@@ -1,4 +1,4 @@
-FROM golang:1.18 AS builder
+FROM golang:1.19.1 AS builder
 
 WORKDIR /go/src/github.com/stellar/starbridge
 COPY go.mod go.sum ./
