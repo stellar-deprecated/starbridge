@@ -23,8 +23,7 @@ const composeEvents =
 
 export const cloneElement = (
   child: React.ReactElement,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  register: UseFormRegister<any>,
+  register: UseFormRegister<FieldValues>,
   status: Status
 ): React.ReactElement => {
   const { onChange, onBlur, ...registerProps } = register(child.props.name)
@@ -41,8 +40,7 @@ export const cloneElement = (
 }
 
 interface IFormActions {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  register: UseFormRegister<any>
+  register: UseFormRegister<FieldValues>
   errors: DeepMap<FieldValues, FieldError>
   isSubmitted: boolean
 }
