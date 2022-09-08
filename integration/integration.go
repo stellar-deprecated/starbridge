@@ -107,6 +107,7 @@ func NewIntegrationTest(t *testing.T, config Config) *Test {
 	}
 
 	test.runComposeCommand("down", "-v")
+	test.runComposeCommand("build")
 	test.runComposeCommand("up", "--detach", "--quiet-pull", "--no-color", "starbridge-postgres")
 	test.runComposeCommand("up", "--detach", "--quiet-pull", "--no-color", "quickstart")
 	test.runComposeCommand("up", "--detach", "--no-color", "ethereum-node")

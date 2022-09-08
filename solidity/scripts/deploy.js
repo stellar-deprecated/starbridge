@@ -36,6 +36,8 @@ async function main() {
 
     const wrappedXLM = await getToken(bridge, await registerStellarAsset(bridge, signers, 0, "Stellar Lumens", "XLM", 7));
     console.log("Wrapped XLM address:", wrappedXLM.address);
+
+    console.log("domain separator: ", await bridge.domainSeparator());
   }
   
   main()
