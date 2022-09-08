@@ -50,10 +50,9 @@ type Config struct {
 	StellarBridgeAccount string `toml:"stellar_bridge_account" valid:"stellar_accountid"`
 	StellarPrivateKey    string `toml:"stellar_private_key" valid:"stellar_seed"`
 
-	EthereumRPCURL              string `toml:"ethereum_rpc_url" valid:"-"`
-	EthereumBridgeAddress       string `toml:"ethereum_bridge_address" valid:"-"`
-	EthereumBridgeConfigVersion uint32 `toml:"ethereum_bridge_config_version" valid:"-"`
-	EthereumPrivateKey          string `toml:"ethereum_private_key" valid:"-"`
+	EthereumRPCURL        string `toml:"ethereum_rpc_url" valid:"-"`
+	EthereumBridgeAddress string `toml:"ethereum_bridge_address" valid:"-"`
+	EthereumPrivateKey    string `toml:"ethereum_private_key" valid:"-"`
 
 	AssetMapping []backend.AssetMappingConfigEntry `toml:"asset_mapping" valid:"-"`
 
@@ -147,10 +146,15 @@ func (a *App) initWorker(config Config, client *horizonclient.Client, ethObserve
 
 	converter, err := backend.NewAssetConverter(config.AssetMapping)
 	if err != nil {
-		log.Fatal("unable to create asset converter", err)
+		log.Fatalf("unable to create asset converter: %v", err)
 	}
 
-	ethSigner, err := ethereum.NewSigner(config.EthereumPrivateKey, config.EthereumBridgeConfigVersion)
+	domainSeparator, err := ethObserver.GetDomainSeparator(a.appCtx)
+	if err != nil {
+		log.Fatalf("unable to fetch domain separator: %v", err)
+	}
+
+	ethSigner, err := ethereum.NewSigner(config.EthereumPrivateKey, domainSeparator)
 	if err != nil {
 		log.Fatalf("cannot create ethereum signer: %v", err)
 	}
