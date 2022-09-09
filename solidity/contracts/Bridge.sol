@@ -3,8 +3,10 @@
 pragma solidity ^0.8.0;
 import "./Auth.sol";
 import "./StellarAsset.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 // Every bridge transfer has a globally unique id.
 //
@@ -80,7 +82,7 @@ bytes32 constant WITHDRAW_ETH_ID = keccak256("withdrawETH");
 // WITHDRAW_ERC20_ID is used to distinguish withdrawERC20() signatures from signatures for other bridge functions.
 bytes32 constant WITHDRAW_ERC20_ID = keccak256("withdrawERC20");
 
-contract Bridge is Auth {
+contract Bridge is Auth, ReentrancyGuard {
     // paused is a bitmask which determines whether deposits / withdrawals are enabled on the bridge
     uint8 public paused;
     // SetPaused is emitted whenever the paused state of the bridge changes
@@ -134,7 +136,7 @@ contract Bridge is Auth {
         address token,
         uint256 destination,
         uint256 amount
-    ) external {
+    ) external nonReentrant {
         require((paused & PAUSE_DEPOSITS) == 0, "deposits are paused");
         require(amount > 0, "deposit amount is zero");
         require(token != address(0x0), "invalid token address");
@@ -145,12 +147,16 @@ contract Bridge is Auth {
         if (isStellarAsset[token]) {
             StellarAsset(token).burn(msg.sender, amount);
         } else {
+            IERC20 tokenContract = IERC20(token);
+            uint256 before = tokenContract.balanceOf(address(this));
             SafeERC20.safeTransferFrom(
-                IERC20(token),
+                tokenContract,
                 msg.sender,
                 address(this),
                 amount
             );
+            uint256 received = SafeMath.sub(tokenContract.balanceOf(address(this)), before);
+            require(amount == received, "received amount not equal to expected amount");
         }
     }
 

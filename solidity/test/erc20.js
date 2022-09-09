@@ -54,6 +54,20 @@ describe("Deposit & Withdraw ERC20", function() {
         await setPaused(bridge, signers, domainSeparator, PAUSE_NOTHING, nextPauseNonce(), validTimestamp());
     });
 
+    it("block deposits for tokens which transfer less than expected amount", async function() {
+        const FeeToken = await ethers.getContractFactory("FeeToken");
+        const feeToken = await FeeToken.deploy("Fee Token", "FEE", 18);
+        await feeToken.mint(sender.address, ethers.utils.parseEther("100.0"));
+        await feeToken.approve(bridge.address, ethers.utils.parseEther("300.0"));
+
+        await setDepositAllowed(bridge, signers, domainSeparator, feeToken.address, true, 1, validTimestamp());
+        expect(await bridge.depositAllowed(feeToken.address)).to.be.true;
+
+        await expect(bridge.depositERC20(
+            feeToken.address, 1, ethers.utils.parseEther("1.0")
+        )).to.be.revertedWith("received amount not equal to expected amount");
+    });
+
     it("block deposits for a specific ERC20 token", async function() {
         const blockedToken = await ERC20.deploy("Blocked Test Token", "BLOCKED", 18);
         await blockedToken.mint(sender.address, ethers.utils.parseEther("100.0"));
