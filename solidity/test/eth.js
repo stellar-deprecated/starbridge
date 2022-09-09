@@ -3,7 +3,6 @@ const { ethers, waffle } = require("hardhat");
 const { PAUSE_DEPOSITS, PAUSE_NOTHING, PAUSE_WITHDRAWALS_AND_DEPOSITS, setPaused, nextPauseNonce, PAUSE_WITHDRAWALS } = require("./paused");
 const { updateSigners } = require("./updateSigners");
 const { validTimestamp, expiredTimestamp } = require("./util");
-const { setDepositAllowed } = require("./setDepositAllowed");
 
 describe("Deposit & Withdraw ETH", function() {
     let signers;
@@ -29,34 +28,6 @@ describe("Deposit & Withdraw ETH", function() {
 
     it("deposits of 0 ETH are rejected", async function() {
         await expect(bridge.depositETH(1, {value: 0})).to.be.revertedWith("deposit amount is zero");
-    });
-
-    it("block deposits of ETH", async function() {
-        const ERC20 = await ethers.getContractFactory("StellarAsset");
-        const token = await ERC20.deploy("Blocked Test Token", "BLOCKED", 18);
-        await token.mint(sender.address, ethers.utils.parseEther("100.0"));
-        await token.approve(bridge.address, ethers.utils.parseEther("300.0"));
-
-        await setDepositAllowed(bridge, signers, domainSeparator, token.address, true, 0, validTimestamp());
-        expect(await bridge.depositAllowed(token.address)).to.be.true;
-
-        const ethAddress = "0x0000000000000000000000000000000000000000";
-        await setDepositAllowed(bridge, signers, domainSeparator, ethAddress, false, 1, validTimestamp());
-        expect(await bridge.depositAllowed(ethAddress)).to.be.false;
-
-        const before = await token.balanceOf(bridge.address);
-
-        await bridge.depositERC20(
-            token.address, 1, ethers.utils.parseEther("1.0")
-        );
-
-        const after = await token.balanceOf(bridge.address);
-        expect(after.sub(before)).to.equal(ethers.utils.parseEther("1.0"));
-
-        await expect(bridge.depositETH(1, {value: ethers.utils.parseEther("1.0")})).to.be.revertedWith("eth deposits are not allowed");
-
-        await setDepositAllowed(bridge, signers, domainSeparator, ethAddress, true, 2, validTimestamp());
-        expect(await bridge.depositAllowed(ethAddress)).to.be.true;
     });
 
     it("deposits are rejected when bridge is paused", async function() {

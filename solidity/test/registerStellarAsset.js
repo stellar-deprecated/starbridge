@@ -49,7 +49,6 @@ describe("registerStellarAsset", function() {
         expect(await wrappedXLM.name()).to.be.eql("Stellar Lumens");
         expect(await wrappedXLM.symbol()).to.be.eql("XLM");
         expect(await bridge.isStellarAsset(wrappedXLM.address)).to.be.true;
-        expect(await bridge.depositAllowed(wrappedXLM.address)).to.be.true;
     });
 
     it("rejects duplicate transactions", async function() {

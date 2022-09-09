@@ -3,7 +3,6 @@ const { ethers } = require("hardhat");
 const { PAUSE_DEPOSITS, PAUSE_NOTHING, PAUSE_WITHDRAWALS_AND_DEPOSITS, setPaused, nextPauseNonce, PAUSE_WITHDRAWALS } = require("./paused");
 const { updateSigners } = require("./updateSigners");
 const { validTimestamp, expiredTimestamp } = require("./util");
-const { setDepositAllowed } = require("./setDepositAllowed");
 
 async function withdrawERC20(bridge, token, signers, id, domainSeparator, expiration, recipient, amount) {
     const request = [id, expiration, recipient, token.address, amount];
@@ -37,7 +36,6 @@ describe("Deposit & Withdraw ERC20", function() {
         token = await ERC20.deploy("Test Token", "TEST", 18);
         await token.mint(sender.address, ethers.utils.parseEther("100.0"));
         await token.approve(bridge.address, ethers.utils.parseEther("300.0"));
-        await setDepositAllowed(bridge, signers, domainSeparator, token.address, true, 0, validTimestamp());
     });
 
     it("deposits of 0 are rejected", async function() {
@@ -60,42 +58,9 @@ describe("Deposit & Withdraw ERC20", function() {
         await feeToken.mint(sender.address, ethers.utils.parseEther("100.0"));
         await feeToken.approve(bridge.address, ethers.utils.parseEther("300.0"));
 
-        await setDepositAllowed(bridge, signers, domainSeparator, feeToken.address, true, 1, validTimestamp());
-        expect(await bridge.depositAllowed(feeToken.address)).to.be.true;
-
         await expect(bridge.depositERC20(
             feeToken.address, 1, ethers.utils.parseEther("1.0")
         )).to.be.revertedWith("received amount not equal to expected amount");
-    });
-
-    it("block deposits for a specific ERC20 token", async function() {
-        const blockedToken = await ERC20.deploy("Blocked Test Token", "BLOCKED", 18);
-        await blockedToken.mint(sender.address, ethers.utils.parseEther("100.0"));
-        await blockedToken.approve(bridge.address, ethers.utils.parseEther("300.0"));
-
-        expect(await bridge.depositAllowed(blockedToken.address)).to.be.false;
-        await expect(bridge.depositERC20(
-            blockedToken.address, 1, ethers.utils.parseEther("1.0")
-        )).to.be.revertedWith("deposits not allowed for token");
-
-        await setDepositAllowed(bridge, signers, domainSeparator, blockedToken.address, true, 1, validTimestamp());
-        expect(await bridge.depositAllowed(blockedToken.address)).to.be.true;
-
-        const before = await token.balanceOf(bridge.address);
-
-        await bridge.depositERC20(
-            blockedToken.address, 1, ethers.utils.parseEther("1.0")
-        );
-
-        const after = await blockedToken.balanceOf(bridge.address);
-        expect(after.sub(before)).to.equal(ethers.utils.parseEther("1.0"));
-
-        await setDepositAllowed(bridge, signers, domainSeparator, blockedToken.address, false, 2, validTimestamp());
-
-        expect(await bridge.depositAllowed(blockedToken.address)).to.be.false;
-        await expect(bridge.depositERC20(
-            blockedToken.address, 1, ethers.utils.parseEther("1.0")
-        )).to.be.revertedWith("deposits not allowed for token");
     });
 
     it("cannot deposit more tokens than current balance", async function() {

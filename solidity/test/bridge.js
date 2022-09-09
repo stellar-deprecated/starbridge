@@ -13,7 +13,6 @@ describe("Deploy Bridge", function() {
       for(let i = 0; i < 20; i++) {
         expect(await bridge.signers(i)).to.equal(addresses[i]);
       }
-      expect(await bridge.depositAllowed("0x0000000000000000000000000000000000000000")).to.be.true;
       await expect(bridge.signers(20)).to.be.reverted;
     });
 

@@ -47,14 +47,6 @@ struct SetPausedRequest {
     uint256 expiration; // unix timestamp of when the transaction should expire
 }
 
-// SetDepositAllowedRequest is the payload for the setDepositAllowed() transaction.
-struct SetDepositAllowedRequest {
-    address token; // token to be enabled / disabled
-    bool allowed; // true if depsits are allowed otherwise false
-    uint256 nonce; // used to make each transaction unique for replay prevention
-    uint256 expiration; // unix timestamp of when the transaction should expire
-}
-
 // RegisterStellarAssetRequest is the payload for the registerStellarAsset() transaction.
 // The three fields define a new ERC20 token which represents the ethereum equivalent of
 // a Stellar asset.
@@ -71,8 +63,6 @@ uint8 constant PAUSE_WITHDRAWALS =  1 << 1;
 // bitwise flag representing the state where no withdrawals or deposits are allowed on the bridge
 uint8 constant PAUSE_DEPOSITS_AND_WITHDRAWALS = PAUSE_DEPOSITS | PAUSE_WITHDRAWALS;
 
-// SET_DEPOSIT_ALLOWED is used to distinguish setDepositAllowed() signatures from signatures for other bridge functions.
-bytes32 constant SET_DEPOSIT_ALLOWED = keccak256("setDepositAllowed");
 // SET_PAUSED_ID is used to distinguish setPaused() signatures from signatures for other bridge functions.
 bytes32 constant SET_PAUSED_ID = keccak256("setPaused");
 // REGISTER_STELLAR_ASSET_ID is used to distinguish registerStellarAsset() signatures from signatures for other bridge functions.
@@ -89,10 +79,7 @@ contract Bridge is Auth, ReentrancyGuard {
     event SetPaused(uint8 value);
 
     // to create a Bridge instance you need to provide the validator set configuration
-    constructor(address[] memory _signers, uint8 _minThreshold) Auth(_signers, _minThreshold) {
-        emit SetDepositAllowed(address(0x0), true);
-        depositAllowed[address(0x0)] = true;
-    }
+    constructor(address[] memory _signers, uint8 _minThreshold) Auth(_signers, _minThreshold) {}
 
     // Deposit is emitted whenever ERC20 tokens (or ETH) are deposited on the bridge.
     // The Deposit event initiates a Ethereum -> Stellar transfer.
@@ -123,13 +110,6 @@ contract Bridge is Auth, ReentrancyGuard {
     // created by the bridge.
     mapping(address => bool) public isStellarAsset;
 
-    // depositAllowed identifies whether an ERC20 token is can be deposited on
-    // the bridge.
-    mapping(address => bool) public depositAllowed;
-
-    // SetPaused is emitted whenever the paused state of the bridge changes
-    event SetDepositAllowed(address token, bool allowed);
-
     // depositERC20() deposits ERC20 tokens to the bridge and starts a ERC20 -> Stellar
     // transfer. If deposits are disabled this function will fail.
     function depositERC20(
@@ -139,8 +119,6 @@ contract Bridge is Auth, ReentrancyGuard {
     ) external nonReentrant {
         require((paused & PAUSE_DEPOSITS) == 0, "deposits are paused");
         require(amount > 0, "deposit amount is zero");
-        require(token != address(0x0), "invalid token address");
-        require(depositAllowed[token], "deposits not allowed for token");
 
         emit Deposit(token, msg.sender, destination, amount);
 
@@ -163,7 +141,6 @@ contract Bridge is Auth, ReentrancyGuard {
     // depositETH() deposits ETH to the bridge and starts a ETH -> Stellar
     // transfer. If deposits are disabled this function will fail.
     function depositETH(uint256 destination) external payable {
-        require(depositAllowed[address(0)], "eth deposits are not allowed");
         require((paused & PAUSE_DEPOSITS) == 0, "deposits are paused");
         require(msg.value > 0, "deposit amount is zero");
         emit Deposit(address(0), msg.sender, destination, msg.value);
@@ -247,26 +224,6 @@ contract Bridge is Auth, ReentrancyGuard {
         paused = request.value;
     }
 
-    // setDepositAllowed() will enable or disable deposits for a specific token.
-    // setDepositAllowed() must be authorized by the bridge validators otherwise the transaction
-    // will fail. Replay prevention is implemented by storing the request hash in the
-    // fulfilledrequests set.
-    function setDepositAllowed(
-        SetDepositAllowedRequest memory request,
-        bytes[] calldata signatures,
-        uint8[] calldata indexes
-    ) external {
-        bytes32 requestHash = keccak256(abi.encode(domainSeparator, SET_DEPOSIT_ALLOWED, request));
-        // ensure the same setPaused() transaction cannot be used more than once
-        verifyRequest(requestHash, requestHash, request.expiration, signatures, indexes);
-        emit SetDepositAllowed(request.token, request.allowed);
-        if (request.allowed) {
-            depositAllowed[request.token] = true;
-        } else {
-            delete(depositAllowed[request.token]);
-        }
-    }
-
     // registerStellarAsset() will creates an ERC20 token to represent a stellar asset.
     // registerStellarAsset() must be authorized by the bridge validators otherwise the transaction
     // will fail. Replay prevention is impemented by creating the ERC20 via the CREATE2 opcode (see
@@ -303,8 +260,6 @@ contract Bridge is Auth, ReentrancyGuard {
         );
 
         emit RegisterStellarAsset(asset);
-        emit SetDepositAllowed(asset, true);
         isStellarAsset[asset] = true;
-        depositAllowed[asset] = true;
     }
 }
