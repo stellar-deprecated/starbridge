@@ -6,7 +6,7 @@
 .inputContainer {
   display: flex;
   flex-direction: column;
-  background-color: var(--color-whiteish-light);
+  background-color: var(--color-grayish-lightest);
   padding: 16px;
   height: 116px;
   border-radius: var(--border-radius-default);
@@ -58,7 +58,7 @@
   margin-top: 40px;
 
   input {
-    background-color: var(--color-whiteish-light);
+    background-color: var(--color-grayish-lightest);
   }
 }
 
@@ -83,4 +83,6 @@
 .mainLabel {
   font-size: var(--font-size-lg);
   line-height: var(--line-height-2xl);
+  color: var(--color-grayish-dark);
+  font-weight: var(--font-weight-500);
 }
