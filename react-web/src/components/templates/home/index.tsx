@@ -45,7 +45,7 @@ const HomeTemplate = ({ handleSubmit }: IHomeTemplateProps): JSX.Element => {
     },
   }
 
-  const onInputReceiveChange = (
+  const onInputReceivedChange = (
     evt: React.FormEvent<HTMLInputElement>
   ): void => {
     const input = evt.target as HTMLInputElement
@@ -59,14 +59,10 @@ const HomeTemplate = ({ handleSubmit }: IHomeTemplateProps): JSX.Element => {
   }
 
   useEffect(() => {
-    if (inputSent > '0' && inputReceived > '0') {
-      setIsButtonEnabled(true)
-    } else {
-      setIsButtonEnabled(false)
-    }
+    setIsButtonEnabled(inputSent > '0' && inputReceived > '0')
   }, [inputSent, inputReceived])
 
-  const changeCurrencyTitle = (): void => {
+  const changeCurrency = (): void => {
     setCurrencyFrom(prev =>
       prev === Currency.ETH ? Currency.WETH : Currency.ETH
     )
@@ -89,7 +85,7 @@ const HomeTemplate = ({ handleSubmit }: IHomeTemplateProps): JSX.Element => {
             variant={ButtonVariant.primary}
             size={ButtonSize.small}
             iconLeft={<img src={SwitchIcon} alt="Switch Icon" />}
-            onClick={changeCurrencyTitle}
+            onClick={changeCurrency}
           >
             Switch
           </Button>
@@ -108,7 +104,7 @@ const HomeTemplate = ({ handleSubmit }: IHomeTemplateProps): JSX.Element => {
             <div className={styles.formRow}>
               <WalletInput
                 currency={currencyPropsConverter[currencyTo]}
-                onChange={onInputReceiveChange}
+                onChange={onInputReceivedChange}
                 name={'receiving'}
                 ref={receivingRef}
               />
