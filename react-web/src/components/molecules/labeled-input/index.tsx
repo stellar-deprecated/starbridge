@@ -43,11 +43,7 @@ const LabeledInput = React.forwardRef<HTMLInputElement, ILabeledInputProps>(
     const renderCurrencyInfo = (
       evt: React.ChangeEvent<HTMLInputElement>
     ): void => {
-      if (evt.currentTarget.value) {
-        setHasBalanceInfo(true)
-      } else {
-        setHasBalanceInfo(false)
-      }
+      setHasBalanceInfo(!!evt.currentTarget.value)
       return onChange?.(evt)
     }
 
