@@ -1,0 +1,28 @@
+.header {
+  justify-content: space-between;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 41px 120px;
+  align-items: center;
+  display: flex;
+}
+
+.containerButton {
+  display: flex;
+  flex-direction: row;
+  right: 0;
+}
+
+.loginButton {
+  margin-left: 12px;
+}
+
+.title {
+  color: var(--color-black);
+}
+
+.labelButton {
+  color: var(--color-black);
+  margin-left: 8px;
+}

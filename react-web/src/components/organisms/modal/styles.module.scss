@@ -1,0 +1,46 @@
+.modal {
+  max-height: fit-content;
+  position: absolute;
+  margin: auto;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--color-whiteish);
+  padding: 24px 32px;
+  box-shadow: 0px 0px 6px var(--color-blackish-with-quarter-opacity);
+  max-width: 320px;
+  border-radius: 24px;
+  gap: 32px;
+}
+
+/* Modal slide-in/out transition */
+:global .ReactModal__Content {
+  opacity: 0;
+  transform: translateY(-25%);
+  transition: all 0.3s ease-out;
+}
+
+:global .ReactModal__Content--after-open {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+:global .ReactModal__Content--before-close {
+  opacity: 0;
+  transform: translateY(-25%);
+}
+
+/* Overlay opacity transition */
+:global .ReactModal__Overlay {
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+}
+
+:global .ReactModal__Overlay--after-open {
+  opacity: 1;
+}
+
+:global .ReactModal__Overlay--before-close {
+  opacity: 0;
+}

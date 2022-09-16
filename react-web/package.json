@@ -5,7 +5,10 @@
   "dependencies": {
     "@hookform/resolvers": "~2.9.6",
     "@stellar/design-system": "^0.8.1",
+    "@walletconnect/client": "^1.8.0",
+    "@walletconnect/qrcode-modal": "^1.8.0",
     "axios": "~0.27.2",
+    "buffer": "^6.0.3",
     "classnames": "~2.3.1",
     "env-cmd": "~10.1.0",
     "jest-canvas-mock": "~2.4.0",
@@ -13,6 +16,7 @@
     "react": "~18.2.0",
     "react-dom": "~17.0.2",
     "react-hook-form": "~7.33.1",
+    "react-modal": "^3.15.1",
     "react-router-dom": "~6.3.0",
     "react-scripts": "~5.0.1",
     "sass": "~1.54.0",
@@ -30,6 +34,7 @@
     "@types/node-sass": "~4.11.3",
     "@types/react": "~18.0.15",
     "@types/react-dom": "~18.0.6",
+    "@types/react-modal": "^3.13.1",
     "@types/react-router-dom": "~5.1.7",
     "@types/sinon": "~10.0.13",
     "@typescript-eslint/eslint-plugin": "^5.33.1",
@@ -49,7 +54,7 @@
     "sinon": "~14.0.0"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "GENERATE_SOURCEMAP=false react-scripts start",
     "start:dev": "env-cmd -f ./src/config/.env.local npm start",
     "start:staging": "env-cmd -f ./src/config/.env.staging npm start",
     "build": "react-scripts build",
