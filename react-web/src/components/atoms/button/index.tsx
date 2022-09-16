@@ -25,7 +25,7 @@ export interface IButtonProps
   isLoading?: boolean
   fullWidth?: boolean
   disabled?: boolean
-  onClick?: () => void
+  onClick?: React.MouseEventHandler<HTMLButtonElement>
   children: string | React.ReactNode
 }
 
