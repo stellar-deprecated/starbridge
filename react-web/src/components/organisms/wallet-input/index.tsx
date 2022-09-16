@@ -13,12 +13,14 @@ import styles from './styles.module.scss'
 interface IWalletInputProps extends IInputProps {
   currency: ICurrencyProps
   isSender?: boolean
+  onClick?: () => void
 }
 
 export const WalletInput = ({
   isSender,
   currency,
   onChange,
+  onClick,
 }: IWalletInputProps): JSX.Element => {
   return (
     <div className={styles.inputContainer}>
@@ -28,7 +30,11 @@ export const WalletInput = ({
           variant={TypographyVariant.p}
           text={isSender ? 'From:' : 'To:'}
         />
-        <Button variant={ButtonVariant.secondary} size={ButtonSize.small}>
+        <Button
+          variant={ButtonVariant.secondary}
+          size={ButtonSize.small}
+          onClick={onClick}
+        >
           {`Connect ${currency.label} Wallet`}
         </Button>
       </div>
