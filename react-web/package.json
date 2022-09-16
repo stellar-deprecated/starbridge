@@ -54,7 +54,7 @@
     "sinon": "~14.0.0"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "GENERATE_SOURCEMAP=false react-scripts start",
     "start:dev": "env-cmd -f ./src/config/.env.local npm start",
     "start:staging": "env-cmd -f ./src/config/.env.staging npm start",
     "build": "react-scripts build",
