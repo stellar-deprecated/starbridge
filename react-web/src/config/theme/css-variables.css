@@ -1,0 +1,78 @@
+:root {
+  /* ##### Colors ####### */
+
+  /* Neutral colors */
+
+  --color-black: #000000;
+  --color-blackish: #2b2d34;
+  --color-blackish-light: #41444d;
+
+  --color-grayish-dark: #6f6e77;
+  --color-grayish: #86848d;
+
+  --color-grayish: #6f6e77;
+  --color-grayish-medium: #c8c7cb;
+  --color-grayish-light: #eeedef;
+  --color-grayish-lightest: #f9f8f9;
+
+  --color-whiteish: #ffffff;
+  --color-whiteish-light: #dcdbdd;
+
+  /* Other Colors */
+  --color-background: #eeedef;
+
+  --color-blue-dark: #097cf6;
+  --color-blue: #3396ff;
+  --color-blue-light: #84befd;
+
+  --color-green: #5bb98c;
+  --color-green-medium: #66bfa0;
+  --color-red: #cd2b31;
+
+  /* ##### Borders ####### */
+  --border-radius-button: 4px;
+  --border-radius-default: 8px;
+  --border-radius-modal: 24px;
+
+  /**  ##### Typography ####### */
+  --font-family: 'Inter';
+  --font-style: normal;
+
+  --font-size-7xl: 2rem; /** 32px */
+  --font-size-6xl: 1.875rem; /** 30px */
+  --font-size-5xl: 1.75rem; /** 28px */
+  --font-size-4xl: 1.5rem; /**  24px */
+  --font-size-3xl: 1.375rem; /**  22px */
+  --font-size-2xl: 1.25rem; /**  20px */
+  --font-size-xl: 1.125rem; /**  18px */
+  --font-size-lg: 1rem; /**  16px */
+  --font-size-normal: 0.875rem; /** 14px */
+  --font-size-xsm: 0.75rem; /**  12px */
+
+  --font-weight-100: 100;
+  --font-weight-200: 200;
+  --font-weight-300: 300;
+  --font-weight-400: 400;
+  --font-weight-500: 500;
+  --font-weight-600: 600;
+  --font-weight-700: 700;
+
+  --line-height-default: 1.125rem; /**  18px */
+
+  --line-height-sm: 1rem; /**  16px */
+  --line-height-lg: 1.25rem; /**  20px */
+  --line-height-xl: 1.375rem; /**  22px */
+  --line-height-2xl: 1.5rem; /**  24px */
+  --line-height-4xl: 1.75rem; /** 28px */
+  --line-height-5xl: 1.875rem; /**  30px */
+  --line-height-6xl: 2rem; /**  32px */
+
+  --letter-space-default: 0.777778px; /**  18px */
+
+  --letter-space-xs: 0.3px; /**  12px */
+  --letter-space-sm: 0.75px; /**  14px */
+  --letter-space-lg: 1px; /**  20px */
+
+  --primary-font-color: var(--color-grayish);
+  --secondary-font-color: var(--color-black);
+}
