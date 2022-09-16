@@ -5,7 +5,10 @@
   "dependencies": {
     "@hookform/resolvers": "~2.9.6",
     "@stellar/design-system": "^0.8.1",
+    "@walletconnect/client": "^1.8.0",
+    "@walletconnect/qrcode-modal": "^1.8.0",
     "axios": "~0.27.2",
+    "buffer": "^6.0.3",
     "classnames": "~2.3.1",
     "env-cmd": "~10.1.0",
     "jest-canvas-mock": "~2.4.0",
@@ -51,7 +54,7 @@
     "sinon": "~14.0.0"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "GENERATE_SOURCEMAP=false react-scripts start",
     "start:dev": "env-cmd -f ./src/config/.env.local npm start",
     "start:staging": "env-cmd -f ./src/config/.env.staging npm start",
     "build": "react-scripts build",

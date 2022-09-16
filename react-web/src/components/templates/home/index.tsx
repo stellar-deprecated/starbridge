@@ -20,13 +20,18 @@ import styles from './styles.module.scss'
 export interface IHomeTemplateProps {
   transactionTitle?: string
   handleSubmit: (evt: FormEvent<HTMLFormElement>) => Promise<void>
+  onSendingButtonClick?: () => void
+  onReceivingButtonClick?: () => void
 }
 
-const HomeTemplate = ({ handleSubmit }: IHomeTemplateProps): JSX.Element => {
+const HomeTemplate = ({
+  handleSubmit,
+  onSendingButtonClick,
+  onReceivingButtonClick,
+}: IHomeTemplateProps): JSX.Element => {
   const [isButtonEnabled, setIsButtonEnabled] = useState(false)
   const sendingRef = useRef<HTMLInputElement>(null)
   const receivingRef = useRef<HTMLInputElement>(null)
-  const [toggleSwitchTitle, setToggleSwitchTitle] = useState(true)
   const [inputSent, setInputSent] = useState('')
   const [inputReceived, setInputReceived] = useState('')
   const [currencyFrom, setCurrencyFrom] = useState(Currency.ETH)
@@ -78,7 +83,7 @@ const HomeTemplate = ({ handleSubmit }: IHomeTemplateProps): JSX.Element => {
           <Typography
             className={styles.title}
             variant={TypographyVariant.h3}
-            text={toggleSwitchTitle && `${currencyFrom} -> ${currencyTo}`}
+            text={`${currencyFrom} -> ${currencyTo}`}
           />
           <Button
             className={styles.button}
@@ -98,6 +103,7 @@ const HomeTemplate = ({ handleSubmit }: IHomeTemplateProps): JSX.Element => {
                 currency={currencyPropsConverter[currencyFrom]}
                 onChange={onInputSentChange}
                 name={'sending'}
+                onClick={onSendingButtonClick}
                 ref={sendingRef}
               />
             </div>
@@ -106,6 +112,7 @@ const HomeTemplate = ({ handleSubmit }: IHomeTemplateProps): JSX.Element => {
                 currency={currencyPropsConverter[currencyTo]}
                 onChange={onInputReceivedChange}
                 name={'receiving'}
+                onClick={onReceivingButtonClick}
                 ref={receivingRef}
               />
             </div>
