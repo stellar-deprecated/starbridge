@@ -13,7 +13,7 @@ export interface IInputProps {
    * The React input ref
    * This ref usually is used to integrate with react-hook-forms
    */
-  ref: React.Ref<HTMLInputElement>
+  ref?: React.Ref<HTMLInputElement>
   /**
    * The input on change event
    * This prop is required when you use react-hook-forms
@@ -32,4 +32,6 @@ export interface IInputProps {
    * the input value
    */
   value?: string
+
+  disabled?: boolean
 }

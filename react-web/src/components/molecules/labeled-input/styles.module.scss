@@ -1,8 +1,3 @@
-.container {
-  max-width: 600;
-  margin: 32;
-}
-
 .inputContainer {
   display: flex;
   flex-direction: column;
@@ -85,4 +80,9 @@
   line-height: var(--line-height-2xl);
   color: var(--color-grayish-dark);
   font-weight: var(--font-weight-500);
+}
+
+.receiveContainer {
+  // background-color: var(--color-grayish-medium);
+  // color: var(--color-grayish-medium);
 }
