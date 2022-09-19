@@ -54,7 +54,7 @@ const LabeledInput = React.forwardRef<HTMLInputElement, ILabeledInputProps>(
       <div
         className={classNames(
           styles.inputContainer,
-          isSender === undefined && styles.receiveContainer
+          !isSender && styles.receiveContainer
         )}
       >
         <div className={styles.inputRow}>
