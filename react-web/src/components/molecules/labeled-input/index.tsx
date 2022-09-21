@@ -2,9 +2,10 @@ import React, { useState } from 'react'
 
 import classNames from 'classnames'
 
+import { WalletIcon, Typography, TypographyVariant } from 'components/atoms'
 import { IInputProps } from 'components/molecules/labeled-input/type'
+import { Currency, CurrencyLabel } from 'components/types/currency'
 
-import { Label } from '../../atoms/typography/label'
 import styles from './styles.module.scss'
 
 export enum InputLabel {
@@ -20,9 +21,8 @@ export interface ILabeledInputProps extends IInputProps {
 }
 
 export interface ICurrencyProps {
-  initials: string
-  label: string
-  iconPath: string
+  initials: CurrencyLabel
+  label: Currency
 }
 
 const LabeledInput = React.forwardRef<HTMLInputElement, ILabeledInputProps>(
@@ -58,12 +58,23 @@ const LabeledInput = React.forwardRef<HTMLInputElement, ILabeledInputProps>(
         )}
       >
         <div className={styles.inputRow}>
-          <Label text={label} className={styles.mainLabel} />
+          <Typography
+            variant={TypographyVariant.label}
+            text={label}
+            className={styles.mainLabel}
+          />
           <div>
             {hasBalanceInfo && label === InputLabel.sending && (
               <>
-                <Label text="Set Max" className={styles.balanceLabel} />
-                <Label text={`Bal: 1.42 ${currency.initials}`} />
+                <Typography
+                  variant={TypographyVariant.label}
+                  text="Set Max"
+                  className={styles.balanceLabel}
+                />
+                <Typography
+                  variant={TypographyVariant.label}
+                  text={`Bal: 1.42 ${currency.initials}`}
+                />
               </>
             )}
           </div>
@@ -81,12 +92,12 @@ const LabeledInput = React.forwardRef<HTMLInputElement, ILabeledInputProps>(
           />
 
           <div className={styles.currencyContainer}>
-            <img
-              src={currency.iconPath}
-              className={styles.icon}
-              alt={currency.label}
+            <WalletIcon currency={currency.label} />
+            <Typography
+              variant={TypographyVariant.label}
+              text={currency.initials}
+              className={styles.currencyLabel}
             />
-            <Label text={currency.initials} className={styles.currencyLabel} />
           </div>
         </div>
       </div>

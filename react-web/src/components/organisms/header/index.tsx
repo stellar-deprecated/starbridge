@@ -1,6 +1,8 @@
 import { BrowserRouter as Router, Link } from 'react-router-dom'
 
 import classNames from 'classnames'
+import { useAuthContext } from 'context'
+import { formatWalletAccount } from 'utils'
 
 import {
   Button,
@@ -20,19 +22,16 @@ import styles from './style.module.scss'
 
 interface IHeaderProps {
   className?: string
-  handleOnWalletPress?: () => void
-  handleOnLoginPress?: () => void
-  labelWalletButton: string
-  labelLoginButton: string
 }
 
-const Header = ({
-  className,
-  handleOnWalletPress,
-  handleOnLoginPress,
-  labelWalletButton,
-  labelLoginButton,
-}: IHeaderProps): JSX.Element => {
+const Header = ({ className }: IHeaderProps): JSX.Element => {
+  const { sendingAccount, receivingAccount, logoutSending, logoutReceiving } =
+    useAuthContext()
+
+  const handleButtonText = (account: string | undefined): string => {
+    return account ? formatWalletAccount(account) : 'Not Connected'
+  }
+
   return (
     <header className={classNames(styles.header, className)}>
       <nav>
@@ -50,12 +49,12 @@ const Header = ({
         <Button
           iconLeft={<img src={Eth} alt="Eth" />}
           variant={ButtonVariant.tertiary}
-          disabled
-          onClick={handleOnWalletPress}
+          disabled={!sendingAccount}
+          onClick={logoutSending}
         >
           <Typography
             variant={TypographyVariant.label}
-            text={labelWalletButton}
+            text={handleButtonText(sendingAccount)}
             className={styles.labelButton}
           />
         </Button>
@@ -64,12 +63,12 @@ const Header = ({
           iconLeft={<img src={Weth} alt="Weth" />}
           className={styles.loginButton}
           variant={ButtonVariant.tertiary}
-          disabled
-          onClick={handleOnLoginPress}
+          disabled={!receivingAccount}
+          onClick={logoutReceiving}
         >
           <Typography
             variant={TypographyVariant.label}
-            text={labelLoginButton}
+            text={handleButtonText(receivingAccount)}
             className={styles.labelButton}
           />
         </Button>

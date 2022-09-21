@@ -7,10 +7,6 @@
   border-radius: var(--border-radius-default);
 }
 
-.icon {
-  margin-right: 4px;
-}
-
 .input {
   border: none;
   color: var(--color-black);
@@ -67,6 +63,7 @@
 .currencyContainer {
   display: flex;
   align-items: center;
+  gap: 4px;
 }
 
 .balanceLabel {
