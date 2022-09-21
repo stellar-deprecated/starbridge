@@ -19,6 +19,8 @@ interface IWalletInputProps extends IInputProps {
 export const WalletInput = ({
   isSender,
   currency,
+  name,
+  placeholder,
   onChange,
   onClick,
 }: IWalletInputProps): JSX.Element => {
@@ -43,6 +45,9 @@ export const WalletInput = ({
         label={isSender ? InputLabel.sending : InputLabel.receive}
         currency={currency}
         onChange={onChange}
+        isSender={isSender}
+        disabled={name === InputLabel.receive}
+        placeholder={placeholder ?? '--'}
       />
     </div>
   )
