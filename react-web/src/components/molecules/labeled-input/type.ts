@@ -23,7 +23,6 @@ export interface IInputProps {
    * Classname to add custom css
    */
   className?: string
-
   /**
    * The input placeholder
    */
@@ -32,6 +31,8 @@ export interface IInputProps {
    * the input value
    */
   value?: string
-
+  /**
+   * disable the component
+   */
   disabled?: boolean
 }
