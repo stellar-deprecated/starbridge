@@ -1,4 +1,9 @@
-import { FormEvent, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useForm } from 'react-hook-form'
+
+import { yupResolver } from '@hookform/resolvers/yup'
+import { useAuthContext } from 'context'
+import * as yup from 'yup'
 
 import {
   Button,
@@ -11,24 +16,24 @@ import { ICurrencyProps, InputLabel } from 'components/molecules'
 import { WalletInput } from 'components/organisms/wallet-input'
 import { Currency, CurrencyLabel } from 'components/types/currency'
 
-import Eth from 'app/core/resources/eth.svg'
 import SwitchIcon from 'app/core/resources/switch.svg'
-import Weth from 'app/core/resources/weth.svg'
 
 import styles from './styles.module.scss'
 
 export interface IHomeTemplateProps {
   transactionTitle?: string
-  handleSubmit: (evt: FormEvent<HTMLFormElement>) => Promise<void>
+  onSubmit: () => void
   onSendingButtonClick?: () => void
   onReceivingButtonClick?: () => void
 }
 
 const HomeTemplate = ({
-  handleSubmit,
+  onSubmit,
   onSendingButtonClick,
   onReceivingButtonClick,
 }: IHomeTemplateProps): JSX.Element => {
+  const { sendingAccount, receivingAccount } = useAuthContext()
+
   const [isButtonEnabled, setIsButtonEnabled] = useState(false)
   const [inputSent, setInputSent] = useState('')
   const [receiveValue, setReceiveValue] = useState('')
@@ -39,14 +44,27 @@ const HomeTemplate = ({
     [Currency.WETH]: {
       initials: CurrencyLabel.weth,
       label: Currency.WETH,
-      iconPath: Weth,
     },
     [Currency.ETH]: {
       initials: CurrencyLabel.eth,
       label: Currency.ETH,
-      iconPath: Eth,
     },
   }
+
+  const validationSchema = yup.object().shape({
+    amountReceived: yup.number().min(1).required('This field is required.'),
+    amountSent: yup.number().min(1).required('This field is required.'),
+  })
+
+  const defaultValues: { amountReceived?: number; amountSent?: number } = {
+    amountReceived: 0,
+    amountSent: 0,
+  }
+
+  const { handleSubmit } = useForm({
+    resolver: yupResolver(validationSchema),
+    defaultValues,
+  })
 
   const onInputSentChange = (evt: React.FormEvent<HTMLInputElement>): void => {
     const input = evt.target as HTMLInputElement
@@ -88,11 +106,12 @@ const HomeTemplate = ({
           </Button>
         </div>
         <div className={styles.form}>
-          <form data-testid="form" onSubmit={handleSubmit}>
+          <form data-testid="form" onSubmit={handleSubmit(onSubmit)}>
             <div className={styles.formRow}>
               <WalletInput
                 isSender
                 currency={currencyPropsConverter[currencyFrom]}
+                accountConnected={sendingAccount}
                 onChange={onInputSentChange}
                 name={InputLabel.sending}
                 onClick={onSendingButtonClick}
@@ -101,6 +120,7 @@ const HomeTemplate = ({
             <div className={styles.formRow}>
               <WalletInput
                 currency={currencyPropsConverter[currencyTo]}
+                accountConnected={receivingAccount}
                 name={InputLabel.receive}
                 disabled
                 placeholder={receiveValue ? receiveValue : '--'}
