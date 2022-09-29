@@ -16,8 +16,8 @@ output:
 	mkdir -p output
 
 # NOTE: this can sometimes fail (it seems there is a race condition somewhere...); just retry in that case.
-dependency-graph: | output starbridge.ivy
+dependency-graph: output starbridge.ivy build
 	docker run --init --rm -t -v "$(CURDIR):$(MODEL_DIR)" -v "$(CURDIR)/output:$(OUTPUT_DIR)" starbridge-ivy plot_dependencies.sh $(MODEL_DIR)/starbridge.ivy  $(OUTPUT_DIR) $(N_THREADS)
 
-check-proof:
+check-proof: build
 	docker run --init --rm -t -v $(CURDIR):$(MODEL_DIR) starbridge-ivy check_invariants.sh $(MODEL_DIR)/starbridge.ivy

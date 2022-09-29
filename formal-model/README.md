@@ -1,26 +1,12 @@
 # Starbridge
 
-This repository contains formal models related to the
-[Starbridge](https://github.com/stellar/starbridge) project.
+This repository contains a formal model of the protocol to transfer native
+Ethereum tokens to Stellar (including refunds) and a safety proof in the form
+of an inductive invariant that is checked by
+[Ivy](https://github.com/kenmcmil/ivy).
 
-[starbridge.ivy](https://github.com/nano-o/Starbridge-modeling/blob/main/ivy/shared/starbridge.ivy)
-contains a model of the Ethereum to Stellar deposit flow (with refunds) and
-a safety proof in the form of an inductive invariant.
+To check the proof, run `make check-proof` (tested on Ubuntu; you must have
+docker installed):
 
-[starbridge-timelock.ivy](https://github.com/nano-o/Starbridge-modeling/blob/main/ivy/shared/starbridge-timelock.ivy)
-contains a different model of the Ethereum to Stellar deposit flow based on an
-idea of Tamir.
-
-To check the proofs (substitute the file you want to check):
-
-```
-IVY_FILE=starbridge-timelock.ivy docker-compose run --project-directory ivy/ --rm starbridge-ivy
-```
-
-To plot the dependencies between invariants:
-
-```
-IVY_FILE=starbridge-timelock.ivy docker-compose run  --project-directory ivy/ --rm starbridge-ivy-poisonivy
-```
-
-You will then find a `png` file in `ivy/shared/`
+To plot the dependencies between invariants, run `make dependency-graph`. You
+will then find a `png` file in `ouput/`
