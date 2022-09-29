@@ -44,10 +44,10 @@ The advantages of this protocol are:
 
 The disadvantages are that it is not very flexible for the user: the withdraw period is fixed and no cancellation is possible before it ends, and the user needs to keep their sequence number stable throughout the process or risk having to create and get signatures for a new withdraw transaction.
 
-## Transferring an Stellar-native asset to Ethereum
+## Transferring a Stellar-native asset to Ethereum
 
 TODO
 
 ## Formal models
 
-[starbrige-timelock.ivy](./starbridge-timelock.ivy) is a high-level model of the Ethereum to Stellar transfer flow. The model takes into account that validators may lose their state and restart. It includes a proof that no double-spend can ever happen (the proof consists of an inductive invariant).
+[starbrige.ivy](./formal-model/starbridge.ivy) contains a high-level model of the Ethereum to Stellar transfer flow. The model takes into account that validators may lose their state and restart. It includes a proof that no double-spend can ever happen (the proof consists of an inductive invariant).
