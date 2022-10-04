@@ -1,8 +1,8 @@
 import WalletConnect from '@walletconnect/client'
 import QRCodeModal from '@walletconnect/qrcode-modal'
 
-const openWalletConnector = async (): Promise<string> => {
-  return new Promise<string>((resolve, reject) => {
+const openWalletConnector = async (): Promise<WalletConnect> => {
+  return new Promise<WalletConnect>(resolve => {
     const walletConnector = new WalletConnect({
       bridge: 'https://bridge.walletconnect.org',
       qrcodeModal: QRCodeModal,
@@ -14,15 +14,7 @@ const openWalletConnector = async (): Promise<string> => {
       walletConnector.createSession()
     }
 
-    walletConnector.on('connect', (error, payload) => {
-      if (error) {
-        reject(error)
-      }
-
-      //TODO: do more tests with different wallets and their returns
-      const { accounts } = payload.params[0]
-      resolve(accounts[0])
-    })
+    resolve(walletConnector)
   })
 }
 
