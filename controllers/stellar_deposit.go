@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/stellar/go/strkey"
 	"github.com/stellar/go/support/log"
@@ -68,6 +69,7 @@ func (c *TestDeposit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		LogIndex:    1,
 		Amount:      "100000000000",
 		Destination: intEncoded.String(),
+		BlockTime:   time.Now().Unix(),
 	}
 
 	err = c.Store.InsertEthereumDeposit(r.Context(), incomingTx)
