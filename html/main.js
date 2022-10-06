@@ -43,6 +43,7 @@ document.getElementById("withdraw").onclick = function() {
             return new Promise(async (resolve, reject) => {
                 var form = new FormData();
                 form.append("transaction_hash", document.getElementById("transaction_hash").value);
+                form.append("log_index", "1");
                 form.append("tx_expiration_timestamp", Math.ceil(Date.now()/1000)+5*60);
 
                 var status = document.getElementById("status"+j)
