@@ -66,7 +66,7 @@ func (c *TestDeposit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Token:       c.Token,
 		Hash:        hash,
 		LogIndex:    1,
-		Amount:      "1",
+		Amount:      "100000000000",
 		Destination: intEncoded.String(),
 	}
 
