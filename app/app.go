@@ -241,6 +241,12 @@ func (a *App) initHTTP(config Config, client *horizonclient.Client, ethObserver 
 				EthereumFinalityBuffer: config.EthereumFinalityBuffer,
 			},
 		},
+		TestDepositHandler: &controllers.TestDeposit{
+			Store: a.NewStore(),
+			// This will crash if no asset mappings - probably fine for a demo
+			// because it requires at least one mapping.
+			Token: config.AssetMapping[0].EthereumToken,
+		},
 	})
 	if err != nil {
 		log.Fatal("unable to create http server", err)
