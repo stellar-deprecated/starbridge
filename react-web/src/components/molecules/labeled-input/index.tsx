@@ -18,6 +18,8 @@ export interface ILabeledInputProps extends IInputProps {
   currency: ICurrencyProps
   label: InputLabel
   isSender?: boolean
+  balanceAccount?: string
+  errorMessage?: string
 }
 
 export interface ICurrencyProps {
@@ -37,53 +39,52 @@ const LabeledInput = React.forwardRef<HTMLInputElement, ILabeledInputProps>(
       label,
       isSender,
       placeholder,
+      balanceAccount,
+      errorMessage,
       ...restProps
     },
     ref
   ): JSX.Element => {
-    const [hasBalanceInfo, setHasBalanceInfo] = useState(false)
-
-    const renderCurrencyInfo = (
-      evt: React.ChangeEvent<HTMLInputElement>
-    ): void => {
-      setHasBalanceInfo(!!evt.currentTarget.value)
-      return onChange?.(evt)
-    }
-
     return (
       <div
         className={classNames(
           styles.inputContainer,
-          !isSender && styles.receiveContainer
+          !isSender && styles.receiveContainer,
+          errorMessage && styles.error
         )}
       >
+        {errorMessage && (
+          <Typography
+            className={styles.errorLabel}
+            variant={TypographyVariant.label}
+            text={errorMessage}
+          />
+        )}
         <div className={styles.inputRow}>
           <Typography
             variant={TypographyVariant.label}
             text={label}
             className={styles.mainLabel}
           />
-          <div>
-            {hasBalanceInfo && label === InputLabel.sending && (
-              <>
-                <Typography
-                  variant={TypographyVariant.label}
-                  text="Set Max"
-                  className={styles.balanceLabel}
-                />
-                <Typography
-                  variant={TypographyVariant.label}
-                  text={`Bal: 1.42 ${currency.initials}`}
-                />
-              </>
-            )}
-          </div>
+          {balanceAccount && label === InputLabel.sending && (
+            <div>
+              <Typography
+                variant={TypographyVariant.label}
+                text="Set Max"
+                className={styles.balanceLabel}
+              />
+              <Typography
+                variant={TypographyVariant.label}
+                text={`Bal: ${balanceAccount} ${currency.initials}`}
+              />
+            </div>
+          )}
         </div>
         <div className={classNames(styles.inputFooter, className)}>
           <input
             id={id ?? name}
             className={classNames(styles.input, className)}
-            onChange={renderCurrencyInfo}
+            onChange={onChange}
             type={htmlType}
             name={name}
             placeholder={placeholder ?? '--'}

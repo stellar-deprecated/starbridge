@@ -17,25 +17,27 @@ const useLocalStorage = (
 }
 
 export type AuthProviderProps = {
-  sendingAccount?: string
-  setSendingAccount: Dispatch<string | undefined>
-  receivingAccount?: string
-  setReceivingAccount: Dispatch<string | undefined>
-  logoutSending: () => void
-  logoutReceiving: () => void
+  stellarAccount: string
+  setStellarAccount: Dispatch<string>
+  ethereumAccount: string
+  setEthereumAccount: Dispatch<string>
+  ethereumProvider?: string
+  logoutStellar: () => void
+  logoutEthereum: () => void
 }
 
 export const AuthContext = createContext<AuthProviderProps>({
-  sendingAccount: undefined,
-  setSendingAccount: () => {
-    return undefined
+  stellarAccount: '',
+  setStellarAccount: () => {
+    return ''
   },
-  receivingAccount: undefined,
-  setReceivingAccount: () => {
-    return undefined
+  ethereumAccount: '',
+  setEthereumAccount: () => {
+    return ''
   },
-  logoutSending: () => undefined,
-  logoutReceiving: () => undefined,
+  ethereumProvider: undefined,
+  logoutStellar: () => undefined,
+  logoutEthereum: () => undefined,
 })
 
 type AuthContextProviderProps = {
@@ -45,27 +47,31 @@ type AuthContextProviderProps = {
 export const AuthContextProvider = ({
   children,
 }: AuthContextProviderProps): JSX.Element => {
-  const [sendingAccount, setSendingAccount] = useLocalStorage('sendingAccount')
-  const [receivingAccount, setReceivingAccount] =
-    useLocalStorage('receivingAccount')
+  const ethereumProvider =
+    localStorage.getItem('WEB3_CONNECT_CACHED_PROVIDER') || undefined
+  const [stellarAccount, setStellarAccount] = useLocalStorage('stellarAccount')
+  const [ethereumAccount, setEthereumAccount] =
+    useLocalStorage('ethereumAccount')
 
-  const logoutSending = (): void => {
-    setSendingAccount(undefined)
+  const logoutStellar = (): void => {
+    setStellarAccount(undefined)
   }
 
-  const logoutReceiving = (): void => {
-    setReceivingAccount(undefined)
+  const logoutEthereum = (): void => {
+    setEthereumAccount(undefined)
+    window.localStorage.setItem('walletconnect', '')
   }
 
   return (
     <AuthContext.Provider
       value={{
-        sendingAccount,
-        setSendingAccount,
-        receivingAccount,
-        setReceivingAccount,
-        logoutSending,
-        logoutReceiving,
+        stellarAccount: stellarAccount,
+        setStellarAccount: setStellarAccount,
+        ethereumAccount: ethereumAccount,
+        ethereumProvider: ethereumProvider,
+        setEthereumAccount: setEthereumAccount,
+        logoutStellar: logoutStellar,
+        logoutEthereum: logoutEthereum,
       }}
     >
       {children}

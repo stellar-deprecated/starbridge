@@ -1,9 +1,6 @@
-import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useEffect, useState, useCallback } from 'react'
 
-import { yupResolver } from '@hookform/resolvers/yup'
 import { useAuthContext } from 'context'
-import * as yup from 'yup'
 
 import {
   Button,
@@ -12,7 +9,9 @@ import {
   Typography,
   TypographyVariant,
 } from 'components/atoms'
+import { TransactionStep } from 'components/enums'
 import { ICurrencyProps, InputLabel } from 'components/molecules'
+import { SignTransactionModal } from 'components/organisms'
 import { WalletInput } from 'components/organisms/wallet-input'
 import { Currency, CurrencyLabel } from 'components/types/currency'
 
@@ -21,24 +20,55 @@ import SwitchIcon from 'app/core/resources/switch.svg'
 import styles from './styles.module.scss'
 
 export interface IHomeTemplateProps {
-  transactionTitle?: string
-  onSubmit: () => void
-  onSendingButtonClick?: () => void
-  onReceivingButtonClick?: () => void
+  isLoading?: boolean
+  isModalLoading?: boolean
+  transactionStep?: TransactionStep
+  balanceStellarAccount?: string
+  balanceEthereumAccount?: string
+  transactionDetails?: string
+  onSubmit: (value: string, currencyFlow: Currency) => void
+  onSendingButtonClick?: (currencyFrom: Currency) => void
+  onReceivingButtonClick?: (currencyTo: Currency) => void
+  onDepositSignTransaction?: () => void
+  onWithdrawSignTransaction?: () => void
+  onCancelClick?: () => void
 }
 
 const HomeTemplate = ({
+  isLoading = false,
+  isModalLoading = false,
+  transactionStep = TransactionStep.deposit,
+  balanceStellarAccount = '',
+  balanceEthereumAccount = '',
+  transactionDetails,
   onSubmit,
   onSendingButtonClick,
   onReceivingButtonClick,
+  onDepositSignTransaction,
+  onWithdrawSignTransaction,
+  onCancelClick,
 }: IHomeTemplateProps): JSX.Element => {
-  const { sendingAccount, receivingAccount } = useAuthContext()
+  const { stellarAccount, ethereumAccount } = useAuthContext()
 
   const [isButtonEnabled, setIsButtonEnabled] = useState(false)
   const [inputSent, setInputSent] = useState('')
   const [receiveValue, setReceiveValue] = useState('')
-  const [currencyFrom, setCurrencyFrom] = useState(Currency.ETH)
-  const [currencyTo, setCurrencyTo] = useState(Currency.WETH)
+  const [currencyFrom, setCurrencyFrom] = useState(Currency.WETH)
+  const [currencyTo, setCurrencyTo] = useState(Currency.ETH)
+  const [isOpenModal, setIsOpenModal] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+
+  const isCurrentStep = useCallback(
+    (currentStep: string[]): boolean => {
+      return currentStep.includes(transactionStep)
+    },
+    [transactionStep]
+  )
+
+  const isDepositOrSignDepositStep = isCurrentStep([
+    TransactionStep.deposit,
+    TransactionStep.signDeposit,
+  ])
 
   const currencyPropsConverter: Record<Currency, ICurrencyProps> = {
     [Currency.WETH]: {
@@ -51,39 +81,70 @@ const HomeTemplate = ({
     },
   }
 
-  const validationSchema = yup.object().shape({
-    amountReceived: yup.number().min(1).required('This field is required.'),
-    amountSent: yup.number().min(1).required('This field is required.'),
-  })
+  const handleErrorInput = (value: string, currency: Currency): void => {
+    const amount = parseFloat(value) || 0
 
-  const defaultValues: { amountReceived?: number; amountSent?: number } = {
-    amountReceived: 0,
-    amountSent: 0,
+    if (amount <= 0) {
+      setErrorMessage('This field is required')
+    } else if (
+      (currency === Currency.ETH &&
+        amount > parseFloat(balanceEthereumAccount)) ||
+      (currency === Currency.WETH && amount > parseFloat(balanceStellarAccount))
+    ) {
+      setErrorMessage('Amount exceeds wallet balance')
+    } else {
+      setErrorMessage('')
+    }
   }
-
-  const { handleSubmit } = useForm({
-    resolver: yupResolver(validationSchema),
-    defaultValues,
-  })
 
   const onInputSentChange = (evt: React.FormEvent<HTMLInputElement>): void => {
     const input = evt.target as HTMLInputElement
+
+    handleErrorInput(input.value, currencyFrom)
 
     setInputSent(input.value)
     setReceiveValue(input.value)
   }
 
   useEffect(() => {
-    setIsButtonEnabled(inputSent > '0')
-  }, [inputSent])
+    setIsButtonEnabled(
+      !!inputSent && !errorMessage && !!stellarAccount && !!ethereumAccount
+    )
+  }, [errorMessage, inputSent, stellarAccount, ethereumAccount])
+
+  useEffect(() => {
+    setIsOpenModal(
+      isCurrentStep([TransactionStep.signDeposit, TransactionStep.signWithdraw])
+    )
+  }, [setIsOpenModal, isCurrentStep])
 
   const changeCurrency = (): void => {
-    setCurrencyFrom(prev =>
-      prev === Currency.ETH ? Currency.WETH : Currency.ETH
-    )
+    setCurrencyFrom(prev => {
+      const newCurrencyFrom =
+        prev === Currency.ETH ? Currency.WETH : Currency.ETH
+      handleErrorInput(inputSent, newCurrencyFrom)
+      return newCurrencyFrom
+    })
     setCurrencyTo(prev =>
       prev === Currency.ETH ? Currency.WETH : Currency.ETH
     )
+  }
+
+  const handleSendingButtonClick = (): void => {
+    onSendingButtonClick && onSendingButtonClick(currencyFrom)
+  }
+
+  const handleReceivingButtonClick = (): void => {
+    onReceivingButtonClick && onReceivingButtonClick(currencyTo)
+  }
+
+  const handleSubmit = (): void => {
+    onSubmit(receiveValue, currencyFrom)
+  }
+
+  const handleCancelModal = (): void => {
+    setIsOpenModal(false)
+    onCancelClick && onCancelClick()
   }
 
   return (
@@ -110,32 +171,62 @@ const HomeTemplate = ({
             <WalletInput
               isSender
               currency={currencyPropsConverter[currencyFrom]}
-              accountConnected={sendingAccount}
+              accountConnected={
+                currencyFrom === Currency.WETH
+                  ? stellarAccount
+                  : ethereumAccount
+              }
+              balanceAccount={
+                currencyFrom === Currency.WETH
+                  ? balanceStellarAccount
+                  : balanceEthereumAccount
+              }
               onChange={onInputSentChange}
               name={InputLabel.sending}
-              onClick={onSendingButtonClick}
+              onClick={handleSendingButtonClick}
+              alreadySubmittedDeposit={!isDepositOrSignDepositStep}
+              errorMessage={errorMessage}
             />
           </div>
           <div className={styles.formRow}>
             <WalletInput
               currency={currencyPropsConverter[currencyTo]}
-              accountConnected={receivingAccount}
+              accountConnected={
+                currencyTo === Currency.WETH ? stellarAccount : ethereumAccount
+              }
               name={InputLabel.receive}
               disabled
               placeholder={receiveValue ? receiveValue : '--'}
-              onClick={onReceivingButtonClick}
+              onClick={handleReceivingButtonClick}
             />
           </div>
           <Button
+            isLoading={isLoading}
             variant={ButtonVariant.primary}
             fullWidth
             disabled={!isButtonEnabled}
-            onClick={onSubmit}
+            onClick={handleSubmit}
           >
-            Send Transfer
+            {isDepositOrSignDepositStep ? 'Send Transfer' : 'Withdraw'}
           </Button>
         </div>
       </div>
+      <SignTransactionModal
+        isOpen={isOpenModal}
+        isLoading={isModalLoading}
+        setModalOpen={setIsOpenModal}
+        title={`${
+          isDepositOrSignDepositStep ? 'Deposit' : 'Withdraw'
+        } Transaction`}
+        platform={Currency.WETH}
+        transactionDetails={transactionDetails}
+        onSignTransactionClick={
+          isDepositOrSignDepositStep
+            ? onDepositSignTransaction
+            : onWithdrawSignTransaction
+        }
+        onCancelClick={handleCancelModal}
+      />
     </main>
   )
 }
