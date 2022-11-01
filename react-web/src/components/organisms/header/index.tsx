@@ -25,7 +25,7 @@ interface IHeaderProps {
 }
 
 const Header = ({ className }: IHeaderProps): JSX.Element => {
-  const { sendingAccount, receivingAccount, logoutSending, logoutReceiving } =
+  const { stellarAccount, ethereumAccount, logoutStellar, logoutEthereum } =
     useAuthContext()
 
   const handleButtonText = (account: string | undefined): string => {
@@ -47,28 +47,28 @@ const Header = ({ className }: IHeaderProps): JSX.Element => {
       </nav>
       <div className={styles.containerButton}>
         <Button
-          iconLeft={<img src={Eth} alt="Eth" />}
+          iconLeft={<img src={Weth} alt="Weth" />}
           variant={ButtonVariant.tertiary}
-          disabled={!sendingAccount}
-          onClick={logoutSending}
+          disabled={!stellarAccount}
+          onClick={logoutStellar}
         >
           <Typography
             variant={TypographyVariant.label}
-            text={handleButtonText(sendingAccount)}
+            text={handleButtonText(stellarAccount)}
             className={styles.labelButton}
           />
         </Button>
 
         <Button
-          iconLeft={<img src={Weth} alt="Weth" />}
+          iconLeft={<img src={Eth} alt="Eth" />}
           className={styles.loginButton}
           variant={ButtonVariant.tertiary}
-          disabled={!receivingAccount}
-          onClick={logoutReceiving}
+          disabled={!ethereumAccount}
+          onClick={logoutEthereum}
         >
           <Typography
             variant={TypographyVariant.label}
-            text={handleButtonText(receivingAccount)}
+            text={handleButtonText(ethereumAccount)}
             className={styles.labelButton}
           />
         </Button>

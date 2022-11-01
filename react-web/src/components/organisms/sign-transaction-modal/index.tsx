@@ -1,3 +1,7 @@
+import { useState } from 'react'
+
+import classNames from 'classnames'
+
 import {
   Button,
   ButtonVariant,
@@ -14,6 +18,7 @@ export interface ISignTransactionModalProps
   extends Pick<IModalProps, 'isOpen' | 'setModalOpen'> {
   title: string
   platform: string
+  isLoading?: boolean
   transactionDetails?: string
   onSignTransactionClick?: () => void
   onCancelClick?: () => void
@@ -25,11 +30,23 @@ const SignTransactionModal = (
   const {
     title,
     platform,
+    isLoading,
     transactionDetails,
     onSignTransactionClick,
     onCancelClick,
     ...rest
   } = props
+
+  const [copiedOpacityStyle, setCopiedOpacityStyle] = useState('')
+
+  const handleCopyTransaction = (): void => {
+    transactionDetails && navigator.clipboard.writeText(transactionDetails)
+    setCopiedOpacityStyle(styles.opacityFull)
+
+    setTimeout(() => {
+      setCopiedOpacityStyle('')
+    }, 3000)
+  }
 
   return (
     <Modal className={styles.modal} {...rest}>
@@ -49,12 +66,21 @@ const SignTransactionModal = (
         />
       </div>
 
-      <div className={styles.transactionContainer}>
+      <div
+        className={styles.transactionContainer}
+        onClick={handleCopyTransaction}
+      >
         <Typography variant={TypographyVariant.p} text={transactionDetails} />
+        <Typography
+          className={classNames(styles.copiedLabel, copiedOpacityStyle)}
+          variant={TypographyVariant.p}
+          text="Copied"
+        />
       </div>
 
       <div className={styles.buttonsContainer}>
         <Button
+          isLoading={isLoading}
           variant={ButtonVariant.secondary}
           onClick={onSignTransactionClick}
           fullWidth
