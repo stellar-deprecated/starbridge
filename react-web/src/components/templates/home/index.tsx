@@ -106,35 +106,34 @@ const HomeTemplate = ({
           </Button>
         </div>
         <div className={styles.form}>
-          <form data-testid="form" onSubmit={handleSubmit(onSubmit)}>
-            <div className={styles.formRow}>
-              <WalletInput
-                isSender
-                currency={currencyPropsConverter[currencyFrom]}
-                accountConnected={sendingAccount}
-                onChange={onInputSentChange}
-                name={InputLabel.sending}
-                onClick={onSendingButtonClick}
-              />
-            </div>
-            <div className={styles.formRow}>
-              <WalletInput
-                currency={currencyPropsConverter[currencyTo]}
-                accountConnected={receivingAccount}
-                name={InputLabel.receive}
-                disabled
-                placeholder={receiveValue ? receiveValue : '--'}
-                onClick={onReceivingButtonClick}
-              />
-            </div>
-            <Button
-              variant={ButtonVariant.primary}
-              fullWidth
-              disabled={!isButtonEnabled}
-            >
-              Send Transfer
-            </Button>
-          </form>
+          <div className={styles.formRow}>
+            <WalletInput
+              isSender
+              currency={currencyPropsConverter[currencyFrom]}
+              accountConnected={sendingAccount}
+              onChange={onInputSentChange}
+              name={InputLabel.sending}
+              onClick={onSendingButtonClick}
+            />
+          </div>
+          <div className={styles.formRow}>
+            <WalletInput
+              currency={currencyPropsConverter[currencyTo]}
+              accountConnected={receivingAccount}
+              name={InputLabel.receive}
+              disabled
+              placeholder={receiveValue ? receiveValue : '--'}
+              onClick={onReceivingButtonClick}
+            />
+          </div>
+          <Button
+            variant={ButtonVariant.primary}
+            fullWidth
+            disabled={!isButtonEnabled}
+            onClick={onSubmit}
+          >
+            Send Transfer
+          </Button>
         </div>
       </div>
     </main>
