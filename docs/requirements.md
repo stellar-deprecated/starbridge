@@ -30,5 +30,5 @@ The bridge has the following properties:
     - Configurable through validator agreement.
     - Setup of new assets is a manual operation.
     - Assets with any auth required, auth clawback enabled, and auth immutable state supported but behavior may be undefined if assets clawed back, trust line deauthorized, or trust line not authorized.
-* Operational
-    * Validators can always reconstruct their local state using on-chain data only. This makes it easy to restart after data loss.
+- Operational
+    - Validators can always reconstruct their local state using on-chain data only. This makes it easy to restart after data loss.

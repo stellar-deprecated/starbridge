@@ -6,10 +6,9 @@
 # (referred to as the bridge). For simplicity we do not model addresses,
 # amounts, hashes, etc.
 
-# Instead we focus on the core ideas:
-# a) the refund timelock and
-# b) the idea of using the successor of the current sequence number of the
-# receiving account as the sequence number of a withdrawal transaction.
+# Instead we focus on the core ideas: a) the refund timelock and b) the idea of
+# using the successor of the current sequence number of the receiving account
+# as the sequence number of a withdrawal transaction.
 
 # Include the order module from standard Ivy library (ivy/include/1.7/order.ivy):
 
@@ -73,12 +72,12 @@ after init {
 }
 
 # A withdrawal is valid and can be executed when its sequence number is equal
-# to the sequence number of the receiving account and its `max_time` is greater
-# or equal to the current time. TODO: it should be sequence number + 1.
+# to the successor of the sequence number of the receiving account and its
+# `max_time` is greater or equal to the current time.
 
 relation valid(TX:withdraw_t, T:time_t)
 definition valid(TX:withdraw_t, T:time_t) =
-    seqnum = withdraw_t.seqnum(TX) & T <= withdraw_t.max_time(TX)
+    seqnum_t.succ(seqnum, withdraw_t.seqnum(TX)) & T <= withdraw_t.max_time(TX)
 
 # Execute a new ledger potentially containing a withdraw transaction. Note that
 # the sequence number of the receiving account can increase due to other
@@ -136,18 +135,16 @@ export action restart = {
     bridge_receiving_seqnum := 0
 }
 
-# The bridge signs a withdraw transaction if:
-# a) it has not been executed
+# The bridge signs a withdraw transaction if a) it has not been executed
 # according to the bridge's view of Stellar (so, before or in ledger
-# `bridge_ledger`),
-# b) `max_time` is before the end of the withdraw period, and
-# c) the sequence number of the transaction is equal to the receiving account's
-# sequence number. TODO: it should be the sucessor of that.
+# `bridge_ledger`), b) `max_time` is before the end of the withdraw period, and
+# c) the sequence number of the transaction is equal to the successor of the
+# receiving account's sequence number.
 
 export action sign_withdraw(tx:withdraw_t) = {
     require T <= bridge_ledger -> ~executed(T, TX);
     require tx.max_time <= end_withdraw_period;
-    require tx.seqnum = bridge_receiving_seqnum;
+    require seqnum_t.succ(bridge_receiving_seqnum, tx.seqnum);
     pending(tx) := true;
 }
 
@@ -162,13 +159,10 @@ export action refund = {
 # Safety proof
 # ============
 
-# Ivy checks that the invariants given are together inductive. This means that:
-# a) they hold in the initial state and
-# b) if they hold in a state s and we execute an exported action to obtain s',
-# then the invariants also hold in s'.
-#
-# Note that if those two conditions hold then, by induction, the invariants
-# hold in every reachable state.
+# Ivy checks that the invariants given are together inductive. This means that
+# a) they hold in the initial state and b) if they hold in a state s and we
+# execute an exported action to obtain s', then the invariants also hold in s';
+# thus, by induction, the invariants hold in every reachable state.
 
 # A withdrawal cannot be both executed and refunded:
 # --------------------------------------------------
@@ -178,6 +172,7 @@ invariant ~(refunded & exists T, TX. executed(T,TX))
 # Supporting invariants:
 
 # no withdrawals are executed after the end of the withdraw period:
+
 invariant executed(T,TX) -> T <= end_withdraw_period
 # refunds only happend after the withdraw period:
 invariant refunded -> t > end_withdraw_period
@@ -194,19 +189,19 @@ invariant executed(T1, TX1) & executed(T2, TX2) -> T1 = T2 & TX1 = TX2
 # Supporting invariants:
 
 # if a withdraw is executed, then all the others pending withdraws have stale sequence numbers:
-invariant executed(T1,TX1) & pending(TX2) & withdraw_t.seqnum(TX1) ~= withdraw_t.seqnum(TX2) -> withdraw_t.seqnum(TX2) < seqnum
+invariant executed(T1,TX1) & pending(TX2) & withdraw_t.seqnum(TX1) ~= withdraw_t.seqnum(TX2) -> withdraw_t.seqnum(TX2) <= seqnum
 # no transaction is executed in the future:
 invariant executed(T,TX) -> T <= t
 # `seqnum` is the sequence number of the receiving account at the end of the last ledger:
 invariant seqnums(t,seqnum)
-# A withdrawal can be executed on if it has the same sequence number as the receiving account, executing it increases the sequence number of the receiving account, and account sequence numbers only increase. So we have the following three invariants:
-invariant executed(T,TX) & seqnums(T,S) -> withdraw_t.seqnum(TX) < S
-invariant executed(T2,TX) & seqnums(T1,S) & T1 < T2 -> S <= withdraw_t.seqnum(TX)
-invariant executed(T1,TX) & seqnums(T2,S) & T1 < T2 -> withdraw_t.seqnum(TX) < S
-# pending transactions have sequence numbers lower or equal to the current sequence number of the receiving account:
-invariant pending(TX) -> withdraw_t.seqnum(TX) <= seqnum
+# A withdrawal can be executed only if it has the right sequence number, executing it increases the sequence number of the receiving account, and account sequence numbers only increase. So we have the following three invariants:
+invariant executed(T,TX) & seqnums(T,S) -> withdraw_t.seqnum(TX) <= S
+invariant executed(T2,TX) & seqnums(T1,S) & T1 < T2 -> S < withdraw_t.seqnum(TX)
+invariant executed(T1,TX) & seqnums(T2,S) & T1 < T2 -> withdraw_t.seqnum(TX) <= S
+# pending transactions have sequence numbers lower or equal to the current sequence number of the receiving account plus one:
+invariant pending(TX) -> (withdraw_t.seqnum(TX) <= seqnum | seqnum_t.succ(seqnum, withdraw_t.seqnum(TX)))
 # if a withdraw has been executed with a seqnum that the bridge has seen, then the bridge knows it's executed:
-invariant executed(T1,TX1) & withdraw_t.seqnum(TX1) < bridge_receiving_seqnum -> T1 <= bridge_ledger
+invariant executed(T1,TX1) & withdraw_t.seqnum(TX1) <= bridge_receiving_seqnum -> T1 <= bridge_ledger
 # the bridge is in sync or late:
 invariant bridge_receiving_seqnum <= seqnum
 # no seqnum is assigned in the future:
@@ -215,3 +210,5 @@ invariant seqnums(T,S) -> T <= t
 invariant seqnums(T1,S1) & seqnums(T2,S2) & T1 < T2 -> S1 <= S2
 # a ledger determines a seqnum:
 invariant seqnums(T,S1) & seqnums(T,S2) -> S1 = S2
+# since account seqnums start at 0, an executed transaction must have a sequence number higher than 0 (at least 1):
+invariant executed(T,TX) -> withdraw_t.seqnum(TX) > 0
