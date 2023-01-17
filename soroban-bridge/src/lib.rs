@@ -1,7 +1,7 @@
 #![no_std]
 
 use soroban_auth::{Identifier, Signature};
-use soroban_sdk::{contractimpl, symbol, contracttype, AccountId, BytesN, Env, Vec};
+use soroban_sdk::{contractimpl, symbol, contracttype, AccountId, BytesN, Env};
 
 mod token {
     soroban_sdk::contractimport!(file = "./soroban_token_spec.wasm");
@@ -29,7 +29,7 @@ pub struct Bridge;
 #[contractimpl]
 #[allow(unused_variables)]
 impl Bridge {
-    pub fn init(env: Env, admin: Signature) {
+    pub fn init(env: Env, admin: Identifier) {
         panic!("unimplemented");
     }
 
