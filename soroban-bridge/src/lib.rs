@@ -16,6 +16,7 @@ pub enum DataKey {
 }
 
 #[derive(Clone)]
+#[derive(PartialEq)]
 #[contracttype]
 pub enum Pause {
     None,
@@ -30,10 +31,23 @@ pub struct Bridge;
 #[allow(unused_variables)]
 impl Bridge {
     pub fn init(env: Env, admin: Identifier) {
-        panic!("unimplemented");
+        let key = DataKey::Admin;
+        if env.storage().has(&key){
+            panic!("admin already initialized!");
+        }
+        env.storage().set(&key, admin);
+        env.storage().set(DataKey::Pause, Pause::None);
     }
 
     pub fn deposit(env: Env, token: BytesN<32>, is_wrapped_asset: bool, eth_destination: AccountId, amount: i128) {
+        let paused: Pause = env.storage().get_unchecked(DataKey::Pause).unwrap();
+        if paused == Pause::All || paused == Pause::Deposit{
+            panic!("deposits are paused!")
+        }
+        if amount < 0 {
+            panic!("negative amount is not allowed!")
+        }
+
         let client = token::Client::new(&env, &token);
         let from = &env.invoker().into();
 
@@ -42,17 +56,18 @@ impl Bridge {
         } else {
             client.xfer_from(&Signature::Invoker, &0, from, &Identifier::Contract(env.current_contract()), &amount);
         }
-
+        
         let topics = (symbol!("deposit"), &token, from, eth_destination);
         env.events().publish(topics, amount);
     }
 
-    pub fn withdraw(env: Env, token: BytesN<32>, is_wrapped_asset: bool, recipient: Identifier, id: BytesN<32>, expiration: u64) {
+    pub fn withdraw(env: Env, token: BytesN<32>, is_wrapped_asset: bool, recipient: Identifier, id: BytesN<32>) {
         panic!("unimplemented");
     }
 
     pub fn set_paused(env: Env, state : Pause) {
-        panic!("unimplemented");
+        check_admin(&env, &env.invoker().into());
+        env.storage().set(DataKey::Pause, state);
     }
 
     pub fn fulfilled(env: Env, id: BytesN<32>) -> bool {
@@ -60,6 +75,17 @@ impl Bridge {
     }
 
     pub fn admin(env: Env) -> Identifier {
-        panic!("unimplemented");
+        read_administrator(&env)
+    }
+}
+
+fn read_administrator(e: &Env) -> Identifier {
+    let key = DataKey::Admin;
+    e.storage().get_unchecked(key).unwrap()
+}
+
+pub fn check_admin(e: &Env, auth_id: &Identifier) {
+    if *auth_id != read_administrator(e) {
+        panic!("not authorized by admin")
     }
 }
