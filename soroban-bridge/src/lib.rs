@@ -34,6 +34,8 @@ impl Bridge {
         if env.storage().has(&key) {
             panic!("admin already initialized!");
         }
+
+        env.events().publish((symbol!("init"), &admin), ());
         env.storage().set(&key, admin);
     }
 
@@ -94,6 +96,7 @@ impl Bridge {
 
     pub fn set_paused(env: Env, state : Option<Pause>) {
         check_admin(&env, &env.invoker().into());
+        env.events().publish((symbol!("set_paused"), &state), ());
         let key = DataKey::Pause;
         match state {
             None => env.storage().remove(key),
@@ -122,8 +125,8 @@ fn get_admin(e: &Env) -> Identifier {
     e.storage().get_unchecked(key).unwrap()
 }
 
-pub fn check_admin(e: &Env, auth_id: &Identifier) {
-    if *auth_id != get_admin(e) {
+pub fn check_admin(e: &Env, admin: &Identifier) {
+    if *admin != get_admin(e) {
         panic!("not authorized by admin")
     }
 }
