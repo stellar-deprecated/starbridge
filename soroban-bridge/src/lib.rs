@@ -88,6 +88,10 @@ impl Bridge {
         }
     }
 
+    pub fn paused(env: Env) -> Option<Pause> {
+        get_paused(&env)
+    }
+
     pub fn set_paused(env: Env, state : Option<Pause>) {
         check_admin(&env, &env.invoker().into());
         let key = DataKey::Pause;
