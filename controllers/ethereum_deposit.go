@@ -1,14 +1,12 @@
 package controllers
 
 import (
-	"database/sql"
 	"net/http"
 	"regexp"
 	"strconv"
 
 	"github.com/stellar/go/support/render/problem"
 	"github.com/stellar/starbridge/ethereum"
-	"github.com/stellar/starbridge/store"
 )
 
 var (
@@ -46,56 +44,33 @@ var (
 	validTxHash = regexp.MustCompile("^(0x)?([A-Fa-f0-9]{64})$")
 )
 
-func getEthereumDeposit(observer ethereum.Observer, depositStore *store.DB, finalityBuffer uint64, r *http.Request) (store.EthereumDeposit, error) {
+func getEthereumDeposit(observer ethereum.Observer, finalityBuffer uint64, r *http.Request) (ethereum.Deposit, error) {
 	txHash := r.PostFormValue("transaction_hash")
 	if !validTxHash.MatchString(txHash) {
-		return store.EthereumDeposit{}, InvalidEthereumTxHash
+		return ethereum.Deposit{}, InvalidEthereumTxHash
 	}
 	parsed, err := strconv.ParseInt(r.PostFormValue("log_index"), 10, 32)
 	if err != nil {
-		return store.EthereumDeposit{}, InvalidLogIndex
+		return ethereum.Deposit{}, InvalidLogIndex
 	}
 	logIndex := uint(parsed)
-	depositID := ethereum.DepositID(txHash, logIndex)
-
-	storeDeposit, err := depositStore.GetEthereumDeposit(r.Context(), depositID)
-	if err == nil {
-		return storeDeposit, nil
-	} else if err != sql.ErrNoRows {
-		return store.EthereumDeposit{}, err
-	}
 
 	deposit, err := observer.GetDeposit(r.Context(), txHash, logIndex)
 	if ethereum.IsInvalidGetDepositRequest(err) {
-		return store.EthereumDeposit{}, InvalidDepositLog
+		return ethereum.Deposit{}, InvalidDepositLog
 	} else if err == ethereum.ErrTxHashNotFound {
-		return store.EthereumDeposit{}, EthereumTxHashNotFound
+		return ethereum.Deposit{}, EthereumTxHashNotFound
 	} else if err != nil {
-		return store.EthereumDeposit{}, err
+		return ethereum.Deposit{}, err
 	}
 
 	block, err := observer.GetLatestBlock(r.Context())
 	if err != nil {
-		return store.EthereumDeposit{}, err
+		return ethereum.Deposit{}, err
 	}
 	if deposit.BlockNumber+finalityBuffer > block.Number {
-		return store.EthereumDeposit{}, EthereumTxRequiresMoreConfirmations
+		return ethereum.Deposit{}, EthereumTxRequiresMoreConfirmations
 	}
 
-	storeDeposit = store.EthereumDeposit{
-		ID:          depositID,
-		Token:       deposit.Token.String(),
-		Sender:      deposit.Sender.String(),
-		Destination: deposit.Destination.String(),
-		Amount:      deposit.Amount.String(),
-		Hash:        deposit.TxHash.String(),
-		LogIndex:    deposit.LogIndex,
-		BlockNumber: deposit.BlockNumber,
-		BlockTime:   deposit.Time.Unix(),
-	}
-	if err = depositStore.InsertEthereumDeposit(r.Context(), storeDeposit); err != nil {
-		return store.EthereumDeposit{}, err
-	}
-
-	return storeDeposit, nil
+	return deposit, nil
 }

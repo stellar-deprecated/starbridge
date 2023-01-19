@@ -1,4 +1,4 @@
-package signer
+package stellar
 
 import (
 	"github.com/stellar/go/keypair"

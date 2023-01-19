@@ -13,11 +13,12 @@ services:
       - ./pg-init-scripts:/docker-entrypoint-initdb.d
   quickstart:
     # platform: linux/amd64
-    image: stellar/quickstart
+    image: stellar/quickstart:soroban-dev
     restart: on-failure
     ports:
       - "8000:8000"
-    command: ["--standalone"]
+      - "11626:11626"
+    command: ["--standalone", "--enable-soroban-rpc", "--enable-core-artificially-accelerate-time-for-testing"]
   ethereum-node:
     build:
       # set build context to the solidity directory

@@ -66,6 +66,8 @@ type RequestStatus struct {
 
 // Deposit is a deposit to the bridge smart contract
 type Deposit struct {
+	// ID is the globally unique id for a given deposit
+	ID string
 	// Token is the address (0x0 in the case that eth was deposited)
 	// of the tokens which were deposited to the bridge
 	Token common.Address
@@ -88,8 +90,7 @@ type Deposit struct {
 	Time time.Time
 }
 
-// DepositID returns a globally unique id for a given deposit
-func DepositID(txHash string, logIndex uint) string {
+func depositID(txHash string, logIndex uint) string {
 	hash := common.HexToHash(txHash)
 	logIndexBytes := [32]byte{}
 	binary.PutUvarint(logIndexBytes[:], uint64(logIndex))
@@ -166,6 +167,7 @@ func (o Observer) GetDeposit(
 		return Deposit{}, ErrLogNotDepositEvent
 	}
 	return Deposit{
+		ID:          depositID(txHash, logIndex),
 		Token:       event.Token,
 		Sender:      event.Sender,
 		Destination: event.Destination,

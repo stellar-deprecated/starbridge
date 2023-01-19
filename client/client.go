@@ -30,6 +30,7 @@ import (
 	"github.com/stellar/go/protocols/horizon"
 	"github.com/stellar/go/strkey"
 	"github.com/stellar/go/txnbuild"
+	"github.com/stellar/go/xdr"
 	"github.com/stellar/starbridge/solidity-go"
 )
 
@@ -41,6 +42,7 @@ type BridgeClient struct {
 	NetworkPassphrase           string
 	EthereumBridgeAddress       string
 	StellarBridgeAccount        string
+	SorobanBridgeContractID     xdr.Hash
 	EthereumBridgeConfigVersion uint32
 	StellarPrivateKey           string
 	EthereumPrivateKey          string

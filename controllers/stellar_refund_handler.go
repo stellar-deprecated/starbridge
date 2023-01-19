@@ -1,63 +1,123 @@
 package controllers
 
 import (
-	"database/sql"
+	"context"
+	"encoding/hex"
 	"net/http"
+	"strconv"
+	"time"
 
-	"github.com/stellar/go/clients/horizonclient"
+	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/support/render/problem"
-	"github.com/stellar/starbridge/backend"
-	"github.com/stellar/starbridge/store"
+	"github.com/stellar/go/txnbuild"
+	"github.com/stellar/go/xdr"
+
+	"github.com/stellar/starbridge/ethereum"
+	"github.com/stellar/starbridge/stellar"
 )
 
+var InvalidSequenceNumber = problem.P{
+	Type:   "invalid_sequence_number",
+	Title:  "Invalid Sequence Number",
+	Status: http.StatusBadRequest,
+	Detail: "The sequence parameter is not valid.",
+}
+
 type StellarRefundHandler struct {
-	StellarClient          *horizonclient.Client
-	Store                  *store.DB
-	StellarRefundValidator backend.StellarRefundValidator
+	StellarBuilder         *stellar.Builder
+	StellarSigner          *stellar.Signer
+	StellarObserver        stellar.Observer
+	EthereumObserver       ethereum.Observer
+	WithdrawalWindow       time.Duration
+	EthereumFinalityBuffer uint64
+}
+
+func (c *StellarRefundHandler) CanRefund(ctx context.Context, deposit stellar.Deposit) error {
+	withdrawalDeadline := deposit.Time.Add(c.WithdrawalWindow)
+
+	// Checks on Ethereum side:
+	// - Ensure that there was no withdrawal to Ethereum account
+	// - The response from the client is after the withdrawal deadline
+	depositID := common.HexToHash(deposit.ID)
+	requestStatus, err := c.EthereumObserver.GetRequestStatus(ctx, depositID)
+	if err != nil {
+		return errors.Wrap(err, "error getting request status from ethereum observer")
+	}
+
+	if requestStatus.BlockNumber <= c.EthereumFinalityBuffer {
+		return EthereumNodeBehind
+	}
+
+	block, err := c.EthereumObserver.GetBlockByNumber(ctx, requestStatus.BlockNumber-c.EthereumFinalityBuffer)
+	if err != nil {
+		return errors.Wrap(err, "error getting block from ethereum observer")
+	}
+
+	if !block.Time.After(withdrawalDeadline) {
+		return WithdrawalWindowStillActive
+	}
+
+	if requestStatus.Fulfilled {
+		return WithdrawalAlreadyExecuted
+	}
+
+	return nil
 }
 
 func (c *StellarRefundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	deposit, err := getStellarDeposit(c.Store, r)
+	sequence, err := strconv.ParseInt(r.PostFormValue("sequence"), 10, 64)
+	if err != nil || sequence < 0 {
+		problem.Render(r.Context(), w, InvalidSequenceNumber)
+		return
+	}
+
+	deposit, err := getStellarDeposit(c.StellarObserver, r)
 	if err != nil {
 		problem.Render(r.Context(), w, err)
 		return
 	}
 
-	// Check if outgoing transaction exists
-	outgoingTransaction, err := c.Store.GetOutgoingStellarTransaction(r.Context(), store.Refund, deposit.ID)
-	if err != nil && err != sql.ErrNoRows {
-		problem.Render(r.Context(), w, err)
-		return
-	}
-	if err == nil {
-		sourceAccount, err := c.StellarClient.AccountDetail(horizonclient.AccountRequest{
-			AccountID: deposit.Sender,
-		})
-		if err != nil {
-			problem.Render(r.Context(), w, err)
-			return
-		}
-		if sourceAccount.Sequence < outgoingTransaction.Sequence {
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(outgoingTransaction.Envelope))
-			return
-		}
-	}
-
-	if _, err = c.StellarRefundValidator.CanRefund(r.Context(), deposit); err != nil {
+	if err = c.CanRefund(r.Context(), deposit); err != nil {
 		problem.Render(r.Context(), w, err)
 		return
 	}
 
-	err = c.Store.InsertSignatureRequest(r.Context(), store.SignatureRequest{
-		DepositChain: store.Stellar,
-		Action:       store.Refund,
-		DepositID:    deposit.ID,
-	})
+	depositIDBytes, err := hex.DecodeString(deposit.ID)
 	if err != nil {
-		problem.Render(r.Context(), w, err)
+		problem.Render(r.Context(), w, errors.Wrap(err, "error decoding deposit id"))
 		return
 	}
 
-	w.WriteHeader(http.StatusAccepted)
+	tx, err := c.StellarBuilder.BuildTransaction(
+		deposit.Token,
+		deposit.Sender,
+		deposit.Sender,
+		deposit.Amount,
+		sequence,
+		txnbuild.TimeoutInfinite,
+		depositIDBytes,
+	)
+	if err != nil {
+		problem.Render(r.Context(), w, errors.Wrap(err, "error building outgoing stellar transaction"))
+		return
+	}
+
+	signature, err := c.StellarSigner.Sign(tx)
+	if err != nil {
+		problem.Render(r.Context(), w, errors.Wrap(err, "error signing outgoing stellar transaction"))
+		return
+	}
+
+	sigs := tx.Signatures()
+	tx.V1.Signatures = append(sigs, signature)
+
+	txBase64, err := xdr.MarshalBase64(tx)
+	if err != nil {
+		problem.Render(r.Context(), w, errors.Wrap(err, "error marshaling outgoing stellar transaction"))
+		return
+	}
+
+	_, _ = w.Write([]byte(txBase64))
 }

@@ -1,69 +1,131 @@
 package controllers
 
 import (
-	"database/sql"
+	"encoding/hex"
 	"net/http"
+	"strconv"
+	"time"
 
-	"github.com/stellar/go/clients/horizonclient"
+	"github.com/stellar/go/amount"
+	"github.com/stellar/go/strkey"
+	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/support/render/problem"
-	"github.com/stellar/starbridge/backend"
+	"github.com/stellar/go/xdr"
+
 	"github.com/stellar/starbridge/ethereum"
-	"github.com/stellar/starbridge/store"
+	"github.com/stellar/starbridge/stellar"
 )
 
+var (
+	InvalidStellarRecipient = problem.P{
+		Type:   "invalid_stellar_recipient",
+		Title:  "Invalid Stellar Recipient",
+		Status: http.StatusBadRequest,
+		Detail: "The recipient of the deposit is not a valid Stellar address.",
+	}
+)
+
+// StellarWithdrawalDetails includes metadata about the
+// validation result.
+type StellarWithdrawalDetails struct {
+	// Deadline is the deadline for executing the withdrawal
+	// transaction on Stellar.
+	Deadline time.Time
+	// Recipient is the Stellar account which should receive the
+	// withdrawal.
+	Recipient string
+	// Asset is the Stellar asset which will be transferred to the
+	// recipient.
+	Asset [32]byte
+	// Amount is the amount which will be transferred to the recipient.
+	Amount int64
+}
+
 type StellarWithdrawalHandler struct {
-	StellarClient              *horizonclient.Client
-	Observer                   ethereum.Observer
-	Store                      *store.DB
-	StellarWithdrawalValidator backend.StellarWithdrawalValidator
-	EthereumFinalityBuffer     uint64
+	StellarBuilder         *stellar.Builder
+	StellarSigner          *stellar.Signer
+	StellarObserver        stellar.Observer
+	WithdrawalWindow       time.Duration
+	Converter              AssetConverter
+	EthereumObserver       ethereum.Observer
+	EthereumFinalityBuffer uint64
+}
+
+func (c *StellarWithdrawalHandler) CanWithdraw(deposit ethereum.Deposit) (StellarWithdrawalDetails, error) {
+	stellarAsset, stellarAmount, err := c.Converter.ToStellar(deposit.Token.String(), deposit.Amount.String())
+	if err != nil {
+		return StellarWithdrawalDetails{}, err
+	}
+
+	destinationAccountID, err := strkey.Encode(
+		strkey.VersionByteAccountID,
+		deposit.Destination.Bytes(),
+	)
+	if err != nil {
+		return StellarWithdrawalDetails{}, InvalidStellarRecipient
+	}
+
+	return StellarWithdrawalDetails{
+		Deadline:  deposit.Time.Add(c.WithdrawalWindow),
+		Recipient: destinationAccountID,
+		Asset:     stellarAsset,
+		Amount:    stellarAmount,
+	}, nil
 }
 
 func (c *StellarWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	deposit, err := getEthereumDeposit(c.Observer, c.Store, c.EthereumFinalityBuffer, r)
+	sequence, err := strconv.ParseInt(r.PostFormValue("sequence"), 10, 64)
+	if err != nil || sequence < 0 {
+		problem.Render(r.Context(), w, InvalidSequenceNumber)
+		return
+	}
+
+	deposit, err := getEthereumDeposit(c.EthereumObserver, c.EthereumFinalityBuffer, r)
 	if err != nil {
 		problem.Render(r.Context(), w, err)
 		return
 	}
 
-	// Check if outgoing transaction exists
-	outgoingTransaction, err := c.Store.GetOutgoingStellarTransaction(r.Context(), store.Withdraw, deposit.ID)
-	if err != nil && err != sql.ErrNoRows {
-		problem.Render(r.Context(), w, err)
-		return
-	}
-	if err == nil {
-		sourceAccount, err := c.StellarClient.AccountDetail(horizonclient.AccountRequest{
-			AccountID: outgoingTransaction.SourceAccount,
-		})
-		if err != nil {
-			problem.Render(r.Context(), w, err)
-			return
-		}
-		if sourceAccount.Sequence < outgoingTransaction.Sequence {
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(outgoingTransaction.Envelope))
-			return
-		}
-	}
-
-	_, err = c.StellarWithdrawalValidator.CanWithdraw(r.Context(), deposit)
+	details, err := c.CanWithdraw(deposit)
 	if err != nil {
 		problem.Render(r.Context(), w, err)
 		return
 	}
 
-	// Outgoing Stellar transaction does not exist so create signature request.
-	// Duplicate requests for the same signatures are not allowed but the error is ignored.
-	err = c.Store.InsertSignatureRequest(r.Context(), store.SignatureRequest{
-		DepositChain: store.Ethereum,
-		Action:       store.Withdraw,
-		DepositID:    deposit.ID,
-	})
+	depositIDBytes, err := hex.DecodeString(deposit.ID)
 	if err != nil {
-		problem.Render(r.Context(), w, err)
+		problem.Render(r.Context(), w, errors.Wrap(err, "error decoding deposit id"))
+		return
+
+	}
+	tx, err := c.StellarBuilder.BuildTransaction(
+		details.Asset,
+		details.Recipient,
+		details.Recipient,
+		amount.StringFromInt64(details.Amount),
+		sequence,
+		details.Deadline.Unix(),
+		depositIDBytes,
+	)
+	if err != nil {
+		problem.Render(r.Context(), w, errors.Wrap(err, "error building outgoing stellar transaction"))
 		return
 	}
 
-	w.WriteHeader(http.StatusAccepted)
+	signature, err := c.StellarSigner.Sign(tx)
+	if err != nil {
+		problem.Render(r.Context(), w, errors.Wrap(err, "error signing outgoing stellar transaction"))
+		return
+	}
+
+	sigs := tx.Signatures()
+	tx.V1.Signatures = append(sigs, signature)
+
+	txBase64, err := xdr.MarshalBase64(tx)
+	if err != nil {
+		problem.Render(r.Context(), w, errors.Wrap(err, "error marshaling outgoing stellar transaction"))
+		return
+	}
+
+	_, _ = w.Write([]byte(txBase64))
 }

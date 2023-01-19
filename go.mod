@@ -1,9 +1,10 @@
 module github.com/stellar/starbridge
 
-go 1.17
+go 1.18
 
 require (
 	github.com/Masterminds/squirrel v1.5.0
+	github.com/bits-and-blooms/bloom/v3 v3.3.1
 	github.com/ethereum/go-ethereum v1.10.19
 	github.com/go-chi/chi v4.0.3+incompatible
 	github.com/pkg/errors v0.9.1
@@ -12,13 +13,14 @@ require (
 	github.com/rubenv/sql-migrate v0.0.0-20190717103323-87ce952f7079
 	github.com/spf13/cobra v0.0.0-20160830174925-9c28e4bbd74e
 	github.com/stretchr/testify v1.7.0
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
+	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 )
 
 require (
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
+	github.com/bits-and-blooms/bitset v1.3.1 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/deckarep/golang-set v1.8.0 // indirect
@@ -69,7 +71,7 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
-	github.com/stellar/go v0.0.0-20220624135614-77a1f25e415a
+	github.com/stellar/go v0.0.0-20221201205727-49dc8a987555
 	golang.org/x/sys v0.0.0-20220227234510-4e6760a101f9 // indirect
 	google.golang.org/protobuf v1.26.0 // indirect
 )

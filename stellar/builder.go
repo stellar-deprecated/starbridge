@@ -1,8 +1,6 @@
-package txbuilder
+package stellar
 
 import (
-	"strings"
-
 	"github.com/pkg/errors"
 	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
@@ -13,7 +11,7 @@ type Builder struct {
 }
 
 // BuildTransaction builds a transaction. It does not check if expirationTimestamp is valid.
-func (b *Builder) BuildTransaction(asset, txSource, destination, amount string, sequence, expirationTimestamp int64, memoHash []byte) (xdr.TransactionEnvelope, error) {
+func (b *Builder) BuildTransaction(assetContractID [32]byte, txSource, destination, amount string, sequence, expirationTimestamp int64, memoHash []byte) (xdr.TransactionEnvelope, error) {
 	if txSource == b.BridgeAccount {
 		return xdr.TransactionEnvelope{}, errors.New("bridge account cannot be used as a transaction source")
 	}
@@ -27,15 +25,15 @@ func (b *Builder) BuildTransaction(asset, txSource, destination, amount string, 
 	copy(memoHashArray[:], memoHash)
 
 	var txAsset txnbuild.Asset
-	if asset == "native" {
-		txAsset = txnbuild.NativeAsset{}
-	} else {
-		parts := strings.Split(asset, ":")
-		txAsset = txnbuild.CreditAsset{
-			Code:   parts[0],
-			Issuer: parts[1],
-		}
-	}
+	//if asset == "native" {
+	//	txAsset = txnbuild.NativeAsset{}
+	//} else {
+	//	parts := strings.Split(asset, ":")
+	//	txAsset = txnbuild.CreditAsset{
+	//		Code:   parts[0],
+	//		Issuer: parts[1],
+	//	}
+	//}
 
 	tx, err := txnbuild.NewTransaction(
 		txnbuild.TransactionParams{
