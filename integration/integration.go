@@ -6,11 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/stellar/go/clients/stellarcore"
-	"github.com/stellar/starbridge/controllers"
-	"github.com/stellar/starbridge/stellar"
-	"github.com/stretchr/testify/require"
+	soroban_bridge "github.com/stellar/starbridge/soroban-bridge"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -24,19 +20,24 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stellar/starbridge/client"
-
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/stellar/go/clients/horizonclient"
+	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/keypair"
 	proto "github.com/stellar/go/protocols/horizon"
 	stellarcoreproto "github.com/stellar/go/protocols/stellarcore"
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
+	"github.com/stretchr/testify/require"
+
 	"github.com/stellar/starbridge/app"
+	"github.com/stellar/starbridge/client"
+	"github.com/stellar/starbridge/controllers"
+	"github.com/stellar/starbridge/stellar"
 )
 
 const (
@@ -208,12 +209,11 @@ func NewIntegrationTest(t *testing.T, config Config) *Test {
 
 func setupStellarBridge(itest *Test) xdr.Hash {
 	// Install the contract
-	sorobanBridgeFilepath := "../soroban-bridge/target/wasm32-unknown-unknown/release/soroban_bridge.wasm"
-	installContractOp := assembleInstallContractCodeOp(itest.CurrentTest(), itest.Master().Address(), sorobanBridgeFilepath)
+	installContractOp := assembleInstallContractCodeOp(itest.CurrentTest(), itest.Master().Address(), soroban_bridge.SorobanBridgeWasm)
 	itest.MustSubmitOperations(itest.MasterAccount(), itest.Master(), installContractOp)
 
 	// Create the contract
-	createContractOp, bridgeContractID := assembleCreateContractOp(itest.t, itest.Master().Address(), sorobanBridgeFilepath, "bridge", itest.passPhrase)
+	createContractOp, bridgeContractID := assembleCreateContractOp(itest.t, itest.Master().Address(), soroban_bridge.SorobanBridgeWasm, "bridge", itest.passPhrase)
 
 	tx, err := itest.SubmitOperations(itest.MasterAccount(), itest.Master(), createContractOp)
 	require.NoError(itest.t, err)
@@ -349,12 +349,9 @@ func contractIDParam(contractID xdr.Hash) xdr.ScVal {
 	}
 }
 
-func assembleInstallContractCodeOp(t *testing.T, sourceAccount string, wasmFilePath string) *txnbuild.InvokeHostFunction {
+func assembleInstallContractCodeOp(t *testing.T, sourceAccount string, contract []byte) *txnbuild.InvokeHostFunction {
 	// Assemble the InvokeHostFunction CreateContract operation:
 	// CAP-0047 - https://github.com/stellar/stellar-protocol/blob/master/core/cap-0047.md#creating-a-contract-using-invokehostfunctionop
-
-	contract, err := os.ReadFile(wasmFilePath)
-	require.NoError(t, err)
 	t.Logf("Contract File Contents: %v", hex.EncodeToString(contract))
 
 	installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: contract}.MarshalBinary()
@@ -382,12 +379,9 @@ func assembleInstallContractCodeOp(t *testing.T, sourceAccount string, wasmFileP
 	}
 }
 
-func assembleCreateContractOp(t *testing.T, sourceAccount string, wasmFilePath string, contractSalt string, passPhrase string) (*txnbuild.InvokeHostFunction, xdr.Hash) {
+func assembleCreateContractOp(t *testing.T, sourceAccount string, contract []byte, contractSalt string, passPhrase string) (*txnbuild.InvokeHostFunction, xdr.Hash) {
 	// Assemble the InvokeHostFunction CreateContract operation:
 	// CAP-0047 - https://github.com/stellar/stellar-protocol/blob/master/core/cap-0047.md#creating-a-contract-using-invokehostfunctionop
-
-	contract, err := os.ReadFile(wasmFilePath)
-	require.NoError(t, err)
 
 	salt := sha256.Sum256([]byte(contractSalt))
 	t.Logf("Salt hash: %v", hex.EncodeToString(salt[:]))
@@ -650,14 +644,10 @@ func (i *Test) StartStarbridge(id int, config Config, ingestSequence uint32) err
 		},
 	})
 
-	i.runningApps.Add(2)
+	i.runningApps.Add(1)
 	go func() {
 		defer i.runningApps.Done()
 		i.app[id].RunHTTPServer()
-	}()
-	go func() {
-		defer i.runningApps.Done()
-		i.app[id].RunBackendWorker()
 	}()
 
 	return nil

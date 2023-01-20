@@ -80,6 +80,12 @@ func (c *StellarWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	sourceAccount, err := getSourceAccount(r, c.StellarBuilder.BridgeAccount, c.StellarSigner.Signer.Address())
+	if err != nil {
+		problem.Render(r.Context(), w, err)
+		return
+	}
+
 	deposit, err := getEthereumDeposit(c.EthereumObserver, c.EthereumFinalityBuffer, r)
 	if err != nil {
 		problem.Render(r.Context(), w, err)
@@ -100,7 +106,7 @@ func (c *StellarWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 	}
 	tx, err := c.StellarBuilder.BuildTransaction(
 		details.Asset,
-		details.Recipient,
+		sourceAccount,
 		details.Recipient,
 		amount.StringFromInt64(details.Amount),
 		sequence,

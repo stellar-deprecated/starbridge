@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/stellar/go/strkey"
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/support/render/problem"
 	"github.com/stellar/go/txnbuild"
@@ -18,12 +19,20 @@ import (
 	"github.com/stellar/starbridge/stellar"
 )
 
-var InvalidSequenceNumber = problem.P{
-	Type:   "invalid_sequence_number",
-	Title:  "Invalid Sequence Number",
-	Status: http.StatusBadRequest,
-	Detail: "The sequence parameter is not valid.",
-}
+var (
+	InvalidSequenceNumber = problem.P{
+		Type:   "invalid_sequence_number",
+		Title:  "Invalid Sequence Number",
+		Status: http.StatusBadRequest,
+		Detail: "The sequence parameter is not valid.",
+	}
+	InvalidSourceAccount = problem.P{
+		Type:   "invalid_source_account",
+		Title:  "Invalid Source Account",
+		Status: http.StatusBadRequest,
+		Detail: "The source account parameter is not valid.",
+	}
+)
 
 type StellarRefundHandler struct {
 	StellarBuilder         *stellar.Builder
@@ -66,10 +75,27 @@ func (c *StellarRefundHandler) CanRefund(ctx context.Context, deposit stellar.De
 	return nil
 }
 
+func getSourceAccount(r *http.Request, bridgeAccount, signer string) (string, error) {
+	sourceAccount := r.PostFormValue("source")
+	if _, err := strkey.Decode(strkey.VersionByteAccountID, sourceAccount); err != nil {
+		return "", InvalidSourceAccount
+	}
+	if sourceAccount == bridgeAccount || sourceAccount == signer {
+		return "", InvalidSourceAccount
+	}
+	return sourceAccount, nil
+}
+
 func (c *StellarRefundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	sequence, err := strconv.ParseInt(r.PostFormValue("sequence"), 10, 64)
 	if err != nil || sequence < 0 {
 		problem.Render(r.Context(), w, InvalidSequenceNumber)
+		return
+	}
+
+	sourceAccount, err := getSourceAccount(r, c.StellarBuilder.BridgeAccount, c.StellarSigner.Signer.Address())
+	if err != nil {
+		problem.Render(r.Context(), w, err)
 		return
 	}
 
@@ -92,7 +118,7 @@ func (c *StellarRefundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	tx, err := c.StellarBuilder.BuildTransaction(
 		deposit.Token,
-		deposit.Sender,
+		sourceAccount,
 		deposit.Sender,
 		deposit.Amount,
 		sequence,

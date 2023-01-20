@@ -56,7 +56,12 @@ impl Bridge {
         if is_wrapped_asset {
             client.burn_from(&Signature::Invoker, &0, from, &amount);
         } else {
+            let before = client.balance(&Identifier::Contract(env.current_contract()));
             client.xfer_from(&Signature::Invoker, &0, from, &Identifier::Contract(env.current_contract()), &amount);
+            let received = client.balance(&Identifier::Contract(env.current_contract())) - before;
+            if received != amount {
+                panic!("received amount not equal to expected amount");
+            }
         }
         
         let topics = (symbol!("deposit"), &token, from, eth_destination);

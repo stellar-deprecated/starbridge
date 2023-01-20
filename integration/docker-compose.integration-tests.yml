@@ -1,16 +1,5 @@
 version: '3'
 services:
-  starbridge-postgres:
-    image: postgres:11.5-alpine
-    restart: on-failure
-    environment:
-      - POSTGRES_PASSWORD=mysecretpassword
-      - POSTGRES_MULTIPLE_DATABASES=starbridge0,starbridge1,starbridge2
-    ports:
-      - "5641:5641"
-    command: ["-p", "5641"]
-    volumes:
-      - ./pg-init-scripts:/docker-entrypoint-initdb.d
   quickstart:
     # platform: linux/amd64
     image: stellar/quickstart:soroban-dev
