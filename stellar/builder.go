@@ -7,11 +7,12 @@ import (
 )
 
 type Builder struct {
-	BridgeAccount string
+	BridgeAccount    string
+	BridgeContractID [32]byte
 }
 
 // BuildTransaction builds a transaction. It does not check if expirationTimestamp is valid.
-func (b *Builder) BuildTransaction(assetContractID [32]byte, txSource, destination, amount string, sequence, expirationTimestamp int64, memoHash []byte) (xdr.TransactionEnvelope, error) {
+func (b *Builder) BuildTransaction(assetContractID [32]byte, isWrappedAsset bool, txSource, destination, amount string, sequence, expirationTimestamp int64, memoHash []byte) (xdr.TransactionEnvelope, error) {
 	if txSource == b.BridgeAccount {
 		return xdr.TransactionEnvelope{}, errors.New("bridge account cannot be used as a transaction source")
 	}

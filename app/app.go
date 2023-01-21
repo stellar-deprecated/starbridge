@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/hex"
 	"net/http"
 	"os"
 	"os/signal"
@@ -103,12 +104,22 @@ func (a *App) initHTTP(config Config) {
 	if config.StellarPrivateKey != "" {
 		signerKey, err = keypair.ParseFull(config.StellarPrivateKey)
 		if err != nil {
-			log.Fatalf("cannot pase signer secret key: %v", err)
+			log.Fatalf("cannot parse signer secret key: %v", err)
 		}
 	}
 
-	stellarObserver, err := stellar.NewObserver(
-		config.StellarBridgeContractID,
+	contractIDBytes, err := hex.DecodeString(config.StellarBridgeContractID)
+	if err != nil {
+		log.Fatalf("cannot parse bridge contract id: %v", err)
+	}
+	if len(contractIDBytes) != 32 {
+		log.Fatalf("invalid contract id: %v", config.StellarBridgeContractID)
+	}
+	var bridgeContractID [32]byte
+	copy(bridgeContractID[:], contractIDBytes)
+
+	stellarObserver := stellar.NewObserver(
+		bridgeContractID,
 		&horizonclient.Client{
 			HorizonURL: config.HorizonURL,
 			// TODO set proper timeouts
@@ -116,9 +127,6 @@ func (a *App) initHTTP(config Config) {
 		},
 		&stellarcore.Client{URL: config.CoreURL, HTTP: http.DefaultClient},
 	)
-	if err != nil {
-		log.WithField("err", err).Fatal("could not create stelalr observer")
-	}
 
 	ethRPCClient, err := ethclient.Dial(config.EthereumRPCURL)
 	if err != nil {
@@ -129,7 +137,7 @@ func (a *App) initHTTP(config Config) {
 		log.WithField("err", err).Fatal("could not create ethereum observer")
 	}
 
-	converter, err := controllers.NewAssetConverter(config.AssetMapping)
+	converter, err := controllers.NewAssetConverter(config.NetworkPassphrase, config.StellarBridgeAccount, config.AssetMapping)
 	if err != nil {
 		log.Fatalf("unable to create asset converter: %v", err)
 	}
@@ -145,7 +153,8 @@ func (a *App) initHTTP(config Config) {
 	}
 
 	stellarBuilder := &stellar.Builder{
-		BridgeAccount: config.StellarBridgeAccount,
+		BridgeAccount:    config.StellarBridgeAccount,
+		BridgeContractID: bridgeContractID,
 	}
 
 	stellarSigner := &stellar.Signer{
@@ -163,7 +172,7 @@ func (a *App) initHTTP(config Config) {
 			StellarSigner:          stellarSigner,
 			StellarObserver:        stellar.Observer{},
 			WithdrawalWindow:       config.WithdrawalWindow,
-			Converter:              controllers.AssetConverter{},
+			Converter:              converter,
 			EthereumObserver:       ethObserver,
 			EthereumFinalityBuffer: config.EthereumFinalityBuffer,
 		},

@@ -68,6 +68,9 @@ type Deposit struct {
 	// Token is the contract id
 	// of the tokens which were deposited to the bridge
 	Token [32]byte
+	// IsWrappedAsset is true if the contract id of the asset
+	// is administered by the bridge contract
+	IsWrappedAsset bool
 	// Sender is the account which deposited the tokens
 	Sender string
 	// Destination is the intended recipient of the bridge transfer
@@ -105,21 +108,12 @@ type Observer struct {
 }
 
 // NewObserver constructs a new Observer instance
-func NewObserver(bridgeContractID string, horizonClient *horizonclient.Client, coreClient *stellarcore.Client) (Observer, error) {
-	contractIDBytes, err := hex.DecodeString(bridgeContractID)
-	if err != nil {
-		return Observer{}, err
-	}
-	if len(contractIDBytes) != 32 {
-		return Observer{}, fmt.Errorf("invalid contract id: %v", bridgeContractID)
-	}
-	var contractID [32]byte
-	copy(contractID[:], contractIDBytes)
+func NewObserver(bridgeContractID [32]byte, horizonClient *horizonclient.Client, coreClient *stellarcore.Client) Observer {
 	return Observer{
-		bridgeContractID: contractID,
+		bridgeContractID: bridgeContractID,
 		horizonClient:    horizonClient,
 		coreClient:       coreClient,
-	}, nil
+	}
 }
 
 // GetDeposit returns a Deposit instance identified by the given transaction
@@ -175,15 +169,18 @@ func (o Observer) GetDeposit(
 
 	sender := identifierVec[1].MustObj().MustAccountId()
 	destination := eventBody.Topics[3].MustObj().MustAccountId()
-	amounti128 := eventBody.Data.MustObj().MustI128()
+	data := eventBody.Data.MustObj().MustVec()
+	amounti128 := data[0].MustObj().MustI128()
 	lo := xdr.Int64(amounti128.Lo)
 	if amounti128.Hi > 0 || lo < 0 {
 		return Deposit{}, fmt.Errorf("deposit amount is too high")
 	}
+	isWrappedAsset := data[1].MustIc() == xdr.ScStaticScsTrue
 
 	return Deposit{
 		ID:             depositID(txHash, opIndex, eventIndex),
 		Token:          token,
+		IsWrappedAsset: isWrappedAsset,
 		Sender:         sender.Address(),
 		Destination:    destination.Address(),
 		Amount:         amount.String(lo),
@@ -202,7 +199,7 @@ func functionNameParam(name string) xdr.ScVal {
 	}
 }
 
-func contractIDParam(contractID xdr.Hash) xdr.ScVal {
+func bytes32ContractParam(contractID xdr.Hash) xdr.ScVal {
 	contractIdBytes := contractID[:]
 	contractIdParameterObj := &xdr.ScObject{
 		Type: xdr.ScObjectTypeScoBytes,
@@ -240,21 +237,13 @@ func preflight(coreClient *stellarcore.Client, invokeHostFn *txnbuild.InvokeHost
 // GetRequestStatus calls the status() function on the bridge contract
 // to determine the status of a bridge withdrawal
 func (o Observer) GetRequestStatus(ctx context.Context, requestID [32]byte) (RequestStatus, error) {
-	requestIDBytes := requestID[:]
-	requestIDObj := &xdr.ScObject{
-		Type: xdr.ScObjectTypeScoBytes,
-		Bin:  &requestIDBytes,
-	}
 	invokeStatus := &txnbuild.InvokeHostFunction{
 		Function: xdr.HostFunction{
 			Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
 			InvokeArgs: &xdr.ScVec{
-				contractIDParam(o.bridgeContractID),
+				bytes32ContractParam(o.bridgeContractID),
 				functionNameParam("status"),
-				xdr.ScVal{
-					Type: xdr.ScValTypeScvObject,
-					Obj:  &requestIDObj,
-				},
+				bytes32ContractParam(requestID),
 			},
 		},
 	}

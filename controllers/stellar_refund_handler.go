@@ -118,6 +118,7 @@ func (c *StellarRefundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	tx, err := c.StellarBuilder.BuildTransaction(
 		deposit.Token,
+		deposit.IsWrappedAsset,
 		sourceAccount,
 		deposit.Sender,
 		deposit.Amount,

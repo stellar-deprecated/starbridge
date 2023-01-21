@@ -111,19 +111,18 @@ func NewIntegrationTest(t *testing.T, config Config) *Test {
 		horizonClient: &horizonclient.Client{
 			HorizonURL: fmt.Sprintf("http://%s:8000", dockerHost),
 		},
-		coreClient: &stellarcore.Client{URL: "http://localhost:11626"},
+		coreClient: &stellarcore.Client{URL: fmt.Sprintf("http://%s:11626", dockerHost)},
 
 		runningApps: &sync.WaitGroup{},
 	}
 
 	test.runComposeCommand("down", "-v")
 	test.runComposeCommand("build")
-	test.runComposeCommand("up", "--detach", "--quiet-pull", "--no-color", "starbridge-postgres")
 	test.runComposeCommand("up", "--detach", "--quiet-pull", "--no-color", "quickstart")
 	test.runComposeCommand("up", "--detach", "--no-color", "ethereum-node")
 	test.runComposeCommand("up", "--no-color", "deploy-ethereum-contract")
 	test.prepareShutdownHandlers()
-	ingestSequence := test.waitForHorizon()
+	test.waitForHorizon()
 	test.waitForFriendbot()
 
 	if config.Servers == 0 {
@@ -134,16 +133,10 @@ func NewIntegrationTest(t *testing.T, config Config) *Test {
 	keys, accounts := test.CreateAccounts(1)
 	test.mainKey, test.mainAccount = keys[0], accounts[0]
 
-	test.app = make([]*app.App, config.Servers)
 	test.signerKeys = make([]*keypair.Full, config.Servers)
-
 	for i := 0; i < config.Servers; i++ {
-		if innerErr := test.StartStarbridge(i, config, ingestSequence); innerErr != nil {
-			t.Fatalf("Failed to start Starbridge: %v", innerErr)
-		}
+		test.signerKeys[i] = keypair.MustRandom()
 	}
-
-	test.waitForStarbridge(config.Servers)
 
 	// Configure main account signers and configure client key
 	test.clientKey = keypair.MustParseFull("SBEICGMVMPF2WWIYV34IP7ON2Q6BUOT7F7IGHOTUMYUIG5K4IWIOUQC3")
@@ -186,6 +179,7 @@ func NewIntegrationTest(t *testing.T, config Config) *Test {
 		ops...,
 	)
 
+	stellarBridgeContractID := setupStellarBridge(test)
 	test.bridgeClient = client.BridgeClient{
 		ValidatorURLs: []string{
 			"http://localhost:9000",
@@ -201,8 +195,17 @@ func NewIntegrationTest(t *testing.T, config Config) *Test {
 		EthereumBridgeConfigVersion: 0,
 		StellarPrivateKey:           test.clientKey.Seed(),
 		EthereumPrivateKey:          ethereumSenderPrivateKey,
-		SorobanBridgeContractID:     setupStellarBridge(test),
+		StellarBridgeContractID:     stellarBridgeContractID,
 	}
+
+	stellarBridgeContractIDHex := hex.EncodeToString(stellarBridgeContractID[:])
+	test.app = make([]*app.App, config.Servers)
+	for i := 0; i < config.Servers; i++ {
+		if innerErr := test.StartStarbridge(i, config, stellarBridgeContractIDHex); innerErr != nil {
+			t.Fatalf("Failed to start Starbridge: %v", innerErr)
+		}
+	}
+	test.waitForStarbridge(config.Servers)
 
 	return test
 }
@@ -257,8 +260,7 @@ func setupStellarBridge(itest *Test) xdr.Hash {
 	mainAccount = itest.MustGetAccount(itest.mainKey)
 	itest.mainAccount = &mainAccount
 
-	observer, err := stellar.NewObserver(bridgeContractID, itest.horizonClient, itest.coreClient)
-	require.NoError(itest.t, err)
+	observer := stellar.NewObserver(bridgeContractID, itest.horizonClient, itest.coreClient)
 	itest.t.Log(observer.GetRequestStatus(context.Background(), [32]byte{}))
 
 	return bridgeContractID
@@ -615,21 +617,19 @@ func (i *Test) Shutdown() {
 	})
 }
 
-func (i *Test) StartStarbridge(id int, config Config, ingestSequence uint32) error {
-	i.signerKeys[id] = keypair.MustRandom()
-
+func (i *Test) StartStarbridge(id int, config Config, stellarBridgeContractID string) error {
 	i.app[id] = app.NewApp(app.Config{
-		Port:                   9000 + uint16(id),
-		PostgresDSN:            fmt.Sprintf("postgres://postgres:mysecretpassword@%s:5641/starbridge%d?sslmode=disable", dockerHost, id),
-		HorizonURL:             fmt.Sprintf("http://%s:8000/", dockerHost),
-		NetworkPassphrase:      StandaloneNetworkPassphrase,
-		StellarBridgeAccount:   i.mainAccount.GetAccountID(),
-		StellarPrivateKey:      i.signerKeys[id].Seed(),
-		EthereumRPCURL:         EthereumRPCURL,
-		EthereumBridgeAddress:  EthereumBridgeAddress,
-		EthereumPrivateKey:     ethPrivateKeys[id],
-		EthereumFinalityBuffer: 0,
-		WithdrawalWindow:       config.WithdrawalWindow,
+		Port:                    9000 + uint16(id),
+		PostgresDSN:             fmt.Sprintf("postgres://postgres:mysecretpassword@%s:5641/starbridge%d?sslmode=disable", dockerHost, id),
+		HorizonURL:              fmt.Sprintf("http://%s:8000/", dockerHost),
+		CoreURL:                 fmt.Sprintf("http://%s:11626", dockerHost),
+		NetworkPassphrase:       StandaloneNetworkPassphrase,
+		StellarBridgeAccount:    i.mainAccount.GetAccountID(),
+		StellarBridgeContractID: stellarBridgeContractID,
+		StellarPrivateKey:       i.signerKeys[id].Seed(),
+		EthereumRPCURL:          EthereumRPCURL,
+		EthereumBridgeAddress:   EthereumBridgeAddress,
+		EthereumPrivateKey:      ethPrivateKeys[id],
 		AssetMapping: []controllers.AssetMappingConfigEntry{
 			{
 				StellarAsset:      "native",
@@ -642,6 +642,8 @@ func (i *Test) StartStarbridge(id int, config Config, ingestSequence uint32) err
 				StellarToEthereum: "100000000000",
 			},
 		},
+		EthereumFinalityBuffer: config.EthereumFinalityBuffer,
+		WithdrawalWindow:       config.WithdrawalWindow,
 	})
 
 	i.runningApps.Add(1)

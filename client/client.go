@@ -42,7 +42,7 @@ type BridgeClient struct {
 	NetworkPassphrase           string
 	EthereumBridgeAddress       string
 	StellarBridgeAccount        string
-	SorobanBridgeContractID     xdr.Hash
+	StellarBridgeContractID     xdr.Hash
 	EthereumBridgeConfigVersion uint32
 	StellarPrivateKey           string
 	EthereumPrivateKey          string

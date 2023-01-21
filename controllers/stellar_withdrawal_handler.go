@@ -34,9 +34,11 @@ type StellarWithdrawalDetails struct {
 	// Recipient is the Stellar account which should receive the
 	// withdrawal.
 	Recipient string
-	// Asset is the Stellar asset which will be transferred to the
-	// recipient.
-	Asset [32]byte
+	// AssetContractID is the contract id for the Stellar asset.
+	AssetContractID [32]byte
+	// IsWrappedAsset is true if the contract id of the asset
+	// is administered by the bridge contract
+	IsWrappedAsset bool
 	// Amount is the amount which will be transferred to the recipient.
 	Amount int64
 }
@@ -52,7 +54,7 @@ type StellarWithdrawalHandler struct {
 }
 
 func (c *StellarWithdrawalHandler) CanWithdraw(deposit ethereum.Deposit) (StellarWithdrawalDetails, error) {
-	stellarAsset, stellarAmount, err := c.Converter.ToStellar(deposit.Token.String(), deposit.Amount.String())
+	assetContractID, isWrappedAsset, stellarAmount, err := c.Converter.ToStellar(deposit.Token.String(), deposit.Amount.String())
 	if err != nil {
 		return StellarWithdrawalDetails{}, err
 	}
@@ -66,10 +68,11 @@ func (c *StellarWithdrawalHandler) CanWithdraw(deposit ethereum.Deposit) (Stella
 	}
 
 	return StellarWithdrawalDetails{
-		Deadline:  deposit.Time.Add(c.WithdrawalWindow),
-		Recipient: destinationAccountID,
-		Asset:     stellarAsset,
-		Amount:    stellarAmount,
+		Deadline:        deposit.Time.Add(c.WithdrawalWindow),
+		Recipient:       destinationAccountID,
+		AssetContractID: assetContractID,
+		IsWrappedAsset:  isWrappedAsset,
+		Amount:          stellarAmount,
 	}, nil
 }
 
@@ -105,7 +108,8 @@ func (c *StellarWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 
 	}
 	tx, err := c.StellarBuilder.BuildTransaction(
-		details.Asset,
+		details.AssetContractID,
+		details.IsWrappedAsset,
 		sourceAccount,
 		details.Recipient,
 		amount.StringFromInt64(details.Amount),

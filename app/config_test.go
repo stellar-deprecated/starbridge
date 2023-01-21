@@ -28,14 +28,14 @@ func TestParseConfig(t *testing.T) {
 		EthereumPrivateKey:    "2aecee1800342bae06228ed990a152563b8dedf5fe15e3eab4b44854c9e001e5",
 		AssetMapping: []controllers.AssetMappingConfigEntry{
 			{
-				StellarAssetContractID: "7c1615b2cff66ed00991bc03b190eb2060b7eaf37318bc764aa5edad0b4e07c",
-				EthereumToken:          "0x0000000000000000000000000000000000000000",
-				StellarToEthereum:      "100000000000",
+				StellarAsset:      "ETH:GAJKCRY6CIOXRIVK55ALOOJA327XN4JZ5KKN7YCTT3WM5W6BMFXMVQC2",
+				EthereumToken:     "0x0000000000000000000000000000000000000000",
+				StellarToEthereum: "100000000000",
 			},
 			{
-				StellarAssetContractID: "8c1615b2cff66ed00991bc03b190eb2060b7eaf37318bc764aa5edad0b4e07c",
-				EthereumToken:          "0x23896e5E10363e4a90573abDd405Ab9761E6cCE2",
-				StellarToEthereum:      "1",
+				StellarAsset:      "native",
+				EthereumToken:     "0x23896e5E10363e4a90573abDd405Ab9761E6cCE2",
+				StellarToEthereum: "1",
 			},
 		},
 	}

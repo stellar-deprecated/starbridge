@@ -65,7 +65,7 @@ impl Bridge {
         }
         
         let topics = (symbol!("deposit"), &token, from, eth_destination);
-        env.events().publish(topics, amount);
+        env.events().publish(topics, (amount, is_wrapped_asset));
     }
 
     pub fn withdraw(env: Env, token: BytesN<32>, is_wrapped_asset: bool, recipient: Identifier, id: BytesN<32>, amount: i128) {
@@ -78,7 +78,7 @@ impl Bridge {
         check_admin(&env, &env.invoker().into());
 
         let topics = (symbol!("withdraw"), &id, &token, &recipient);
-        env.events().publish(topics, amount);
+        env.events().publish(topics, (amount, is_wrapped_asset));
 
         let key = DataKey::Fullfilled(id);
         if env.storage().has(&key) {
