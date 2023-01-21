@@ -1,0 +1,21 @@
+version: "3.9"
+services:
+  backend:
+    container_name: starbridge-backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+  frontend:
+    container_name: starbridge-frontend
+    build:
+      context: ./react-web
+      dockerfile: Dockerfile
+    volumes:
+      - './react-web:/app'
+      - '/app/node_modules'
+    ports:
+      - '3001:3000'
+    environment:
+      - NODE_ENV=development
