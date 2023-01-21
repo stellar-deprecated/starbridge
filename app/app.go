@@ -157,6 +157,7 @@ func (a *App) initHTTP(config Config) {
 		BridgeContractID:  bridgeContractID,
 		NetworkPassphrase: config.NetworkPassphrase,
 		Signer:            signerKey,
+		CoreClient:        &stellarcore.Client{URL: config.CoreURL, HTTP: http.DefaultClient},
 	}
 
 	httpServer, err := httpx.NewServer(httpx.ServerConfig{

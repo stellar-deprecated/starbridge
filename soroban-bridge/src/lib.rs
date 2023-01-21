@@ -1,7 +1,7 @@
 #![no_std]
 
 use soroban_auth::{Identifier, Signature};
-use soroban_sdk::{contractimpl, symbol, contracttype, AccountId, BytesN, Env};
+use soroban_sdk::{contractimpl, symbol, contracttype, BytesN, Env};
 
 mod token {
     soroban_sdk::contractimport!(file = "./soroban_token_spec.wasm");
@@ -39,7 +39,7 @@ impl Bridge {
         env.storage().set(&key, admin);
     }
 
-    pub fn deposit(env: Env, token: BytesN<32>, is_wrapped_asset: bool, eth_destination: AccountId, amount: i128) {
+    pub fn deposit(env: Env, token: BytesN<32>, is_wrapped_asset: bool, eth_destination: BytesN<20>, amount: i128) {
         if !env.storage().has(DataKey::Admin) {
             panic!("contract not initialized!");
         }

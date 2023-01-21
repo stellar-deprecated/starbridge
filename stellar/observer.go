@@ -5,16 +5,18 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/stellar/go/amount"
-	"github.com/stellar/go/clients/horizonclient"
-	"github.com/stellar/go/clients/stellarcore"
-	stellarcoreproto "github.com/stellar/go/protocols/stellarcore"
-	"github.com/stellar/go/txnbuild"
-	"github.com/stellar/go/xdr"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+
+	"github.com/stellar/go/amount"
+	"github.com/stellar/go/clients/horizonclient"
+	"github.com/stellar/go/clients/stellarcore"
+	"github.com/stellar/go/txnbuild"
+	"github.com/stellar/go/xdr"
+
+	soroban_bridge "github.com/stellar/starbridge/soroban-bridge"
 )
 
 var (
@@ -32,6 +34,9 @@ var (
 	// ErrSenderIsNotAccount is returned by GetDeposit when the sender of the deposit
 	// is not an account
 	ErrSenderIsNotAccount = fmt.Errorf("sender of deposit is not account")
+	// ErrDestinationIsNotEthereumAddress is returned by GetDeposit when the destination of
+	// the deposit is not an ethereum address
+	ErrDestinationIsNotEthereumAddress = fmt.Errorf("destination of deposit is not valid")
 )
 
 // IsInvalidGetDepositRequest returns true if the given error
@@ -44,7 +49,8 @@ func IsInvalidGetDepositRequest(err error) bool {
 	return errors.Is(err, ErrEventNotFound) ||
 		errors.Is(err, ErrEventNotFromBridge) ||
 		errors.Is(err, ErrNotDepositEvent) ||
-		errors.Is(err, ErrSenderIsNotAccount)
+		errors.Is(err, ErrSenderIsNotAccount) ||
+		errors.Is(err, ErrDestinationIsNotEthereumAddress)
 }
 
 // RequestStatus is the status of a withdrawal on the
@@ -73,7 +79,7 @@ type Deposit struct {
 	// Sender is the account which deposited the tokens
 	Sender string
 	// Destination is the intended recipient of the bridge transfer
-	Destination string
+	Destination common.Address
 	// Amount is the amount of tokens which were deposited to the bridge
 	// contract
 	Amount string
@@ -148,7 +154,7 @@ func (o Observer) GetDeposit(
 	depositSym := xdr.ScSymbol("deposit")
 	eventBody := event.Body.MustV0()
 	if len(eventBody.Topics) != 4 ||
-		eventBody.Topics[0].Equals(xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &depositSym}) {
+		!eventBody.Topics[0].Equals(xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &depositSym}) {
 		return Deposit{}, ErrEventNotFromBridge
 	}
 
@@ -161,12 +167,17 @@ func (o Observer) GetDeposit(
 
 	identifierVec := eventBody.Topics[2].MustObj().MustVec()
 	accountSym := xdr.ScSymbol("Account")
-	if identifierVec[0].Equals(xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &accountSym}) {
+	if !identifierVec[0].Equals(xdr.ScVal{Type: xdr.ScValTypeScvSymbol, Sym: &accountSym}) {
 		return Deposit{}, ErrSenderIsNotAccount
 	}
-
 	sender := identifierVec[1].MustObj().MustAccountId()
-	destination := eventBody.Topics[3].MustObj().MustAccountId()
+
+	destinationBytes := eventBody.Topics[3].MustObj().MustBin()
+	if len(destinationBytes) != common.AddressLength {
+		return Deposit{}, ErrDestinationIsNotEthereumAddress
+	}
+	destination := common.BytesToAddress(destinationBytes)
+
 	data := eventBody.Data.MustObj().MustVec()
 	amounti128 := data[0].MustObj().MustI128()
 	lo := xdr.Int64(amounti128.Lo)
@@ -180,56 +191,13 @@ func (o Observer) GetDeposit(
 		Token:          token,
 		IsWrappedAsset: isWrappedAsset,
 		Sender:         sender.Address(),
-		Destination:    destination.Address(),
+		Destination:    destination,
 		Amount:         amount.String(lo),
 		TxHash:         tx.Hash,
 		OperationIndex: opIndex,
 		EventIndex:     eventIndex,
 		Time:           tx.LedgerCloseTime,
 	}, nil
-}
-
-func functionNameParam(name string) xdr.ScVal {
-	contractFnParameterSym := xdr.ScSymbol(name)
-	return xdr.ScVal{
-		Type: xdr.ScValTypeScvSymbol,
-		Sym:  &contractFnParameterSym,
-	}
-}
-
-func bytes32ContractParam(contractID xdr.Hash) xdr.ScVal {
-	contractIdBytes := contractID[:]
-	contractIdParameterObj := &xdr.ScObject{
-		Type: xdr.ScObjectTypeScoBytes,
-		Bin:  &contractIdBytes,
-	}
-	return xdr.ScVal{
-		Type: xdr.ScValTypeScvObject,
-		Obj:  &contractIdParameterObj,
-	}
-}
-
-func preflight(coreClient *stellarcore.Client, invokeHostFn *txnbuild.InvokeHostFunction) (stellarcoreproto.PreflightResponse, error) {
-	opXDR, err := invokeHostFn.BuildXDR()
-	if err != nil {
-		return stellarcoreproto.PreflightResponse{}, err
-	}
-
-	invokeHostFunctionOp := opXDR.Body.MustInvokeHostFunctionOp()
-
-	response, err := coreClient.Preflight(
-		context.Background(),
-		invokeHostFn.SourceAccount,
-		invokeHostFunctionOp,
-	)
-	if err != nil {
-		return response, err
-	}
-
-	if response.Status != stellarcoreproto.PreflightStatusOk {
-		return response, fmt.Errorf("status is not ok: %v", response.Detail)
-	}
-	return response, nil
 }
 
 // GetRequestStatus calls the status() function on the bridge contract
@@ -239,14 +207,14 @@ func (o Observer) GetRequestStatus(ctx context.Context, requestID [32]byte) (Req
 		Function: xdr.HostFunction{
 			Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
 			InvokeArgs: &xdr.ScVec{
-				bytes32ContractParam(o.bridgeContractID),
-				functionNameParam("status"),
-				bytes32ContractParam(requestID),
+				soroban_bridge.BytesContractParam(o.bridgeContractID[:]),
+				soroban_bridge.FunctionNameParam("status"),
+				soroban_bridge.BytesContractParam(requestID[:]),
 			},
 		},
 	}
 
-	response, err := preflight(o.coreClient, invokeStatus)
+	response, err := soroban_bridge.Preflight(o.coreClient, invokeStatus)
 	if err != nil {
 		return RequestStatus{}, err
 	}

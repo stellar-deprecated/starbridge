@@ -16,12 +16,6 @@ import (
 )
 
 var (
-	InvalidEthereumRecipient = problem.P{
-		Type:   "invalid_ethereum_recipient",
-		Title:  "Invalid Ethereum Recipient",
-		Status: http.StatusBadRequest,
-		Detail: "The recipient of the deposit is not a valid Ethereum address.",
-	}
 	EthereumNodeBehind = problem.P{
 		Type:   "ethereum_node_behind",
 		Title:  "Ethereum Node Behind",
@@ -42,9 +36,6 @@ type EthereumWithdrawalDetails struct {
 	// Deadline is the deadline for executing the withdrawal
 	// transaction on Ethereum.
 	Deadline time.Time
-	// Recipient is the Ethereum address which should receive the
-	// withdrawal.
-	Recipient common.Address
 	// Token is the address of the Ethereum tokens which will be
 	// transferred to the recipient.
 	Token common.Address
@@ -63,20 +54,15 @@ type EthereumWithdrawalHandler struct {
 }
 
 func (c *EthereumWithdrawalHandler) CanWithdraw(deposit stellar.Deposit) (EthereumWithdrawalDetails, error) {
-	if !common.IsHexAddress(deposit.Destination) {
-		return EthereumWithdrawalDetails{}, InvalidEthereumRecipient
-	}
-
 	tokenAddress, amount, err := c.Converter.ToEthereum(deposit.Token, deposit.Amount)
 	if err != nil {
 		return EthereumWithdrawalDetails{}, err
 	}
 
 	return EthereumWithdrawalDetails{
-		Deadline:  deposit.Time.Add(c.WithdrawalWindow),
-		Recipient: common.HexToAddress(deposit.Destination),
-		Token:     tokenAddress,
-		Amount:    amount,
+		Deadline: deposit.Time.Add(c.WithdrawalWindow),
+		Token:    tokenAddress,
+		Amount:   amount,
 	}, nil
 }
 
@@ -96,7 +82,7 @@ func (c *EthereumWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	sig, err := c.EthereumSigner.SignWithdrawal(
 		deposit.ID,
 		details.Deadline.Unix(),
-		details.Recipient,
+		deposit.Destination,
 		details.Token,
 		details.Amount,
 	)

@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -14,11 +14,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
-
-	"github.com/stellar/starbridge/controllers"
-
-	"github.com/stellar/go/support/render/problem"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -26,19 +21,25 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/stellar/go/clients/horizonclient"
+	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/keypair"
 	"github.com/stellar/go/protocols/horizon"
 	"github.com/stellar/go/strkey"
+	"github.com/stellar/go/support/render/problem"
 	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
+
+	"github.com/stellar/starbridge/controllers"
 	"github.com/stellar/starbridge/solidity-go"
+	soroban_bridge "github.com/stellar/starbridge/soroban-bridge"
 )
 
 type BridgeClient struct {
 	ValidatorURLs               []string
 	EthereumURL                 string
 	EthereumChainID             int
-	HorizonURL                  string
+	HorizonClient               *horizonclient.Client
+	StellarCoreClient           *stellarcore.Client
 	NetworkPassphrase           string
 	EthereumBridgeAddress       string
 	StellarBridgeAccount        string
@@ -48,46 +49,61 @@ type BridgeClient struct {
 	EthereumPrivateKey          string
 }
 
-func (b BridgeClient) SubmitStellarDeposit(amount, asset, ethereumRecipient string) (*horizon.Transaction, error) {
+func (b BridgeClient) SubmitStellarDeposit(
+	asset xdr.Asset,
+	assetAmount string,
+	ethereumRecipient common.Address,
+) (*horizon.Transaction, error) {
 	clientKey := keypair.MustParseFull(b.StellarPrivateKey)
-	horizonClient := &horizonclient.Client{
-		HorizonURL: b.HorizonURL,
+
+	assetContractID, err := soroban_bridge.StellarAssetContractID(b.NetworkPassphrase, asset)
+	if err != nil {
+		return nil, err
 	}
 
-	account, err := horizonClient.AccountDetail(horizonclient.AccountRequest{
+	amountParam, err := soroban_bridge.AmountContractParam(assetAmount)
+	if err != nil {
+		return nil, err
+	}
+
+	invokeWithdraw := &txnbuild.InvokeHostFunction{
+		Function: xdr.HostFunction{
+			Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+			InvokeArgs: &xdr.ScVec{
+				soroban_bridge.BytesContractParam(b.StellarBridgeContractID[:]),
+				soroban_bridge.FunctionNameParam("deposit"),
+				soroban_bridge.BytesContractParam(assetContractID[:]),
+				soroban_bridge.BoolContractParam(asset.GetIssuer() == b.StellarBridgeAccount),
+				soroban_bridge.BytesContractParam(ethereumRecipient[:]),
+				amountParam,
+			},
+		},
+		SourceAccount: clientKey.Address(),
+	}
+	if _, err := soroban_bridge.Preflight(b.StellarCoreClient, invokeWithdraw); err != nil {
+		return nil, err
+	}
+
+	sourceAccount, err := b.HorizonClient.AccountDetail(horizonclient.AccountRequest{
 		AccountID: clientKey.Address(),
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	var txAsset txnbuild.Asset
-	if asset == "native" {
-		txAsset = txnbuild.NativeAsset{}
-	} else {
-		parts := strings.Split(asset, ":")
-		txAsset = txnbuild.CreditAsset{
-			Code:   parts[0],
-			Issuer: parts[1],
-		}
-	}
-
-	tx, err := txnbuild.NewTransaction(txnbuild.TransactionParams{
-		SourceAccount: &account,
-		Operations: []txnbuild.Operation{
-			&txnbuild.Payment{
-				Destination: b.StellarBridgeAccount,
-				Amount:      amount,
-				Asset:       txAsset,
+	tx, err := txnbuild.NewTransaction(
+		txnbuild.TransactionParams{
+			SourceAccount: &sourceAccount,
+			Operations: []txnbuild.Operation{
+				invokeWithdraw,
 			},
+			BaseFee: txnbuild.MinBaseFee,
+			Preconditions: txnbuild.Preconditions{
+				TimeBounds: txnbuild.NewInfiniteTimeout(),
+			},
+			IncrementSequenceNum: true,
 		},
-		BaseFee: txnbuild.MinBaseFee,
-		Memo:    txnbuild.MemoHash(common.HexToAddress(ethereumRecipient).Hash()),
-		Preconditions: txnbuild.Preconditions{
-			TimeBounds: txnbuild.NewInfiniteTimeout(),
-		},
-		IncrementSequenceNum: true,
-	})
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +113,7 @@ func (b BridgeClient) SubmitStellarDeposit(amount, asset, ethereumRecipient stri
 		return nil, err
 	}
 
-	return b.submitStellarTx(horizonClient, tx)
+	return b.submitStellarTx(tx)
 }
 
 func (b BridgeClient) SubmitEthereumDeposit(
@@ -161,6 +177,8 @@ func (b BridgeClient) SubmitEthereumWithdrawal(
 ) (*types.Receipt, error) {
 	postData := url.Values{
 		"transaction_hash": {stellarTxHash},
+		"operation_index":  {"0"},
+		"event_index":      {"1"},
 	}
 	return b.withdrawEthereum(ctx, "stellar/withdraw/ethereum", postData, gasPrice)
 }
@@ -266,24 +284,17 @@ func (b BridgeClient) withdrawEthereum(
 func (b BridgeClient) ethereumSignatures(uri string, postData url.Values) ([]controllers.EthereumSignatureResponse, error) {
 	responses := make([]controllers.EthereumSignatureResponse, len(b.ValidatorURLs))
 	for i := 0; i < len(b.ValidatorURLs); i++ {
-		for {
-			requestURL := strings.TrimSuffix(b.ValidatorURLs[i], "/") + "/" + strings.TrimPrefix(uri, "/")
-			resp, err := http.PostForm(requestURL, postData)
-			if err != nil {
+		requestURL := strings.TrimSuffix(b.ValidatorURLs[i], "/") + "/" + strings.TrimPrefix(uri, "/")
+		resp, err := http.PostForm(requestURL, postData)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode == http.StatusOK {
+			if err = json.NewDecoder(resp.Body).Decode(&responses[i]); err != nil {
 				return nil, err
 			}
-			switch resp.StatusCode {
-			case http.StatusAccepted:
-				time.Sleep(time.Second)
-				continue
-			case http.StatusOK:
-				if err = json.NewDecoder(resp.Body).Decode(&responses[i]); err != nil {
-					return nil, err
-				}
-			default:
-				return nil, b.parseProblem(resp)
-			}
-			break
+		} else {
+			return nil, b.parseProblem(resp)
 		}
 	}
 	return responses, nil
@@ -300,41 +311,54 @@ func (b BridgeClient) parseProblem(resp *http.Response) error {
 func (b BridgeClient) SubmitStellarRefund(
 	stellarTxHash string,
 ) (*horizon.Transaction, error) {
+	sourceAccount, err := b.HorizonClient.AccountDetail(horizonclient.AccountRequest{
+		AccountID: keypair.MustParseFull(b.StellarPrivateKey).Address(),
+	})
+	if err != nil {
+		return nil, err
+	}
 	postData := url.Values{
 		"transaction_hash": {stellarTxHash},
+		"operation_index":  {"0"},
+		"event_index":      {"1"},
+		"source":           {sourceAccount.AccountID},
+		"sequence":         {fmt.Sprintf("%d", sourceAccount.Sequence+1)},
 	}
+
 	tx, err := b.stellarTx("stellar/refund", postData)
 	if err != nil {
 		return nil, err
 	}
 
-	horizonClient := &horizonclient.Client{
-		HorizonURL: b.HorizonURL,
-	}
-	return b.submitStellarTx(horizonClient, tx)
+	return b.submitStellarTx(tx)
 }
 
 func (b BridgeClient) SubmitStellarWithdrawal(
 	ethereumTxHash string,
 	logIndex uint,
 ) (*horizon.Transaction, error) {
+	sourceAccount, err := b.HorizonClient.AccountDetail(horizonclient.AccountRequest{
+		AccountID: keypair.MustParseFull(b.StellarPrivateKey).Address(),
+	})
+	if err != nil {
+		return nil, err
+	}
 	postData := url.Values{
 		"transaction_hash": {ethereumTxHash},
 		"log_index":        {strconv.FormatUint(uint64(logIndex), 10)},
+		"source":           {sourceAccount.AccountID},
+		"sequence":         {fmt.Sprintf("%d", sourceAccount.Sequence+1)},
 	}
 	tx, err := b.stellarTx("ethereum/withdraw/stellar", postData)
 	if err != nil {
 		return nil, err
 	}
 
-	horizonClient := &horizonclient.Client{
-		HorizonURL: b.HorizonURL,
-	}
-	return b.submitStellarTx(horizonClient, tx)
+	return b.submitStellarTx(tx)
 }
 
-func (b BridgeClient) submitStellarTx(horizonClient *horizonclient.Client, tx *txnbuild.Transaction) (*horizon.Transaction, error) {
-	result, err := horizonClient.SubmitTransaction(tx)
+func (b BridgeClient) submitStellarTx(tx *txnbuild.Transaction) (*horizon.Transaction, error) {
+	result, err := b.HorizonClient.SubmitTransaction(tx)
 	if err != nil {
 		return nil, err
 	}
@@ -347,26 +371,19 @@ func (b BridgeClient) submitStellarTx(horizonClient *horizonclient.Client, tx *t
 func (b BridgeClient) stellarTx(uri string, postData url.Values) (*txnbuild.Transaction, error) {
 	responses := make([]string, len(b.ValidatorURLs))
 	for i := 0; i < len(b.ValidatorURLs); i++ {
-		for {
-			requestURL := strings.TrimSuffix(b.ValidatorURLs[i], "/") + "/" + strings.TrimPrefix(uri, "/")
-			resp, err := http.PostForm(requestURL, postData)
-			if err != nil {
+		requestURL := strings.TrimSuffix(b.ValidatorURLs[i], "/") + "/" + strings.TrimPrefix(uri, "/")
+		resp, err := http.PostForm(requestURL, postData)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode == http.StatusOK {
+			if body, err := io.ReadAll(resp.Body); err != nil {
 				return nil, err
+			} else {
+				responses[i] = string(body)
 			}
-			switch resp.StatusCode {
-			case http.StatusAccepted:
-				time.Sleep(time.Second)
-				continue
-			case http.StatusOK:
-				if body, err := ioutil.ReadAll(resp.Body); err != nil {
-					return nil, err
-				} else {
-					responses[i] = string(body)
-				}
-			default:
-				return nil, b.parseProblem(resp)
-			}
-			break
+		} else {
+			return nil, b.parseProblem(resp)
 		}
 	}
 

@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	soroban_bridge "github.com/stellar/starbridge/soroban-bridge"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -28,7 +27,6 @@ import (
 	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/keypair"
 	proto "github.com/stellar/go/protocols/horizon"
-	stellarcoreproto "github.com/stellar/go/protocols/stellarcore"
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
@@ -37,6 +35,7 @@ import (
 	"github.com/stellar/starbridge/app"
 	"github.com/stellar/starbridge/client"
 	"github.com/stellar/starbridge/controllers"
+	soroban_bridge "github.com/stellar/starbridge/soroban-bridge"
 	"github.com/stellar/starbridge/stellar"
 )
 
@@ -188,7 +187,8 @@ func NewIntegrationTest(t *testing.T, config Config) *Test {
 		},
 		EthereumURL:                 EthereumRPCURL,
 		EthereumChainID:             31337,
-		HorizonURL:                  test.horizonClient.HorizonURL,
+		HorizonClient:               test.horizonClient,
+		StellarCoreClient:           test.coreClient,
 		NetworkPassphrase:           StandaloneNetworkPassphrase,
 		EthereumBridgeAddress:       EthereumBridgeAddress,
 		StellarBridgeAccount:        test.mainAccount.GetAccountID(),
@@ -271,84 +271,13 @@ func initializeBridge(itest *Test, contractID xdr.Hash) *txnbuild.InvokeHostFunc
 		Function: xdr.HostFunction{
 			Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
 			InvokeArgs: &xdr.ScVec{
-				contractIDParam(contractID),
-				functionNameParam("init"),
-				accountIDEnumParam(itest.mainAccount.GetAccountID()),
+				soroban_bridge.BytesContractParam(contractID[:]),
+				soroban_bridge.FunctionNameParam("init"),
+				soroban_bridge.AccountIDEnumParam(itest.mainAccount.GetAccountID()),
 			},
 		},
 		SourceAccount: itest.MasterAccount().GetAccountID(),
 	})
-}
-
-func accountIDEnumParam(accountID string) xdr.ScVal {
-	accountObj := &xdr.ScObject{
-		Type:      xdr.ScObjectTypeScoAccountId,
-		AccountId: xdr.MustAddressPtr(accountID),
-	}
-	accountSym := xdr.ScSymbol("Account")
-	accountEnum := &xdr.ScObject{
-		Type: xdr.ScObjectTypeScoVec,
-		Vec: &xdr.ScVec{
-			xdr.ScVal{
-				Type: xdr.ScValTypeScvSymbol,
-				Sym:  &accountSym,
-			},
-			xdr.ScVal{
-				Type: xdr.ScValTypeScvObject,
-				Obj:  &accountObj,
-			},
-		},
-	}
-	return xdr.ScVal{
-		Type: xdr.ScValTypeScvObject,
-		Obj:  &accountEnum,
-	}
-}
-
-func contractIDEnumParam(contractID xdr.Hash) xdr.ScVal {
-	contractIDBytes := contractID[:]
-	contractIDObj := &xdr.ScObject{
-		Type: xdr.ScObjectTypeScoBytes,
-		Bin:  &contractIDBytes,
-	}
-	contractSym := xdr.ScSymbol("Contract")
-	contractEnum := &xdr.ScObject{
-		Type: xdr.ScObjectTypeScoVec,
-		Vec: &xdr.ScVec{
-			xdr.ScVal{
-				Type: xdr.ScValTypeScvSymbol,
-				Sym:  &contractSym,
-			},
-			xdr.ScVal{
-				Type: xdr.ScValTypeScvObject,
-				Obj:  &contractIDObj,
-			},
-		},
-	}
-	return xdr.ScVal{
-		Type: xdr.ScValTypeScvObject,
-		Obj:  &contractEnum,
-	}
-}
-
-func functionNameParam(name string) xdr.ScVal {
-	contractFnParameterSym := xdr.ScSymbol(name)
-	return xdr.ScVal{
-		Type: xdr.ScValTypeScvSymbol,
-		Sym:  &contractFnParameterSym,
-	}
-}
-
-func contractIDParam(contractID xdr.Hash) xdr.ScVal {
-	contractIdBytes := contractID[:]
-	contractIdParameterObj := &xdr.ScObject{
-		Type: xdr.ScObjectTypeScoBytes,
-		Bin:  &contractIdBytes,
-	}
-	return xdr.ScVal{
-		Type: xdr.ScValTypeScvObject,
-		Obj:  &contractIdParameterObj,
-	}
 }
 
 func assembleInstallContractCodeOp(t *testing.T, sourceAccount string, contract []byte) *txnbuild.InvokeHostFunction {
@@ -497,15 +426,16 @@ func i128Param(hi, lo uint64) xdr.ScVal {
 }
 
 func setAdminOnSAC(itest *Test, sourceAccount string, asset xdr.Asset, contractID xdr.Hash) *txnbuild.InvokeHostFunction {
+	sacID := stellarAssetContractID(itest.CurrentTest(), itest.passPhrase, asset)
 	return addFootprint(itest, &txnbuild.InvokeHostFunction{
 		Function: xdr.HostFunction{
 			Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
 			InvokeArgs: &xdr.ScVec{
-				contractIDParam(stellarAssetContractID(itest.CurrentTest(), itest.passPhrase, asset)),
-				functionNameParam("set_admin"),
+				soroban_bridge.BytesContractParam(sacID[:]),
+				soroban_bridge.FunctionNameParam("set_admin"),
 				invokerSignatureParam(),
 				i128Param(0, 0),
-				contractIDEnumParam(contractID),
+				soroban_bridge.ContractIDEnumParam(contractID),
 			},
 		},
 		SourceAccount: sourceAccount,
@@ -513,15 +443,16 @@ func setAdminOnSAC(itest *Test, sourceAccount string, asset xdr.Asset, contractI
 }
 
 func incrAllow(itest *Test, sourceAccount string, asset xdr.Asset, spenderContractID xdr.Hash) *txnbuild.InvokeHostFunction {
+	sacID := stellarAssetContractID(itest.CurrentTest(), itest.passPhrase, asset)
 	return addFootprint(itest, &txnbuild.InvokeHostFunction{
 		Function: xdr.HostFunction{
 			Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
 			InvokeArgs: &xdr.ScVec{
-				contractIDParam(stellarAssetContractID(itest.CurrentTest(), itest.passPhrase, asset)),
-				functionNameParam("incr_allow"),
+				soroban_bridge.BytesContractParam(sacID[:]),
+				soroban_bridge.FunctionNameParam("incr_allow"),
 				invokerSignatureParam(),
 				i128Param(0, 0),
-				contractIDEnumParam(spenderContractID),
+				soroban_bridge.ContractIDEnumParam(spenderContractID),
 				i128Param(0, math.MaxInt64),
 			},
 		},
@@ -547,20 +478,7 @@ func invokerSignatureParam() xdr.ScVal {
 }
 
 func addFootprint(itest *Test, invokeHostFn *txnbuild.InvokeHostFunction) *txnbuild.InvokeHostFunction {
-	opXDR, err := invokeHostFn.BuildXDR()
-	require.NoError(itest.CurrentTest(), err)
-
-	invokeHostFunctionOp := opXDR.Body.MustInvokeHostFunctionOp()
-
-	// clear footprint so we can verify preflight response
-	response, err := itest.coreClient.Preflight(
-		context.Background(),
-		invokeHostFn.SourceAccount,
-		invokeHostFunctionOp,
-	)
-	require.NoError(itest.CurrentTest(), err)
-	require.Equal(itest.CurrentTest(), stellarcoreproto.PreflightStatusOk, response.Status, response.Detail)
-	err = xdr.SafeUnmarshalBase64(response.Footprint, &invokeHostFn.Footprint)
+	_, err := soroban_bridge.Preflight(itest.coreClient, invokeHostFn)
 	require.NoError(itest.CurrentTest(), err)
 	return invokeHostFn
 }
