@@ -17,6 +17,12 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: 1.17
+      - name: Set up Rust
+        uses: stellar/actions/rust-cache@main
+      - name: Add wasm32 rust target
+        run: rustup update && rustup target add wasm32-unknown-unknown
+      - name: Generate
+        run: go generate ./...
       - name: golangci-lint
         uses: golangci/golangci-lint-action@5c56cd6c9dc07901af25baab6f2b0d9f3b7c3018
         with:
@@ -53,6 +59,12 @@ jobs:
       uses: actions/setup-go@v2
       with:
         go-version: 1
+    - name: Set up Rust
+      uses: stellar/actions/rust-cache@main
+    - name: Add wasm32 rust target
+      run: rustup update && rustup target add wasm32-unknown-unknown
+    - name: Generate
+      run: go generate ./...
     - name: Build
       run: go build ./...
     - name: Build Tests
@@ -67,5 +79,11 @@ jobs:
       uses: actions/setup-go@v2
       with:
         go-version: 1
+    - name: Set up Rust
+      uses: stellar/actions/rust-cache@main
+    - name: Add wasm32 rust target
+      run: rustup update && rustup target add wasm32-unknown-unknown
+    - name: Generate
+      run: go generate ./...
     - name: Run Unit Tests
       run: go test -v -race ./...
