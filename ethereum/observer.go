@@ -3,7 +3,6 @@ package ethereum
 import (
 	"context"
 	"encoding/binary"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -67,7 +66,7 @@ type RequestStatus struct {
 // Deposit is a deposit to the bridge smart contract
 type Deposit struct {
 	// ID is the globally unique id for a given deposit
-	ID string
+	ID [32]byte
 	// Token is the address (0x0 in the case that eth was deposited)
 	// of the tokens which were deposited to the bridge
 	Token common.Address
@@ -90,12 +89,11 @@ type Deposit struct {
 	Time time.Time
 }
 
-func depositID(txHash string, logIndex uint) string {
+func depositID(txHash string, logIndex uint) [32]byte {
 	hash := common.HexToHash(txHash)
 	logIndexBytes := [32]byte{}
 	binary.PutUvarint(logIndexBytes[:], uint64(logIndex))
-	id := crypto.Keccak256Hash(hash[:], logIndexBytes[:])
-	return hex.EncodeToString(id.Bytes())
+	return crypto.Keccak256Hash(hash[:], logIndexBytes[:])
 }
 
 // Observer is used to inspect the ethereum blockchain to

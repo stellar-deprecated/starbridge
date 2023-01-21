@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"encoding/hex"
 	"net/http"
 	"strconv"
 	"time"
@@ -44,7 +43,6 @@ type StellarWithdrawalDetails struct {
 }
 
 type StellarWithdrawalHandler struct {
-	StellarBuilder         *stellar.Builder
 	StellarSigner          *stellar.Signer
 	StellarObserver        stellar.Observer
 	WithdrawalWindow       time.Duration
@@ -83,7 +81,7 @@ func (c *StellarWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	sourceAccount, err := getSourceAccount(r, c.StellarBuilder.BridgeAccount, c.StellarSigner.Signer.Address())
+	sourceAccount, err := getSourceAccount(r, c.StellarSigner.BridgeAccount, c.StellarSigner.Signer.Address())
 	if err != nil {
 		problem.Render(r.Context(), w, err)
 		return
@@ -101,13 +99,7 @@ func (c *StellarWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	depositIDBytes, err := hex.DecodeString(deposit.ID)
-	if err != nil {
-		problem.Render(r.Context(), w, errors.Wrap(err, "error decoding deposit id"))
-		return
-
-	}
-	tx, err := c.StellarBuilder.BuildTransaction(
+	tx, err := c.StellarSigner.NewWithdrawalTransaction(
 		details.AssetContractID,
 		details.IsWrappedAsset,
 		sourceAccount,
@@ -115,21 +107,12 @@ func (c *StellarWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		amount.StringFromInt64(details.Amount),
 		sequence,
 		details.Deadline.Unix(),
-		depositIDBytes,
+		deposit.ID,
 	)
 	if err != nil {
 		problem.Render(r.Context(), w, errors.Wrap(err, "error building outgoing stellar transaction"))
 		return
 	}
-
-	signature, err := c.StellarSigner.Sign(tx)
-	if err != nil {
-		problem.Render(r.Context(), w, errors.Wrap(err, "error signing outgoing stellar transaction"))
-		return
-	}
-
-	sigs := tx.Signatures()
-	tx.V1.Signatures = append(sigs, signature)
 
 	txBase64, err := xdr.MarshalBase64(tx)
 	if err != nil {

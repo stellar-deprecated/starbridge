@@ -3,7 +3,6 @@ package stellar
 import (
 	"context"
 	"encoding/binary"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -64,7 +63,7 @@ type RequestStatus struct {
 // Deposit is a deposit to the bridge smart contract
 type Deposit struct {
 	// ID is the globally unique id for a given deposit
-	ID string
+	ID [32]byte
 	// Token is the contract id
 	// of the tokens which were deposited to the bridge
 	Token [32]byte
@@ -89,14 +88,13 @@ type Deposit struct {
 	Time time.Time
 }
 
-func depositID(txHash string, operationIndex, eventIndex uint) string {
+func depositID(txHash string, operationIndex, eventIndex uint) [32]byte {
 	hash := common.HexToHash(txHash)
 	operationIndexBytes := [32]byte{}
 	binary.PutUvarint(operationIndexBytes[:], uint64(operationIndex))
 	logIndexBytes := [32]byte{}
 	binary.PutUvarint(logIndexBytes[:], uint64(eventIndex))
-	id := crypto.Keccak256Hash(hash[:], operationIndexBytes[:], logIndexBytes[:])
-	return hex.EncodeToString(id.Bytes())
+	return crypto.Keccak256Hash(hash[:], operationIndexBytes[:], logIndexBytes[:])
 }
 
 // Observer is used to inspect the ethereum blockchain to

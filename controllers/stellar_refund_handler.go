@@ -2,12 +2,9 @@ package controllers
 
 import (
 	"context"
-	"encoding/hex"
 	"net/http"
 	"strconv"
 	"time"
-
-	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/stellar/go/strkey"
 	"github.com/stellar/go/support/errors"
@@ -35,7 +32,6 @@ var (
 )
 
 type StellarRefundHandler struct {
-	StellarBuilder         *stellar.Builder
 	StellarSigner          *stellar.Signer
 	StellarObserver        stellar.Observer
 	EthereumObserver       ethereum.Observer
@@ -49,8 +45,7 @@ func (c *StellarRefundHandler) CanRefund(ctx context.Context, deposit stellar.De
 	// Checks on Ethereum side:
 	// - Ensure that there was no withdrawal to Ethereum account
 	// - The response from the client is after the withdrawal deadline
-	depositID := common.HexToHash(deposit.ID)
-	requestStatus, err := c.EthereumObserver.GetRequestStatus(ctx, depositID)
+	requestStatus, err := c.EthereumObserver.GetRequestStatus(ctx, deposit.ID)
 	if err != nil {
 		return errors.Wrap(err, "error getting request status from ethereum observer")
 	}
@@ -93,7 +88,7 @@ func (c *StellarRefundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	sourceAccount, err := getSourceAccount(r, c.StellarBuilder.BridgeAccount, c.StellarSigner.Signer.Address())
+	sourceAccount, err := getSourceAccount(r, c.StellarSigner.BridgeAccount, c.StellarSigner.Signer.Address())
 	if err != nil {
 		problem.Render(r.Context(), w, err)
 		return
@@ -110,13 +105,7 @@ func (c *StellarRefundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	depositIDBytes, err := hex.DecodeString(deposit.ID)
-	if err != nil {
-		problem.Render(r.Context(), w, errors.Wrap(err, "error decoding deposit id"))
-		return
-	}
-
-	tx, err := c.StellarBuilder.BuildTransaction(
+	tx, err := c.StellarSigner.NewWithdrawalTransaction(
 		deposit.Token,
 		deposit.IsWrappedAsset,
 		sourceAccount,
@@ -124,21 +113,12 @@ func (c *StellarRefundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		deposit.Amount,
 		sequence,
 		txnbuild.TimeoutInfinite,
-		depositIDBytes,
+		deposit.ID,
 	)
 	if err != nil {
 		problem.Render(r.Context(), w, errors.Wrap(err, "error building outgoing stellar transaction"))
 		return
 	}
-
-	signature, err := c.StellarSigner.Sign(tx)
-	if err != nil {
-		problem.Render(r.Context(), w, errors.Wrap(err, "error signing outgoing stellar transaction"))
-		return
-	}
-
-	sigs := tx.Signatures()
-	tx.V1.Signatures = append(sigs, signature)
 
 	txBase64, err := xdr.MarshalBase64(tx)
 	if err != nil {

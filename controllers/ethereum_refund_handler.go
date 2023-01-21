@@ -4,11 +4,9 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 
 	"github.com/stellar/go/support/render/problem"
@@ -51,18 +49,7 @@ type EthereumRefundHandler struct {
 }
 
 func (c *EthereumRefundHandler) CanRefund(ctx context.Context, deposit ethereum.Deposit) error {
-	depositIDBytes, err := hex.DecodeString(deposit.ID)
-	if err != nil {
-		return err
-	}
-
-	if len(depositIDBytes) != 32 {
-		return fmt.Errorf("depositID is not 32 bytes long: %v", deposit.ID)
-	}
-	var depositID [32]byte
-	copy(depositID[:], depositIDBytes)
-
-	status, err := c.StellarObserver.GetRequestStatus(ctx, depositID)
+	status, err := c.StellarObserver.GetRequestStatus(ctx, deposit.ID)
 	if err != nil {
 		return err
 	}
@@ -93,7 +80,7 @@ func (c *EthereumRefundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 	expiration := int64(math.MaxInt64)
 	sig, err := c.EthereumSigner.SignWithdrawal(
-		common.HexToHash(deposit.ID),
+		deposit.ID,
 		expiration,
 		deposit.Sender,
 		deposit.Token,
@@ -107,7 +94,7 @@ func (c *EthereumRefundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	responseBytes, err := json.Marshal(EthereumSignatureResponse{
 		Address:    c.EthereumSigner.Address().String(),
 		Signature:  hex.EncodeToString(sig),
-		DepositID:  deposit.ID,
+		DepositID:  hex.EncodeToString(deposit.ID[:]),
 		Expiration: expiration,
 		Token:      deposit.Token.String(),
 		Amount:     deposit.Amount.String(),

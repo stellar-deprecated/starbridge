@@ -94,7 +94,7 @@ func (c *EthereumWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	}
 
 	sig, err := c.EthereumSigner.SignWithdrawal(
-		common.HexToHash(deposit.ID),
+		deposit.ID,
 		details.Deadline.Unix(),
 		details.Recipient,
 		details.Token,
@@ -108,7 +108,7 @@ func (c *EthereumWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	responseBytes, err := json.Marshal(EthereumSignatureResponse{
 		Address:    c.EthereumSigner.Address().String(),
 		Signature:  hex.EncodeToString(sig),
-		DepositID:  deposit.ID,
+		DepositID:  hex.EncodeToString(deposit.ID[:]),
 		Expiration: details.Deadline.Unix(),
 		Token:      details.Token.String(),
 		Amount:     details.Amount.String(),

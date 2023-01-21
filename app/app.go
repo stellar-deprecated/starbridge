@@ -152,12 +152,9 @@ func (a *App) initHTTP(config Config) {
 		log.Fatalf("cannot create ethereum signer: %v", err)
 	}
 
-	stellarBuilder := &stellar.Builder{
-		BridgeAccount:    config.StellarBridgeAccount,
-		BridgeContractID: bridgeContractID,
-	}
-
 	stellarSigner := &stellar.Signer{
+		BridgeAccount:     config.StellarBridgeAccount,
+		BridgeContractID:  bridgeContractID,
 		NetworkPassphrase: config.NetworkPassphrase,
 		Signer:            signerKey,
 	}
@@ -168,7 +165,6 @@ func (a *App) initHTTP(config Config) {
 		AdminPort:          config.AdminPort,
 		PrometheusRegistry: a.prometheusRegistry,
 		StellarWithdrawalHandler: &controllers.StellarWithdrawalHandler{
-			StellarBuilder:         stellarBuilder,
 			StellarSigner:          stellarSigner,
 			StellarObserver:        stellar.Observer{},
 			WithdrawalWindow:       config.WithdrawalWindow,
@@ -192,7 +188,6 @@ func (a *App) initHTTP(config Config) {
 			WithdrawalWindow:       config.WithdrawalWindow,
 		},
 		StellarRefundHandler: &controllers.StellarRefundHandler{
-			StellarBuilder:         stellarBuilder,
 			StellarSigner:          stellarSigner,
 			EthereumObserver:       ethObserver,
 			StellarObserver:        stellarObserver,
