@@ -13,8 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 
+	"github.com/stellar/go/amount"
 	"github.com/stellar/go/clients/horizonclient"
 	"github.com/stellar/go/protocols/horizon"
+	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
 )
 
@@ -136,6 +138,17 @@ func TestStellarToEthereumWithdrawal(t *testing.T) {
 		WithdrawalWindow:       time.Hour,
 	})
 
+	acct, err := itest.horizonClient.AccountDetail(horizonclient.AccountRequest{AccountID: itest.clientKey.Address()})
+	require.NoError(t, err)
+	var before xdr.Int64
+	for _, balance := range acct.Balances {
+		if balance.Asset.Type == "native" {
+			before = amount.MustParse(balance.Balance)
+			break
+		}
+	}
+	require.Greater(t, before, xdr.Int64(0))
+
 	tx, err := itest.bridgeClient.SubmitStellarDeposit(xdr.MustNewNativeAsset(), "3", ethereumSenderAddress(t))
 	require.NoError(t, err)
 
@@ -156,6 +169,30 @@ func TestStellarToEthereumWithdrawal(t *testing.T) {
 		gasPrice,
 	)
 	require.Error(t, err)
+
+	receipt, err := itest.bridgeClient.SubmitEthereumDeposit(
+		context.Background(),
+		common.HexToAddress(EthereumXLMTokenAddress),
+		itest.clientKey.Address(),
+		new(big.Int).Mul(big.NewInt(3), big.NewInt(1e7)),
+		gasPrice,
+	)
+	require.NoError(t, err)
+
+	_, err = itest.bridgeClient.SubmitStellarWithdrawal(receipt.TxHash.String(), receipt.Logs[0].Index)
+	require.NoError(t, err)
+
+	acct, err = itest.horizonClient.AccountDetail(horizonclient.AccountRequest{AccountID: itest.clientKey.Address()})
+	require.NoError(t, err)
+	var after xdr.Int64
+	for _, balance := range acct.Balances {
+		if balance.Asset.Type == "native" {
+			after = amount.MustParse(balance.Balance)
+			break
+		}
+	}
+	require.Greater(t, before, xdr.Int64(0))
+	require.Equal(t, before, after+txnbuild.MinBaseFee*2)
 }
 
 func TestStellarRefund(t *testing.T) {
