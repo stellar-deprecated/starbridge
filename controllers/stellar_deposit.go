@@ -1,12 +1,13 @@
 package controllers
 
 import (
-	"database/sql"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/stellar/go/support/render/problem"
-	"github.com/stellar/starbridge/store"
+
+	"github.com/stellar/starbridge/stellar"
 )
 
 var (
@@ -22,17 +23,46 @@ var (
 		Status: http.StatusNotFound,
 		Detail: "The stellar transaction cannot be found.",
 	}
+	InvalidEventIndex = problem.P{
+		Type:   "invalid_event_index",
+		Title:  "Invalid Event Index",
+		Status: http.StatusBadRequest,
+		Detail: "The given event index for the Stellar deposit is invalid.",
+	}
+	InvalidOperationIndex = problem.P{
+		Type:   "invalid_operation_index",
+		Title:  "Invalid Operation Index",
+		Status: http.StatusBadRequest,
+		Detail: "The given operation index for the Stellar deposit is invalid.",
+	}
 )
 
-func getStellarDeposit(depositStore *store.DB, r *http.Request) (store.StellarDeposit, error) {
+func getStellarDeposit(observer stellar.Observer, r *http.Request) (stellar.Deposit, error) {
 	txHash := strings.TrimPrefix(r.PostFormValue("transaction_hash"), "0x")
 	if !validTxHash.MatchString(txHash) {
-		return store.StellarDeposit{}, InvalidStellarTxHash
+		return stellar.Deposit{}, InvalidStellarTxHash
 	}
 
-	deposit, err := depositStore.GetStellarDeposit(r.Context(), txHash)
-	if err == sql.ErrNoRows {
-		return store.StellarDeposit{}, StellarTxHashNotFound
+	parsed, err := strconv.ParseInt(r.PostFormValue("event_index"), 10, 32)
+	if err != nil {
+		return stellar.Deposit{}, InvalidEventIndex
 	}
-	return deposit, err
+	eventIndex := uint(parsed)
+
+	parsed, err = strconv.ParseInt(r.PostFormValue("operation_index"), 10, 32)
+	if err != nil {
+		return stellar.Deposit{}, InvalidOperationIndex
+	}
+	operationIndex := uint(parsed)
+
+	deposit, err := observer.GetDeposit(r.Context(), txHash, operationIndex, eventIndex)
+	if stellar.IsInvalidGetDepositRequest(err) {
+		return stellar.Deposit{}, InvalidDepositLog
+	} else if err == stellar.ErrTxHashNotFound {
+		return stellar.Deposit{}, StellarTxHashNotFound
+	} else if err != nil {
+		return stellar.Deposit{}, err
+	}
+
+	return deposit, nil
 }

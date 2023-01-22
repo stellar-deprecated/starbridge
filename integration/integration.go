@@ -2,6 +2,9 @@
 package integration
 
 import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -15,21 +18,25 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stellar/starbridge/client"
-
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stellar/starbridge/backend"
-
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/stellar/go/clients/horizonclient"
+	"github.com/stellar/go/clients/stellarcore"
 	"github.com/stellar/go/keypair"
 	proto "github.com/stellar/go/protocols/horizon"
 	"github.com/stellar/go/support/errors"
 	"github.com/stellar/go/txnbuild"
 	"github.com/stellar/go/xdr"
+	"github.com/stretchr/testify/require"
+
 	"github.com/stellar/starbridge/app"
+	"github.com/stellar/starbridge/client"
+	"github.com/stellar/starbridge/controllers"
+	soroban_bridge "github.com/stellar/starbridge/soroban-bridge"
+	"github.com/stellar/starbridge/stellar"
 )
 
 const (
@@ -65,6 +72,7 @@ type Test struct {
 
 	client        *http.Client
 	horizonClient *horizonclient.Client
+	coreClient    *stellarcore.Client
 
 	app           []*app.App
 	runningApps   *sync.WaitGroup
@@ -102,18 +110,18 @@ func NewIntegrationTest(t *testing.T, config Config) *Test {
 		horizonClient: &horizonclient.Client{
 			HorizonURL: fmt.Sprintf("http://%s:8000", dockerHost),
 		},
+		coreClient: &stellarcore.Client{URL: fmt.Sprintf("http://%s:11626", dockerHost)},
 
 		runningApps: &sync.WaitGroup{},
 	}
 
 	test.runComposeCommand("down", "-v")
 	test.runComposeCommand("build")
-	test.runComposeCommand("up", "--detach", "--quiet-pull", "--no-color", "starbridge-postgres")
 	test.runComposeCommand("up", "--detach", "--quiet-pull", "--no-color", "quickstart")
 	test.runComposeCommand("up", "--detach", "--no-color", "ethereum-node")
 	test.runComposeCommand("up", "--no-color", "deploy-ethereum-contract")
 	test.prepareShutdownHandlers()
-	ingestSequence := test.waitForHorizon()
+	test.waitForHorizon()
 	test.waitForFriendbot()
 
 	if config.Servers == 0 {
@@ -124,16 +132,10 @@ func NewIntegrationTest(t *testing.T, config Config) *Test {
 	keys, accounts := test.CreateAccounts(1)
 	test.mainKey, test.mainAccount = keys[0], accounts[0]
 
-	test.app = make([]*app.App, config.Servers)
 	test.signerKeys = make([]*keypair.Full, config.Servers)
-
 	for i := 0; i < config.Servers; i++ {
-		if innerErr := test.StartStarbridge(i, config, ingestSequence); innerErr != nil {
-			t.Fatalf("Failed to start Starbridge: %v", innerErr)
-		}
+		test.signerKeys[i] = keypair.MustRandom()
 	}
-
-	test.waitForStarbridge(config.Servers)
 
 	// Configure main account signers and configure client key
 	test.clientKey = keypair.MustParseFull("SBEICGMVMPF2WWIYV34IP7ON2Q6BUOT7F7IGHOTUMYUIG5K4IWIOUQC3")
@@ -141,11 +143,11 @@ func NewIntegrationTest(t *testing.T, config Config) *Test {
 	threshold := txnbuild.Threshold(config.Servers/2) + 1
 	ops := []txnbuild.Operation{
 		&txnbuild.CreateAccount{
-			Destination: "GATBFH6GV7GMWNI5RXH546BB2MDSNO3DPLGPT4EAFS5ICLRZT3D7F4YS",
+			Destination: test.clientKey.Address(),
 			Amount:      "100",
 		},
 		&txnbuild.ChangeTrust{
-			SourceAccount: "GATBFH6GV7GMWNI5RXH546BB2MDSNO3DPLGPT4EAFS5ICLRZT3D7F4YS",
+			SourceAccount: test.clientKey.Address(),
 			Line: txnbuild.ChangeTrustAssetWrapper{
 				Asset: txnbuild.CreditAsset{
 					Code:   "ETH",
@@ -176,6 +178,7 @@ func NewIntegrationTest(t *testing.T, config Config) *Test {
 		ops...,
 	)
 
+	stellarBridgeContractID := setupStellarBridge(test)
 	test.bridgeClient = client.BridgeClient{
 		ValidatorURLs: []string{
 			"http://localhost:9000",
@@ -184,16 +187,300 @@ func NewIntegrationTest(t *testing.T, config Config) *Test {
 		},
 		EthereumURL:                 EthereumRPCURL,
 		EthereumChainID:             31337,
-		HorizonURL:                  test.horizonClient.HorizonURL,
+		HorizonClient:               test.horizonClient,
+		StellarCoreClient:           test.coreClient,
 		NetworkPassphrase:           StandaloneNetworkPassphrase,
 		EthereumBridgeAddress:       EthereumBridgeAddress,
 		StellarBridgeAccount:        test.mainAccount.GetAccountID(),
 		EthereumBridgeConfigVersion: 0,
 		StellarPrivateKey:           test.clientKey.Seed(),
 		EthereumPrivateKey:          ethereumSenderPrivateKey,
+		StellarBridgeContractID:     stellarBridgeContractID,
 	}
 
+	stellarBridgeContractIDHex := hex.EncodeToString(stellarBridgeContractID[:])
+	test.app = make([]*app.App, config.Servers)
+	for i := 0; i < config.Servers; i++ {
+		if innerErr := test.StartStarbridge(i, config, stellarBridgeContractIDHex); innerErr != nil {
+			t.Fatalf("Failed to start Starbridge: %v", innerErr)
+		}
+	}
+	test.waitForStarbridge(config.Servers)
+
 	return test
+}
+
+func setupStellarBridge(itest *Test) xdr.Hash {
+	// Install the contract
+	installContractOp := assembleInstallContractCodeOp(itest.CurrentTest(), itest.Master().Address(), soroban_bridge.SorobanBridgeWasm)
+	itest.MustSubmitOperations(itest.MasterAccount(), itest.Master(), installContractOp)
+
+	// Create the contract
+	createContractOp, bridgeContractID := assembleCreateContractOp(itest.t, itest.Master().Address(), soroban_bridge.SorobanBridgeWasm, "bridge", itest.passPhrase)
+
+	tx, err := itest.SubmitOperations(itest.MasterAccount(), itest.Master(), createContractOp)
+	require.NoError(itest.t, err)
+	require.True(itest.t, tx.Successful)
+
+	initializeOp := initializeBridge(itest, bridgeContractID)
+	tx, err = itest.SubmitOperations(itest.MasterAccount(), itest.Master(), initializeOp)
+	require.NoError(itest.t, err)
+	require.True(itest.t, tx.Successful)
+
+	ethAsset := xdr.MustNewCreditAsset("ETH", itest.mainKey.Address())
+	createContractOp = createSAC(itest, itest.Master().Address(), ethAsset)
+	tx, err = itest.SubmitOperations(itest.MasterAccount(), itest.Master(), createContractOp)
+	require.NoError(itest.t, err)
+	require.True(itest.t, tx.Successful)
+
+	createContractOp = createSAC(itest, itest.Master().Address(), xdr.MustNewNativeAsset())
+	tx, err = itest.SubmitOperations(itest.MasterAccount(), itest.Master(), createContractOp)
+	require.NoError(itest.t, err)
+	require.True(itest.t, tx.Successful)
+
+	setAdminOp := setAdminOnSAC(itest, itest.mainAccount.GetAccountID(), ethAsset, bridgeContractID)
+	mainAccount := itest.MustGetAccount(itest.mainKey)
+	threshold := txnbuild.Threshold(len(itest.signerKeys)/2) + 1
+	tx, err = itest.SubmitMultiSigOperations(&mainAccount, itest.signerKeys[:threshold], setAdminOp)
+	require.NoError(itest.t, err)
+	require.True(itest.t, tx.Successful)
+
+	clientAccount := itest.MustGetAccount(itest.clientKey)
+	incrAllowEthOp := incrAllow(itest, itest.clientKey.Address(), ethAsset, bridgeContractID)
+	tx, err = itest.SubmitOperations(&clientAccount, itest.clientKey, incrAllowEthOp)
+	require.NoError(itest.t, err)
+	require.True(itest.t, tx.Successful)
+
+	clientAccount = itest.MustGetAccount(itest.clientKey)
+	incrAllowXlmOp := incrAllow(itest, itest.clientKey.Address(), xdr.MustNewNativeAsset(), bridgeContractID)
+	tx, err = itest.SubmitOperations(&clientAccount, itest.clientKey, incrAllowXlmOp)
+	require.NoError(itest.t, err)
+	require.True(itest.t, tx.Successful)
+
+	mainAccount = itest.MustGetAccount(itest.mainKey)
+	itest.mainAccount = &mainAccount
+
+	observer := stellar.NewObserver(bridgeContractID, itest.horizonClient, itest.coreClient)
+	itest.t.Log(observer.GetRequestStatus(context.Background(), [32]byte{}))
+
+	return bridgeContractID
+}
+
+func initializeBridge(itest *Test, contractID xdr.Hash) *txnbuild.InvokeHostFunction {
+	return addFootprint(itest, &txnbuild.InvokeHostFunction{
+		Function: xdr.HostFunction{
+			Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+			InvokeArgs: &xdr.ScVec{
+				soroban_bridge.BytesContractParam(contractID[:]),
+				soroban_bridge.FunctionNameParam("init"),
+				soroban_bridge.AccountIDEnumParam(itest.mainAccount.GetAccountID()),
+			},
+		},
+		SourceAccount: itest.MasterAccount().GetAccountID(),
+	})
+}
+
+func assembleInstallContractCodeOp(t *testing.T, sourceAccount string, contract []byte) *txnbuild.InvokeHostFunction {
+	// Assemble the InvokeHostFunction CreateContract operation:
+	// CAP-0047 - https://github.com/stellar/stellar-protocol/blob/master/core/cap-0047.md#creating-a-contract-using-invokehostfunctionop
+	t.Logf("Contract File Contents: %v", hex.EncodeToString(contract))
+
+	installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: contract}.MarshalBinary()
+	assert.NoError(t, err)
+	contractHash := sha256.Sum256(installContractCodeArgs)
+
+	return &txnbuild.InvokeHostFunction{
+		Function: xdr.HostFunction{
+			Type: xdr.HostFunctionTypeHostFunctionTypeInstallContractCode,
+			InstallContractCodeArgs: &xdr.InstallContractCodeArgs{
+				Code: contract,
+			},
+		},
+		Footprint: xdr.LedgerFootprint{
+			ReadWrite: []xdr.LedgerKey{
+				{
+					Type: xdr.LedgerEntryTypeContractCode,
+					ContractCode: &xdr.LedgerKeyContractCode{
+						Hash: contractHash,
+					},
+				},
+			},
+		},
+		SourceAccount: sourceAccount,
+	}
+}
+
+func assembleCreateContractOp(t *testing.T, sourceAccount string, contract []byte, contractSalt string, passPhrase string) (*txnbuild.InvokeHostFunction, xdr.Hash) {
+	// Assemble the InvokeHostFunction CreateContract operation:
+	// CAP-0047 - https://github.com/stellar/stellar-protocol/blob/master/core/cap-0047.md#creating-a-contract-using-invokehostfunctionop
+
+	salt := sha256.Sum256([]byte(contractSalt))
+	t.Logf("Salt hash: %v", hex.EncodeToString(salt[:]))
+
+	networkId := xdr.Hash(sha256.Sum256([]byte(passPhrase)))
+	preImage := xdr.HashIdPreimage{
+		Type: xdr.EnvelopeTypeEnvelopeTypeContractIdFromSourceAccount,
+		SourceAccountContractId: &xdr.HashIdPreimageSourceAccountContractId{
+			NetworkId: networkId,
+			Salt:      salt,
+		},
+	}
+	preImage.SourceAccountContractId.SourceAccount.SetAddress(sourceAccount)
+	xdrPreImageBytes, err := preImage.MarshalBinary()
+	require.NoError(t, err)
+	hashedContractID := sha256.Sum256(xdrPreImageBytes)
+
+	saltParameter := xdr.Uint256(salt)
+
+	installContractCodeArgs, err := xdr.InstallContractCodeArgs{Code: contract}.MarshalBinary()
+	assert.NoError(t, err)
+	contractHash := xdr.Hash(sha256.Sum256(installContractCodeArgs))
+
+	ledgerKeyContractCodeAddr := xdr.ScStaticScsLedgerKeyContractCode
+	ledgerKey := xdr.LedgerKeyContractData{
+		ContractId: xdr.Hash(hashedContractID),
+		Key: xdr.ScVal{
+			Type: xdr.ScValTypeScvStatic,
+			Ic:   &ledgerKeyContractCodeAddr,
+		},
+	}
+
+	return &txnbuild.InvokeHostFunction{
+		Function: xdr.HostFunction{
+			Type: xdr.HostFunctionTypeHostFunctionTypeCreateContract,
+			CreateContractArgs: &xdr.CreateContractArgs{
+				ContractId: xdr.ContractId{
+					Type: xdr.ContractIdTypeContractIdFromSourceAccount,
+					Salt: &saltParameter,
+				},
+				Source: xdr.ScContractCode{
+					Type:   xdr.ScContractCodeTypeSccontractCodeWasmRef,
+					WasmId: &contractHash,
+				},
+			},
+		},
+		Footprint: xdr.LedgerFootprint{
+			ReadWrite: []xdr.LedgerKey{
+				{
+					Type:         xdr.LedgerEntryTypeContractData,
+					ContractData: &ledgerKey,
+				},
+			},
+			ReadOnly: []xdr.LedgerKey{
+				{
+					Type: xdr.LedgerEntryTypeContractCode,
+					ContractCode: &xdr.LedgerKeyContractCode{
+						Hash: contractHash,
+					},
+				},
+			},
+		},
+		SourceAccount: sourceAccount,
+	}, hashedContractID
+}
+
+func createSAC(itest *Test, sourceAccount string, asset xdr.Asset) *txnbuild.InvokeHostFunction {
+	return addFootprint(itest, &txnbuild.InvokeHostFunction{
+		Function: xdr.HostFunction{
+			Type: xdr.HostFunctionTypeHostFunctionTypeCreateContract,
+			CreateContractArgs: &xdr.CreateContractArgs{
+				ContractId: xdr.ContractId{
+					Type:  xdr.ContractIdTypeContractIdFromAsset,
+					Asset: &asset,
+				},
+				Source: xdr.ScContractCode{
+					Type: xdr.ScContractCodeTypeSccontractCodeToken,
+				},
+			},
+		},
+		SourceAccount: sourceAccount,
+	})
+}
+
+func stellarAssetContractID(t *testing.T, passPhrase string, asset xdr.Asset) xdr.Hash {
+	networkId := xdr.Hash(sha256.Sum256([]byte(passPhrase)))
+	preImage := xdr.HashIdPreimage{
+		Type: xdr.EnvelopeTypeEnvelopeTypeContractIdFromAsset,
+		FromAsset: &xdr.HashIdPreimageFromAsset{
+			NetworkId: networkId,
+			Asset:     asset,
+		},
+	}
+	xdrPreImageBytes, err := preImage.MarshalBinary()
+	require.NoError(t, err)
+	return sha256.Sum256(xdrPreImageBytes)
+}
+
+func i128Param(hi, lo uint64) xdr.ScVal {
+	i128Obj := &xdr.ScObject{
+		Type: xdr.ScObjectTypeScoI128,
+		I128: &xdr.Int128Parts{
+			Hi: xdr.Uint64(hi),
+			Lo: xdr.Uint64(lo),
+		},
+	}
+	return xdr.ScVal{
+		Type: xdr.ScValTypeScvObject,
+		Obj:  &i128Obj,
+	}
+}
+
+func setAdminOnSAC(itest *Test, sourceAccount string, asset xdr.Asset, contractID xdr.Hash) *txnbuild.InvokeHostFunction {
+	sacID := stellarAssetContractID(itest.CurrentTest(), itest.passPhrase, asset)
+	return addFootprint(itest, &txnbuild.InvokeHostFunction{
+		Function: xdr.HostFunction{
+			Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+			InvokeArgs: &xdr.ScVec{
+				soroban_bridge.BytesContractParam(sacID[:]),
+				soroban_bridge.FunctionNameParam("set_admin"),
+				invokerSignatureParam(),
+				i128Param(0, 0),
+				soroban_bridge.ContractIDEnumParam(contractID),
+			},
+		},
+		SourceAccount: sourceAccount,
+	})
+}
+
+func incrAllow(itest *Test, sourceAccount string, asset xdr.Asset, spenderContractID xdr.Hash) *txnbuild.InvokeHostFunction {
+	sacID := stellarAssetContractID(itest.CurrentTest(), itest.passPhrase, asset)
+	return addFootprint(itest, &txnbuild.InvokeHostFunction{
+		Function: xdr.HostFunction{
+			Type: xdr.HostFunctionTypeHostFunctionTypeInvokeContract,
+			InvokeArgs: &xdr.ScVec{
+				soroban_bridge.BytesContractParam(sacID[:]),
+				soroban_bridge.FunctionNameParam("incr_allow"),
+				invokerSignatureParam(),
+				i128Param(0, 0),
+				soroban_bridge.ContractIDEnumParam(spenderContractID),
+				i128Param(0, math.MaxInt64),
+			},
+		},
+		SourceAccount: sourceAccount,
+	})
+}
+
+func invokerSignatureParam() xdr.ScVal {
+	invokerSym := xdr.ScSymbol("Invoker")
+	obj := &xdr.ScObject{
+		Type: xdr.ScObjectTypeScoVec,
+		Vec: &xdr.ScVec{
+			xdr.ScVal{
+				Type: xdr.ScValTypeScvSymbol,
+				Sym:  &invokerSym,
+			},
+		},
+	}
+	return xdr.ScVal{
+		Type: xdr.ScValTypeScvObject,
+		Obj:  &obj,
+	}
+}
+
+func addFootprint(itest *Test, invokeHostFn *txnbuild.InvokeHostFunction) *txnbuild.InvokeHostFunction {
+	_, err := soroban_bridge.Preflight(itest.coreClient, invokeHostFn)
+	require.NoError(itest.CurrentTest(), err)
+	return invokeHostFn
 }
 
 // Runs a docker-compose command applied to the above configs
@@ -248,22 +535,20 @@ func (i *Test) Shutdown() {
 	})
 }
 
-func (i *Test) StartStarbridge(id int, config Config, ingestSequence uint32) error {
-	i.signerKeys[id] = keypair.MustRandom()
-
+func (i *Test) StartStarbridge(id int, config Config, stellarBridgeContractID string) error {
 	i.app[id] = app.NewApp(app.Config{
-		Port:                   9000 + uint16(id),
-		PostgresDSN:            fmt.Sprintf("postgres://postgres:mysecretpassword@%s:5641/starbridge%d?sslmode=disable", dockerHost, id),
-		HorizonURL:             fmt.Sprintf("http://%s:8000/", dockerHost),
-		NetworkPassphrase:      StandaloneNetworkPassphrase,
-		StellarBridgeAccount:   i.mainAccount.GetAccountID(),
-		StellarPrivateKey:      i.signerKeys[id].Seed(),
-		EthereumRPCURL:         EthereumRPCURL,
-		EthereumBridgeAddress:  EthereumBridgeAddress,
-		EthereumPrivateKey:     ethPrivateKeys[id],
-		EthereumFinalityBuffer: 0,
-		WithdrawalWindow:       config.WithdrawalWindow,
-		AssetMapping: []backend.AssetMappingConfigEntry{
+		Port:                    9000 + uint16(id),
+		PostgresDSN:             fmt.Sprintf("postgres://postgres:mysecretpassword@%s:5641/starbridge%d?sslmode=disable", dockerHost, id),
+		HorizonURL:              fmt.Sprintf("http://%s:8000/", dockerHost),
+		CoreURL:                 fmt.Sprintf("http://%s:11626", dockerHost),
+		NetworkPassphrase:       StandaloneNetworkPassphrase,
+		StellarBridgeAccount:    i.mainAccount.GetAccountID(),
+		StellarBridgeContractID: stellarBridgeContractID,
+		StellarPrivateKey:       i.signerKeys[id].Seed(),
+		EthereumRPCURL:          EthereumRPCURL,
+		EthereumBridgeAddress:   EthereumBridgeAddress,
+		EthereumPrivateKey:      ethPrivateKeys[id],
+		AssetMapping: []controllers.AssetMappingConfigEntry{
 			{
 				StellarAsset:      "native",
 				EthereumToken:     EthereumXLMTokenAddress,
@@ -275,16 +560,14 @@ func (i *Test) StartStarbridge(id int, config Config, ingestSequence uint32) err
 				StellarToEthereum: "100000000000",
 			},
 		},
+		EthereumFinalityBuffer: config.EthereumFinalityBuffer,
+		WithdrawalWindow:       config.WithdrawalWindow,
 	})
 
-	i.runningApps.Add(2)
+	i.runningApps.Add(1)
 	go func() {
 		defer i.runningApps.Done()
 		i.app[id].RunHTTPServer()
-	}()
-	go func() {
-		defer i.runningApps.Done()
-		i.app[id].RunBackendWorker()
 	}()
 
 	return nil

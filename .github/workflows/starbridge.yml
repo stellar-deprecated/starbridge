@@ -40,4 +40,11 @@ jobs:
       with:
         go-version: ${{ matrix.go }}
 
+    - name: Set up Rust
+      uses: stellar/actions/rust-cache@main
+    - name: Add wasm32 rust target
+      run: rustup update && rustup target add wasm32-unknown-unknown
+    - name: Generate
+      run: go generate ./...
+
     - run: go test -race -timeout 25m -v ./integration/...

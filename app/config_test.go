@@ -3,10 +3,11 @@ package app
 import (
 	"testing"
 
-	"github.com/stellar/go/support/config"
-	"github.com/stellar/starbridge/backend"
-
 	"github.com/stretchr/testify/require"
+
+	"github.com/stellar/go/support/config"
+
+	"github.com/stellar/starbridge/controllers"
 )
 
 func TestParseConfig(t *testing.T) {
@@ -25,7 +26,7 @@ func TestParseConfig(t *testing.T) {
 		EthereumRPCURL:        "https://ethereum-goerli-rpc.allthatnode.com",
 		EthereumBridgeAddress: "0xD0675839A6C2c3412a3026Aa5F521Ea1e948E526",
 		EthereumPrivateKey:    "2aecee1800342bae06228ed990a152563b8dedf5fe15e3eab4b44854c9e001e5",
-		AssetMapping: []backend.AssetMappingConfigEntry{
+		AssetMapping: []controllers.AssetMappingConfigEntry{
 			{
 				StellarAsset:      "ETH:GAJKCRY6CIOXRIVK55ALOOJA327XN4JZ5KKN7YCTT3WM5W6BMFXMVQC2",
 				EthereumToken:     "0x0000000000000000000000000000000000000000",

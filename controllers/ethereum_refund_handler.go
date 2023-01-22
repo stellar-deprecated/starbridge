@@ -1,14 +1,34 @@
 package controllers
 
 import (
-	"database/sql"
+	"context"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"time"
+
+	"github.com/ethereum/go-ethereum/common/math"
 
 	"github.com/stellar/go/support/render/problem"
-	"github.com/stellar/starbridge/backend"
+
 	"github.com/stellar/starbridge/ethereum"
-	"github.com/stellar/starbridge/store"
+	"github.com/stellar/starbridge/stellar"
+)
+
+var (
+	WithdrawalWindowStillActive = problem.P{
+		Type:   "withdrawal_window_still_active",
+		Title:  "Withdrawal Window Still Active",
+		Status: http.StatusBadRequest,
+		Detail: "The withdrawal window is still active." +
+			" Wait until the withdrawal window has closed before attempting a refund.",
+	}
+	WithdrawalAlreadyExecuted = problem.P{
+		Type:   "withdrawal_already_executed",
+		Title:  "Withdrawal Already Executed",
+		Status: http.StatusBadRequest,
+		Detail: "The withdrawal has already been executed.",
+	}
 )
 
 type EthereumSignatureResponse struct {
@@ -21,56 +41,67 @@ type EthereumSignatureResponse struct {
 }
 
 type EthereumRefundHandler struct {
-	Observer                ethereum.Observer
-	Store                   *store.DB
-	EthereumRefundValidator backend.EthereumRefundValidator
-	EthereumFinalityBuffer  uint64
+	EthereumObserver       ethereum.Observer
+	StellarObserver        stellar.Observer
+	EthereumSigner         ethereum.Signer
+	EthereumFinalityBuffer uint64
+	WithdrawalWindow       time.Duration
+}
+
+func (c *EthereumRefundHandler) CanRefund(ctx context.Context, deposit ethereum.Deposit) error {
+	status, err := c.StellarObserver.GetRequestStatus(ctx, deposit.ID)
+	if err != nil {
+		return err
+	}
+
+	withdrawalDeadline := deposit.Time.Add(c.WithdrawalWindow)
+	if !status.CloseTime.After(withdrawalDeadline) {
+		return WithdrawalWindowStillActive
+	}
+
+	if status.Fulfilled {
+		return WithdrawalAlreadyExecuted
+	}
+
+	return nil
 }
 
 func (c *EthereumRefundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	deposit, err := getEthereumDeposit(c.Observer, c.Store, c.EthereumFinalityBuffer, r)
+	deposit, err := getEthereumDeposit(c.EthereumObserver, c.EthereumFinalityBuffer, r)
 	if err != nil {
 		problem.Render(r.Context(), w, err)
 		return
 	}
 
-	// Check if outgoing transaction exists
-	row, err := c.Store.GetEthereumSignature(r.Context(), store.Refund, deposit.ID)
-	if err != nil && err != sql.ErrNoRows {
-		problem.Render(r.Context(), w, err)
-		return
-	}
-	if err == nil {
-		responseBytes, err := json.Marshal(EthereumSignatureResponse{
-			Address:    row.Address,
-			Signature:  row.Signature,
-			DepositID:  row.DepositID,
-			Expiration: row.Expiration,
-			Token:      row.Token,
-			Amount:     row.Amount,
-		})
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-		} else {
-			_, _ = w.Write(responseBytes)
-		}
-		return
-	}
-
-	if err = c.EthereumRefundValidator.CanRefund(r.Context(), deposit); err != nil {
+	if err = c.CanRefund(r.Context(), deposit); err != nil {
 		problem.Render(r.Context(), w, err)
 		return
 	}
 
-	err = c.Store.InsertSignatureRequest(r.Context(), store.SignatureRequest{
-		DepositChain: store.Ethereum,
-		Action:       store.Refund,
-		DepositID:    deposit.ID,
+	expiration := int64(math.MaxInt64)
+	sig, err := c.EthereumSigner.SignWithdrawal(
+		deposit.ID,
+		expiration,
+		deposit.Sender,
+		deposit.Token,
+		deposit.Amount,
+	)
+	if err != nil {
+		problem.Render(r.Context(), w, err)
+		return
+	}
+
+	responseBytes, err := json.Marshal(EthereumSignatureResponse{
+		Address:    c.EthereumSigner.Address().String(),
+		Signature:  hex.EncodeToString(sig),
+		DepositID:  hex.EncodeToString(deposit.ID[:]),
+		Expiration: expiration,
+		Token:      deposit.Token.String(),
+		Amount:     deposit.Amount.String(),
 	})
 	if err != nil {
-		problem.Render(r.Context(), w, err)
-		return
+		w.WriteHeader(http.StatusInternalServerError)
+	} else {
+		_, _ = w.Write(responseBytes)
 	}
-
-	w.WriteHeader(http.StatusAccepted)
 }
