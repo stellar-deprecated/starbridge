@@ -10,4 +10,5 @@ FROM ubuntu:20.04
 RUN apt-get update
 RUN apt-get install -y ca-certificates
 COPY --from=builder /go/bin/starbridge ./
+COPY starbridge.cfg ./
 ENTRYPOINT ["./starbridge"]
