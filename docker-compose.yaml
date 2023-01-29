@@ -2,13 +2,10 @@ version: "3.9"
 services:
   backend:
     container_name: starbridge-backend
-    networks:
-      - host
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "5002:5000"
+    network_mode: host
   frontend:
     container_name: starbridge-frontend
     build:
@@ -21,8 +18,3 @@ services:
       - '3001:3000'
     environment:
       - NODE_ENV=development
-
-networks:
-  host:
-    name: host
-    external: true
