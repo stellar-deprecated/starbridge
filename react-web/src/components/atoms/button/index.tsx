@@ -1,4 +1,4 @@
-import { Button as SButton } from '@stellar/design-system'
+import { Button as SButton, Loader } from '@stellar/design-system'
 import classNames from 'classnames'
 
 import styles from './styles.module.scss'
@@ -35,6 +35,9 @@ const Button = (props: IButtonProps): JSX.Element => {
     size = ButtonSize.default,
     fullWidth,
     className,
+    isLoading,
+    disabled,
+    children,
     ...rest
   } = props
   const fullWidthStyle = fullWidth && styles.fullWidth
@@ -48,8 +51,11 @@ const Button = (props: IButtonProps): JSX.Element => {
         fullWidthStyle,
         className
       )}
+      disabled={disabled || isLoading}
       {...rest}
-    />
+    >
+      {isLoading ? <Loader size="20px" /> : children}
+    </SButton>
   )
 }
 
