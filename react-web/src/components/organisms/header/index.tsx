@@ -1,6 +1,8 @@
 import { BrowserRouter as Router, Link } from 'react-router-dom'
 
 import classNames from 'classnames'
+import { useAuthContext } from 'context'
+import { formatWalletAccount } from 'utils'
 
 import {
   Button,
@@ -20,19 +22,16 @@ import styles from './style.module.scss'
 
 interface IHeaderProps {
   className?: string
-  handleOnWalletPress?: () => void
-  handleOnLoginPress?: () => void
-  labelWalletButton: string
-  labelLoginButton: string
 }
 
-const Header = ({
-  className,
-  handleOnWalletPress,
-  handleOnLoginPress,
-  labelWalletButton,
-  labelLoginButton,
-}: IHeaderProps): JSX.Element => {
+const Header = ({ className }: IHeaderProps): JSX.Element => {
+  const { stellarAccount, ethereumAccount, logoutStellar, logoutEthereum } =
+    useAuthContext()
+
+  const handleButtonText = (account: string | undefined): string => {
+    return account ? formatWalletAccount(account) : 'Not Connected'
+  }
+
   return (
     <header className={classNames(styles.header, className)}>
       <nav>
@@ -48,28 +47,28 @@ const Header = ({
       </nav>
       <div className={styles.containerButton}>
         <Button
-          iconLeft={<img src={Eth} alt="Eth" />}
+          iconLeft={<img src={Weth} alt="Weth" />}
           variant={ButtonVariant.tertiary}
-          disabled
-          onClick={handleOnWalletPress}
+          disabled={!stellarAccount}
+          onClick={logoutStellar}
         >
           <Typography
             variant={TypographyVariant.label}
-            text={labelWalletButton}
+            text={handleButtonText(stellarAccount)}
             className={styles.labelButton}
           />
         </Button>
 
         <Button
-          iconLeft={<img src={Weth} alt="Weth" />}
+          iconLeft={<img src={Eth} alt="Eth" />}
           className={styles.loginButton}
           variant={ButtonVariant.tertiary}
-          disabled
-          onClick={handleOnLoginPress}
+          disabled={!ethereumAccount}
+          onClick={logoutEthereum}
         >
           <Typography
             variant={TypographyVariant.label}
-            text={labelLoginButton}
+            text={handleButtonText(ethereumAccount)}
             className={styles.labelButton}
           />
         </Button>

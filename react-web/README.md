@@ -1,63 +1,70 @@
-# starbridge-client
 
-This project was bootstrapped with [Create React App](https://create-react-app.dev/) using the [Typescript template](https://github.com/facebook/create-react-app/tree/master/packages/cra-template-typescript).
+# Starbridge - Frontend
+
+The objective of this project is to transfer assets between wallets from different networks.
+Currently the available flows are from **Stellar to Ethereum** and vice versa, being able to send only **ETH** from one to the other.
+With some initial setup you will be able to connect your wallets using **Freighter** for Stellar and **Metamask** for Ethereum and start the transfer flow.
+
+⚠️ Remembering that the **refund** flow was not implemented in both transfer flows!
 
 ## Project Architecture
 
+**Front:** React, Typescript using the Atomic Design
+
 You can check the project architecture [here](./src/docs/ARCHITECTURE.md)
 
-## Requirements
-
-- [NodeJS 14+](https://nodejs.org/en/)
-- [NPM 6.14+](https://www.npmjs.com/)
-
-> We suggest use of [NVM](https://github.com/nvm-sh/nvm/blob/master/README.md) to manage your node versions.
-
-## Getting Started
-
-### Env vars config
+## Environment Variables
 
 The environment variables are in `src/config`. You can use the `.env.example` as a base to create your `.env.local`
 config file
 
-### Install dependencies
 
-```shell
-npm install
+## Run Locally
+
+Install dependencies
+
+```bash
+  npm install
 ```
 
-### Running in development environment
+Start the server
 
-```shell
-npm run start:dev
+```bash
+  npm run start:dev
 ```
 
 The project will be running at [http://localhost:3000/](http://localhost:3000/)
 
-### Running tests
+If you want you can run it on **Docker** too.
 
-- We use the [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/) to develop our tests.
-- You can use the [MSW](https://mswjs.io/) to mock your request to do integration tests in your pages.
-  - An example is available at `src/tests/request_mocks`
-
-```shell
-npm run test
+```bash
+  docker build -t starbridge-front .   
+  docker run -dp 3000:3000 starbridge-front
 ```
 
-### Creating a production build
+### Using the ngrok
 
-The following command will generate an optimized production build. The statics files will be generated at `build/` folder.
+To make transactions on your wallets, you must have a secure connection locally. With [ngrok](https://ngrok.com/download) it is possible to create an SSL certificate to be able to continue in the flow without problems.
 
-```shell
-npm run build
+You need to [register](https://dashboard.ngrok.com/signup), to generate a token and then continue configuring ngrok.
+
+```bash
+  ngrok config add-authtoken <token>
+  ngrok http 3000
 ```
 
-You can read more about how to serve the statics [here](https://create-react-app.dev/docs/deployment/)
+## FAQ
 
-## Scripts
+#### I disconnected my account through the page, but when I connect again it automatically connects.
 
-In the project directory, you can run all of [react-scripts](https://create-react-app.dev/docs/available-scripts) commands.
+It is necessary that you disconnect from the page through your Wallet as well, so you can connect another account again.
 
-## Learn More
+#### I'm trying to do the withdraw action on the Ethereum -> Stellar flow but the error "retry later once the transaction has more confirmations" appears.
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Confirmations are required to verify and legitimize information that will be recorded in the blockchain and cannot be changed afterward. If some information is assumed fraudulent, it will not get any confirmation. Without a single transaction confirmation Ethereum, the transaction won’t be considered valid by the network. Each confirmation takes less than one minute. Just wait a bit and try to perform the withdraw action again.
+
+
+
+## Demo
+
+![](https://s4.gifyu.com/images/ezgif.com-gif-maker-1940da4e499b61722.gif)

@@ -1,4 +1,6 @@
-import { FormEvent, useEffect, useRef, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+
+import { useAuthContext } from 'context'
 
 import {
   Button,
@@ -7,73 +9,142 @@ import {
   Typography,
   TypographyVariant,
 } from 'components/atoms'
-import { ICurrencyProps } from 'components/molecules'
+import { TransactionStep } from 'components/enums'
+import { ICurrencyProps, InputLabel } from 'components/molecules'
+import { SignTransactionModal } from 'components/organisms'
 import { WalletInput } from 'components/organisms/wallet-input'
 import { Currency, CurrencyLabel } from 'components/types/currency'
 
-import Eth from 'app/core/resources/eth.svg'
 import SwitchIcon from 'app/core/resources/switch.svg'
-import Weth from 'app/core/resources/weth.svg'
 
 import styles from './styles.module.scss'
 
 export interface IHomeTemplateProps {
-  transactionTitle?: string
-  handleSubmit: (evt: FormEvent<HTMLFormElement>) => Promise<void>
-  onSendingButtonClick?: () => void
-  onReceivingButtonClick?: () => void
+  isLoading?: boolean
+  isModalLoading?: boolean
+  transactionStep?: TransactionStep
+  balanceStellarAccount?: string
+  balanceEthereumAccount?: string
+  transactionDetails?: string
+  onSubmit: (value: string, currencyFlow: Currency) => void
+  onSendingButtonClick?: (currencyFrom: Currency) => void
+  onReceivingButtonClick?: (currencyTo: Currency) => void
+  onDepositSignTransaction?: () => void
+  onWithdrawSignTransaction?: () => void
+  onCancelClick?: () => void
 }
 
 const HomeTemplate = ({
-  handleSubmit,
+  isLoading = false,
+  isModalLoading = false,
+  transactionStep = TransactionStep.deposit,
+  balanceStellarAccount = '',
+  balanceEthereumAccount = '',
+  transactionDetails,
+  onSubmit,
   onSendingButtonClick,
   onReceivingButtonClick,
+  onDepositSignTransaction,
+  onWithdrawSignTransaction,
+  onCancelClick,
 }: IHomeTemplateProps): JSX.Element => {
+  const { stellarAccount, ethereumAccount } = useAuthContext()
+
   const [isButtonEnabled, setIsButtonEnabled] = useState(false)
-  const sendingRef = useRef<HTMLInputElement>(null)
-  const receivingRef = useRef<HTMLInputElement>(null)
   const [inputSent, setInputSent] = useState('')
-  const [inputReceived, setInputReceived] = useState('')
-  const [currencyFrom, setCurrencyFrom] = useState(Currency.ETH)
-  const [currencyTo, setCurrencyTo] = useState(Currency.WETH)
+  const [receiveValue, setReceiveValue] = useState('')
+  const [currencyFrom, setCurrencyFrom] = useState(Currency.WETH)
+  const [currencyTo, setCurrencyTo] = useState(Currency.ETH)
+  const [isOpenModal, setIsOpenModal] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+
+  const isCurrentStep = useCallback(
+    (currentStep: string[]): boolean => {
+      return currentStep.includes(transactionStep)
+    },
+    [transactionStep]
+  )
+
+  const isDepositOrSignDepositStep = isCurrentStep([
+    TransactionStep.deposit,
+    TransactionStep.signDeposit,
+  ])
 
   const currencyPropsConverter: Record<Currency, ICurrencyProps> = {
     [Currency.WETH]: {
       initials: CurrencyLabel.weth,
       label: Currency.WETH,
-      iconPath: Weth,
     },
     [Currency.ETH]: {
       initials: CurrencyLabel.eth,
       label: Currency.ETH,
-      iconPath: Eth,
     },
   }
 
-  const onInputReceivedChange = (
-    evt: React.FormEvent<HTMLInputElement>
-  ): void => {
-    const input = evt.target as HTMLInputElement
-    setInputReceived(input.value)
+  const handleErrorInput = (value: string, currency: Currency): void => {
+    const amount = parseFloat(value) || 0
+
+    if (amount <= 0) {
+      setErrorMessage('This field is required')
+    } else if (
+      (currency === Currency.ETH &&
+        amount > parseFloat(balanceEthereumAccount)) ||
+      (currency === Currency.WETH && amount > parseFloat(balanceStellarAccount))
+    ) {
+      setErrorMessage('Amount exceeds wallet balance')
+    } else {
+      setErrorMessage('')
+    }
   }
 
   const onInputSentChange = (evt: React.FormEvent<HTMLInputElement>): void => {
     const input = evt.target as HTMLInputElement
 
+    handleErrorInput(input.value, currencyFrom)
+
     setInputSent(input.value)
+    setReceiveValue(input.value)
   }
 
   useEffect(() => {
-    setIsButtonEnabled(inputSent > '0' && inputReceived > '0')
-  }, [inputSent, inputReceived])
+    setIsButtonEnabled(
+      !!inputSent && !errorMessage && !!stellarAccount && !!ethereumAccount
+    )
+  }, [errorMessage, inputSent, stellarAccount, ethereumAccount])
+
+  useEffect(() => {
+    setIsOpenModal(
+      isCurrentStep([TransactionStep.signDeposit, TransactionStep.signWithdraw])
+    )
+  }, [setIsOpenModal, isCurrentStep])
 
   const changeCurrency = (): void => {
-    setCurrencyFrom(prev =>
-      prev === Currency.ETH ? Currency.WETH : Currency.ETH
-    )
+    setCurrencyFrom(prev => {
+      const newCurrencyFrom =
+        prev === Currency.ETH ? Currency.WETH : Currency.ETH
+      handleErrorInput(inputSent, newCurrencyFrom)
+      return newCurrencyFrom
+    })
     setCurrencyTo(prev =>
       prev === Currency.ETH ? Currency.WETH : Currency.ETH
     )
+  }
+
+  const handleSendingButtonClick = (): void => {
+    onSendingButtonClick && onSendingButtonClick(currencyFrom)
+  }
+
+  const handleReceivingButtonClick = (): void => {
+    onReceivingButtonClick && onReceivingButtonClick(currencyTo)
+  }
+
+  const handleSubmit = (): void => {
+    onSubmit(receiveValue, currencyFrom)
+  }
+
+  const handleCancelModal = (): void => {
+    setIsOpenModal(false)
+    onCancelClick && onCancelClick()
   }
 
   return (
@@ -96,36 +167,66 @@ const HomeTemplate = ({
           </Button>
         </div>
         <div className={styles.form}>
-          <form data-testid="form" onSubmit={handleSubmit}>
-            <div className={styles.formRow}>
-              <WalletInput
-                isSender
-                currency={currencyPropsConverter[currencyFrom]}
-                onChange={onInputSentChange}
-                name={'sending'}
-                onClick={onSendingButtonClick}
-                ref={sendingRef}
-              />
-            </div>
-            <div className={styles.formRow}>
-              <WalletInput
-                currency={currencyPropsConverter[currencyTo]}
-                onChange={onInputReceivedChange}
-                name={'receiving'}
-                onClick={onReceivingButtonClick}
-                ref={receivingRef}
-              />
-            </div>
-            <Button
-              variant={ButtonVariant.primary}
-              fullWidth
-              disabled={!isButtonEnabled}
-            >
-              Send Transfer
-            </Button>
-          </form>
+          <div className={styles.formRow}>
+            <WalletInput
+              isSender
+              currency={currencyPropsConverter[currencyFrom]}
+              accountConnected={
+                currencyFrom === Currency.WETH
+                  ? stellarAccount
+                  : ethereumAccount
+              }
+              balanceAccount={
+                currencyFrom === Currency.WETH
+                  ? balanceStellarAccount
+                  : balanceEthereumAccount
+              }
+              onChange={onInputSentChange}
+              name={InputLabel.sending}
+              onClick={handleSendingButtonClick}
+              alreadySubmittedDeposit={!isDepositOrSignDepositStep}
+              errorMessage={errorMessage}
+            />
+          </div>
+          <div className={styles.formRow}>
+            <WalletInput
+              currency={currencyPropsConverter[currencyTo]}
+              accountConnected={
+                currencyTo === Currency.WETH ? stellarAccount : ethereumAccount
+              }
+              name={InputLabel.receive}
+              disabled
+              placeholder={receiveValue ? receiveValue : '--'}
+              onClick={handleReceivingButtonClick}
+            />
+          </div>
+          <Button
+            isLoading={isLoading}
+            variant={ButtonVariant.primary}
+            fullWidth
+            disabled={!isButtonEnabled}
+            onClick={handleSubmit}
+          >
+            {isDepositOrSignDepositStep ? 'Send Transfer' : 'Withdraw'}
+          </Button>
         </div>
       </div>
+      <SignTransactionModal
+        isOpen={isOpenModal}
+        isLoading={isModalLoading}
+        setModalOpen={setIsOpenModal}
+        title={`${
+          isDepositOrSignDepositStep ? 'Deposit' : 'Withdraw'
+        } Transaction`}
+        platform={Currency.WETH}
+        transactionDetails={transactionDetails}
+        onSignTransactionClick={
+          isDepositOrSignDepositStep
+            ? onDepositSignTransaction
+            : onWithdrawSignTransaction
+        }
+        onCancelClick={handleCancelModal}
+      />
     </main>
   )
 }

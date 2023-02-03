@@ -1,19 +1,24 @@
-.container {
-  max-width: 600;
-  margin: 32;
-}
-
 .inputContainer {
+  position: relative;
   display: flex;
   flex-direction: column;
   background-color: var(--color-grayish-lightest);
   padding: 16px;
   height: 116px;
   border-radius: var(--border-radius-default);
+  border: 1px solid transparent;
+
+  .errorLabel {
+    position: absolute;
+    font-weight: var(--font-weight-500);
+    color: var(--color-red);
+    bottom: -24px;
+    right: 20px;
+  }
 }
 
-.icon {
-  margin-right: 4px;
+.error {
+  border: 1px solid var(--color-red);
 }
 
 .input {
@@ -72,6 +77,7 @@
 .currencyContainer {
   display: flex;
   align-items: center;
+  gap: 4px;
 }
 
 .balanceLabel {
@@ -85,4 +91,9 @@
   line-height: var(--line-height-2xl);
   color: var(--color-grayish-dark);
   font-weight: var(--font-weight-500);
+}
+
+.input:disabled,
+.mainLabel:disabled {
+  opacity: 0.4;
 }

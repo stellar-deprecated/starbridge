@@ -35,6 +35,7 @@
 }
 
 .transactionContainer {
+  position: relative;
   display: flex;
   text-align: center;
   align-items: center;
@@ -44,6 +45,21 @@
   background-color: var(--color-grayish-lightest);
   width: 100%;
   margin: 32px 0;
+  height: 120px;
+  cursor: pointer;
+
+  .opacityFull {
+    opacity: 1;
+  }
+
+  p {
+    display: -webkit-box;
+    word-break: break-all;
+    text-overflow: ellipsis;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 }
 
 .buttonsContainer {
@@ -51,4 +67,12 @@
   width: 100%;
   flex-direction: column;
   gap: 8px;
+}
+
+.copiedLabel {
+  position: absolute;
+  opacity: 0;
+  bottom: -24px;
+  transition: all 1s;
+  font-weight: var(--font-weight-600);
 }
