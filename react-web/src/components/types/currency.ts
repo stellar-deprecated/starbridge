@@ -1,6 +1,6 @@
 export enum CurrencyLabel {
-  eth = 'ETH',
-  weth = 'WETH',
+  eth = 'WGBM',
+  weth = 'GBM',
 }
 
 export enum Currency {

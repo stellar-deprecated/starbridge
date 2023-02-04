@@ -66,7 +66,7 @@ const Home = (): JSX.Element => {
     }
 
     getBalanceAccount(publicKey).then(balance => {
-      setBalanceStellarAccount(parseFloat(balance).toFixed(4))
+      setBalanceStellarAccount(parseFloat(balance).toFixed(7))
     })
   }
 
@@ -83,7 +83,7 @@ const Home = (): JSX.Element => {
 
     web3.eth.getBalance(publicKey).then(balance => {
       setBalanceEthereumAccount(
-        parseFloat(Web3utils.fromWei(balance)).toFixed(4)
+        parseFloat(Web3utils.fromWei(balance)).toFixed(7)
       )
     })
   }
@@ -158,6 +158,9 @@ const Home = (): JSX.Element => {
   ): Promise<void> => {
     setIsLoading(true)
 
+    // eslint-disable-next-line no-console
+    console.log("transactionStep before deposit", transactionStep)
+
     if (transactionStep === TransactionStep.deposit) {
       setIsLoading(true)
       if (currencyFlow === Currency.WETH) {
@@ -168,7 +171,7 @@ const Home = (): JSX.Element => {
             setTransactionHash(result.transactionHash)
             setTransactionLogIndex(result.events.Deposit.logIndex)
 
-            deposit(stellarAccount, result.transactionHash)
+            deposit(stellarAccount, result.transactionHash, result.events.Deposit.logIndex)
               .then(() => setTransactionStep(TransactionStep.withdraw))
               .finally(() => setIsLoading(false))
           })
@@ -178,6 +181,9 @@ const Home = (): JSX.Element => {
           })
       }
     }
+
+    // eslint-disable-next-line no-console
+    console.log("transactionStep after deposit", transactionStep)
 
     if (transactionStep === TransactionStep.withdraw) {
       currencyFlow === Currency.WETH
@@ -191,14 +197,15 @@ const Home = (): JSX.Element => {
     signStellarTransaction(xdrPaymentTransaction)
       .then(transactionHash => {
         setTransactionHash(transactionHash)
+        setTransactionStep(TransactionStep.withdraw)
 
-        deposit(stellarAccount, transactionHash)
-          .then(() => {
-            setTransactionStep(TransactionStep.withdraw)
-          })
-          .catch(error => {
-            toast.error(error.message)
-          })
+        // deposit(stellarAccount, transactionHash, null)
+        //   .then(() => {
+        //     setTransactionStep(TransactionStep.withdraw)
+        //   })
+        //   .catch(error => {
+        //     toast.error(error.message)
+        //   })
       })
       .finally(() => setIsModalLoading(false))
   }
