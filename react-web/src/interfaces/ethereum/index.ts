@@ -75,6 +75,7 @@ const withdrawEthereumTransaction = async (
     expiration: BigNumber.from(withdrawResult[0].expiration),
     recipient: ethereumAccount,
     amount: withdrawResult[0].amount,
+    token: withdrawResult[0].token,
   }
 
   const bridgeContract = new web3.eth.Contract(
@@ -95,7 +96,7 @@ const withdrawEthereumTransaction = async (
   }
 
   return bridgeContract.methods
-    .withdrawETH(withdrawERC20Request, signatures, indexes)
+    .withdrawERC20(withdrawERC20Request, signatures, indexes)
     .send({ from: ethereumAccount })
 }
 

@@ -30,7 +30,6 @@ var RootCmd = &cobra.Command{
 			}
 		}
 
-		cfg.EthereumFinalityBuffer = 6
 		cfg.WithdrawalWindow = time.Hour * 24
 		app := app.NewApp(cfg)
 		app.Run()

@@ -57,7 +57,7 @@ type Config struct {
 
 	AssetMapping []backend.AssetMappingConfigEntry `toml:"asset_mapping" valid:"-"`
 
-	EthereumFinalityBuffer uint64        `toml:"-" valid:"-"`
+	EthereumFinalityBuffer uint64        `toml:"ethereum_finality_buffer" valid:"-"`
 	WithdrawalWindow       time.Duration `toml:"-" valid:"-"`
 }
 
@@ -240,6 +240,17 @@ func (a *App) initHTTP(config Config, client *horizonclient.Client, ethObserver 
 				Observer:               ethObserver,
 				EthereumFinalityBuffer: config.EthereumFinalityBuffer,
 			},
+		},
+		EthereumDepositHandler: &controllers.EthereumDeposit{
+			Observer: ethObserver,
+			Store:    a.NewStore(),
+			StellarWithdrawalValidator: backend.StellarWithdrawalValidator{
+				Session:          a.session.Clone(),
+				WithdrawalWindow: config.WithdrawalWindow,
+				Converter:        converter,
+			},
+			EthereumFinalityBuffer: config.EthereumFinalityBuffer,
+			Token:                  config.AssetMapping[0].EthereumToken,
 		},
 		TestDepositHandler: &controllers.TestDeposit{
 			Store: a.NewStore(),

@@ -160,7 +160,7 @@ func (b BridgeClient) SubmitEthereumWithdrawal(
 	postData := url.Values{
 		"transaction_hash": {stellarTxHash},
 	}
-	return b.withdrawEthereum(ctx, "stellar/withdraw/ethereum", postData, gasPrice)
+	return b.withdrawEthereum(ctx, "stellar/withdraw", postData, gasPrice)
 }
 
 func (b BridgeClient) SubmitEthereumRefund(
@@ -320,7 +320,7 @@ func (b BridgeClient) SubmitStellarWithdrawal(
 		"transaction_hash": {ethereumTxHash},
 		"log_index":        {strconv.FormatUint(uint64(logIndex), 10)},
 	}
-	tx, err := b.stellarTx("ethereum/withdraw/stellar", postData)
+	tx, err := b.stellarTx("ethereum/withdraw", postData)
 	if err != nil {
 		return nil, err
 	}

@@ -2,6 +2,10 @@ package controllers
 
 import (
 	"database/sql"
+	"github.com/stellar/go/strkey"
+	"github.com/stellar/go/support/log"
+	"github.com/stellar/starbridge/backend"
+	"math/big"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -45,6 +49,81 @@ var (
 
 	validTxHash = regexp.MustCompile("^(0x)?([A-Fa-f0-9]{64})$")
 )
+
+type EthereumDeposit struct {
+	Observer                   ethereum.Observer
+	Store                      *store.DB
+	StellarWithdrawalValidator backend.StellarWithdrawalValidator
+	EthereumFinalityBuffer     uint64
+	Token                      string
+}
+
+func (c *EthereumDeposit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	txHash := r.PostFormValue("hash")
+	stellarAddress := r.PostFormValue("stellar_address")
+	parsed, err := strconv.ParseInt(r.PostFormValue("log_index"), 10, 32)
+	if err != nil {
+		problem.Render(r.Context(), w, InvalidLogIndex)
+		return
+	}
+	logIndex := uint(parsed)
+
+	decoded, err := strkey.Decode(strkey.VersionByteAccountID, stellarAddress)
+	if err != nil {
+		log.WithField("error", err).Error("Error strkey.Decode")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	var intEncoded big.Int
+	intEncoded.SetBytes(decoded)
+
+	depositID := ethereum.DepositID(txHash, logIndex)
+
+	deposit, err := c.Observer.GetDeposit(r.Context(), txHash, logIndex)
+	if ethereum.IsInvalidGetDepositRequest(err) {
+		problem.Render(r.Context(), w, InvalidDepositLog)
+		return
+	} else if err == ethereum.ErrTxHashNotFound {
+		problem.Render(r.Context(), w, EthereumTxHashNotFound)
+		return
+	} else if err != nil {
+		problem.Render(r.Context(), w, err)
+		return
+	}
+
+	block, err := c.Observer.GetLatestBlock(r.Context())
+	if err != nil {
+		problem.Render(r.Context(), w, err)
+		return
+	}
+	if deposit.BlockNumber+c.EthereumFinalityBuffer > block.Number {
+		problem.Render(r.Context(), w, EthereumTxRequiresMoreConfirmations)
+		return
+	}
+
+	incomingTx := store.EthereumDeposit{
+		ID:          depositID,
+		Token:       c.Token,
+		Sender:      deposit.Sender.String(),
+		Hash:        deposit.TxHash.String(),
+		LogIndex:    deposit.LogIndex,
+		Amount:      deposit.Amount.String(),
+		Destination: intEncoded.String(),
+		BlockNumber: deposit.BlockNumber,
+		BlockTime:   deposit.Time.Unix(),
+	}
+
+	err = c.Store.InsertEthereumDeposit(r.Context(), incomingTx)
+	if err != nil {
+		log.WithField("error", err).Error("Error inserting incoming ethereum transaction")
+		problem.Render(r.Context(), w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(incomingTx.Hash))
+}
 
 func getEthereumDeposit(observer ethereum.Observer, depositStore *store.DB, finalityBuffer uint64, r *http.Request) (store.EthereumDeposit, error) {
 	txHash := r.PostFormValue("transaction_hash")

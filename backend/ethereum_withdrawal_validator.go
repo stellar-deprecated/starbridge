@@ -67,9 +67,9 @@ func (s EthereumWithdrawalValidator) CanWithdraw(ctx context.Context, deposit st
 	if err != nil {
 		return EthereumWithdrawalDetails{}, err
 	}
-	if latest.Number <= s.EthereumFinalityBuffer {
-		return EthereumWithdrawalDetails{}, EthereumNodeBehind
-	}
+	//if latest.Number <= s.EthereumFinalityBuffer {
+	//	return EthereumWithdrawalDetails{}, EthereumNodeBehind
+	//}
 
 	latestFinalBlock, err := s.Observer.GetBlockByNumber(ctx, latest.Number-s.EthereumFinalityBuffer)
 	if err != nil {

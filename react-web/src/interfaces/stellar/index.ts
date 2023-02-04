@@ -11,7 +11,7 @@ const server = new StellarSdk.Server(process.env.REACT_APP_STELLAR_SERVER_URL)
 
 type StellarBalanceResponse = {
   balances: {
-    asset_code: string
+    asset_type: string
     balance: string
   }[]
 }
@@ -31,7 +31,7 @@ const getBalanceAccount = async (publicKey: string): Promise<string> => {
     .call()
     .then((accountResult: StellarBalanceResponse) => {
       const ethBalance = accountResult.balances.find(
-        balance => balance.asset_code === 'ETH'
+        balance => balance.asset_type === 'native'
       )?.balance
       return Promise.resolve(ethBalance || 0)
     })
@@ -59,10 +59,7 @@ const createPaymentTransaction = async (
       .addOperation(
         StellarSdk.Operation.payment({
           destination: publicKeyDestination,
-          asset: new StellarSdk.Asset(
-            'ETH',
-            process.env.REACT_APP_STELLAR_BRIDGE_ACCOUNT
-          ),
+          asset: StellarSdk.Asset.native(),
           amount: amount,
         })
       )
@@ -80,7 +77,7 @@ const createPaymentTransaction = async (
 const signStellarTransaction = async (xdr: string): Promise<string> => {
   try {
     const signedTransaction = await signTransaction(xdr, {
-      network: process.env.REACT_APP_STELLAR_NETWORK,
+      networkPassphrase: process.env.REACT_APP_STELLAR_NETWORK_PASSPHRASE
     })
 
     const transactionToSubmit = StellarSdk.TransactionBuilder.fromXDR(

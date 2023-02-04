@@ -4,8 +4,8 @@ import { Currency } from 'components/types/currency'
 
 export const validatorUrls = [
   process.env.REACT_APP_STARBRIDGE_VALIDATOR_URL_1,
-  process.env.REACT_APP_STARBRIDGE_VALIDATOR_URL_2,
-  process.env.REACT_APP_STARBRIDGE_VALIDATOR_URL_3,
+  // process.env.REACT_APP_STARBRIDGE_VALIDATOR_URL_2,
+  // process.env.REACT_APP_STARBRIDGE_VALIDATOR_URL_3,
 ]
 
 export type WithdrawResult = {
@@ -15,19 +15,22 @@ export type WithdrawResult = {
   expiration: string
   signature: string
   amount: number
+  token: string
 }
 
 const deposit = async (
   account: string,
-  transactionHash: string
+  transactionHash: string,
+  transactionLogIndex: string
 ): Promise<string> => {
   return new Promise<string>((resolve, reject) => {
     const form = new FormData()
     form.append('hash', transactionHash)
     form.append('stellar_address', account)
+    form.append('log_index', transactionLogIndex)
 
     const promises = validatorUrls.map(url =>
-      axios.post(`${url}/deposit`, form)
+      axios.post(`${url}/ethereum/deposit`, form)
     )
 
     Promise.all(promises)
@@ -60,8 +63,8 @@ const withdraw = async (
           const response = await axios.post(
             `${url}/${
               isFromStellar
-                ? 'stellar/withdraw/ethereum'
-                : 'ethereum/withdraw/stellar'
+                ? 'stellar/withdraw'
+                : 'ethereum/withdraw'
             }`,
             form
           )
