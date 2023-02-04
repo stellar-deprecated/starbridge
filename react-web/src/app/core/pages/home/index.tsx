@@ -22,6 +22,7 @@ import {
   signMultipleStellarTransactions,
   getBalanceAccount,
 } from 'interfaces/stellar'
+import StellarAssetContractBuild from "../../../../interfaces/stellar/StellarAsset.json";
 
 const Home = (): JSX.Element => {
   const [isLoading, setIsLoading] = useState(false)
@@ -78,14 +79,32 @@ const Home = (): JSX.Element => {
       return
     }
 
-    await window.ethereum.enable()
+    await window.ethereum.request({ method: 'eth_requestAccounts' })
     const web3 = new Web3(window.ethereum)
 
-    web3.eth.getBalance(publicKey).then(balance => {
+    // We can use this for proposal user add our token WGBM in his wallet
+    // const assetAdded = await window.ethereum.request({
+    //       method: 'wallet_watchAsset',
+    //       params: {
+    //         type: 'ERC20',
+    //         options: {
+    //           address: process.env.REACT_APP_ETHEREUM_TOKEN_ACCOUNT,
+    //           symbol: 'GBM',
+    //           decimals: 7,
+    //           // image: 'https://foo.io/token-image.svg',
+    //         },
+    //       },
+    //     })
+    const stellarAssetContract = new web3.eth.Contract(
+        StellarAssetContractBuild.abi as Web3utils.AbiItem[],
+        process.env.REACT_APP_ETHEREUM_TOKEN_ACCOUNT
+    )
+
+    await stellarAssetContract.methods.balanceOf(publicKey).call().then(balance => {
       setBalanceEthereumAccount(
-        parseFloat(Web3utils.fromWei(balance)).toFixed(7)
+          parseFloat(Web3utils.fromWei((Number(balance)*10**11).toString())).toFixed(7)
       )
-    })
+    });
   }
 
   const connectWallet = async (currentCurrency: Currency): Promise<void> => {
