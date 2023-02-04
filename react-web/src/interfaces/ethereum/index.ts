@@ -44,7 +44,7 @@ const depositEthereumTransaction = async (
   ethereumAccount: string,
   value: string
 ): Promise<EthereumDepositContractResult> => {
-  await window.ethereum.enable()
+  await window.ethereum.request({ method: 'eth_requestAccounts' })
   const web3 = new Web3(window.ethereum)
 
   const bridgeContract = new web3.eth.Contract(
@@ -55,11 +55,16 @@ const depositEthereumTransaction = async (
   const stellarAccountDecoded =
     StellarSdk.StrKey.decodeEd25519PublicKey(stellarAccount)
 
+  const bomValue = Number(value) * 10**7
+
   return bridgeContract.methods
-    .depositETH(BigNumber.from(stellarAccountDecoded))
+    .depositERC20(
+        process.env.REACT_APP_ETHEREUM_TOKEN_ACCOUNT,
+        BigNumber.from(stellarAccountDecoded),
+        BigNumber.from(bomValue)
+    )
     .send({
       from: ethereumAccount,
-      value: BigNumber.from(Web3utils.toWei(value)),
     })
 }
 
@@ -67,7 +72,7 @@ const withdrawEthereumTransaction = async (
   withdrawResult: WithdrawResult[],
   ethereumAccount: string
 ): Promise<void> => {
-  await window.ethereum.enable()
+  await window.ethereum.request({ method: 'eth_requestAccounts' })
   const web3 = new Web3(window.ethereum)
 
   const withdrawERC20Request = {
