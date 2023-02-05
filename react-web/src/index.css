@@ -61,3 +61,15 @@ input:focus::placeholder {
   align-items: center;
   justify-content: center;
 }
+
+iframe {
+  z-index: -1 !important;
+}
+
+.Toastify__toast-container {
+  top: 6em;
+}
+
+button:focus-visible {
+  border-color: none;
+}

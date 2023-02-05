@@ -1,24 +1,20 @@
-import { BrowserRouter as Router, Link } from 'react-router-dom'
-
+import { BrowserRouter as Router } from 'react-router-dom'
 import classNames from 'classnames'
 import { useAuthContext } from 'context'
 import { formatWalletAccount } from 'utils'
-
 import {
   Button,
   ButtonVariant,
   Typography,
   TypographyVariant,
 } from 'components/atoms'
-import {
-  Heading,
-  TypographyHeadingLevel,
-} from 'components/atoms/typography/heading'
 
-import Eth from 'app/core/resources/eth.svg'
+import Matic from 'app/core/resources/matic.svg'
 import Weth from 'app/core/resources/weth.svg'
+import GbmLogo from 'app/core/resources/gbm_logo.svg'
 
 import styles from './style.module.scss'
+import { Heading, TypographyHeadingLevel } from 'components/atoms/typography/heading'
 
 interface IHeaderProps {
   className?: string
@@ -36,13 +32,14 @@ const Header = ({ className }: IHeaderProps): JSX.Element => {
     <header className={classNames(styles.header, className)}>
       <nav>
         <Router>
-          <Link to="/">
+          <a href="https://bankofmemories.org" className={styles.logoContainer}>
+            <img className={classNames(styles.gbmLogo, className)} src={GbmLogo} alt="Bank of Memories Logo" />
             <Heading
               level={TypographyHeadingLevel.h3}
               text="Starbridge"
               className={styles.title}
             />
-          </Link>
+          </a>
         </Router>
       </nav>
       <div className={styles.containerButton}>
@@ -60,7 +57,7 @@ const Header = ({ className }: IHeaderProps): JSX.Element => {
         </Button>
 
         <Button
-          iconLeft={<img src={Eth} alt="Eth" />}
+          iconLeft={<img src={Matic} alt="Eth" />}
           className={styles.loginButton}
           variant={ButtonVariant.tertiary}
           disabled={!ethereumAccount}

@@ -70,11 +70,6 @@ const LabeledInput = React.forwardRef<HTMLInputElement, ILabeledInputProps>(
             <div>
               <Typography
                 variant={TypographyVariant.label}
-                text="Set Max"
-                className={styles.balanceLabel}
-              />
-              <Typography
-                variant={TypographyVariant.label}
                 text={`Bal: ${balanceAccount} ${currency.initials}`}
               />
             </div>

@@ -149,6 +149,7 @@ const HomeTemplate = ({
 
   return (
     <main className={styles.main}>
+      <div className={styles.bgMask}></div>
       <div className={styles.container}>
         <div className={styles.titleContainer}>
           <Typography

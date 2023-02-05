@@ -1,10 +1,10 @@
 import { Currency } from 'components/types/currency'
 
-import Eth from 'app/core/resources/eth.svg'
 import Weth from 'app/core/resources/weth.svg'
+import Matic from 'app/core/resources/matic.svg'
 
 const WalletIconPath = {
-  [Currency.ETH]: Eth,
+  [Currency.ETH]: Matic,
   [Currency.WETH]: Weth,
 }
 

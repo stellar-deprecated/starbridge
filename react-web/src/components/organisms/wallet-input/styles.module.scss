@@ -49,6 +49,7 @@
     .insideContent {
       display: flex;
       flex-direction: row;
+      align-items: center;
       gap: 8px;
 
       .submittedTxn {
@@ -56,6 +57,16 @@
         font-weight: var(--font-weight-600);
         text-decoration-line: underline;
         font-size: var(--font-size-lg);
+      }
+
+      button {
+        background-color: #0062FF;
+        cursor: pointer;
+
+        &:hover {
+          background-color: #054ADA;
+          transition: all .3s ease-in-out;
+        }
       }
     }
   }

@@ -145,7 +145,7 @@ const Home = (): JSX.Element => {
           .then(() => {
             resetPage()
             toast.success(
-              'The transfer to your Ethereum Wallet was successful!'
+              'The transfer to your Polygon Wallet was successful!'
             )
           })
           .catch(error => {

@@ -1,11 +1,13 @@
 .header {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
   width: 100%;
-  margin-left: auto;
-  margin-right: auto;
-  padding: 41px 120px;
-  align-items: center;
-  display: flex;
+  height: 80px;
+  padding: 0 36px;
+  position: fixed;
+  z-index: 10002;
+  background-color: #F2F4F8;
 }
 
 .containerButton {
@@ -20,9 +22,25 @@
 
 .title {
   color: var(--color-black);
+  position: relative;
+  bottom: 12px;
+  left: 10px;
+  font-weight: 600;
+  font-size: 20px;
 }
 
 .labelButton {
   color: var(--color-black);
   margin-left: 8px;
+}
+
+.gbmLogo {
+  width: 96px;
+  height: 48px;
+}
+
+.logoContainer {
+  display: flex;
+  align-items: flex-end;
+  cursor: pointer;
 }
