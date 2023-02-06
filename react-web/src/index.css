@@ -73,3 +73,7 @@ iframe {
 button:focus-visible {
   border-color: none;
 }
+
+.ReactModal__Overlay {
+  z-index: 99999 !important;
+}

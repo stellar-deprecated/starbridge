@@ -162,6 +162,7 @@ const Home = (): JSX.Element => {
   const createEthereumWithdrawTransaction = (): void => {
     withdraw(Currency.ETH, transactionHash, transactionLogIndex)
       .then(results => {
+        setCurrentTransactionDetails(results[0].xdr)
         setXdrWithdrawTransaction(results)
         setTransactionStep(TransactionStep.signWithdraw)
       })
