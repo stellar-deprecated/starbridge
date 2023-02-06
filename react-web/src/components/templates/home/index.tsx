@@ -119,14 +119,14 @@ const HomeTemplate = ({
   }, [setIsOpenModal, isCurrentStep])
 
   const changeCurrency = (): void => {
-    setCurrencyFrom(prev => {
+    setCurrencyFrom((prev: any) => {
       const newCurrencyFrom =
-        prev === Currency.ETH ? Currency.WETH : Currency.ETH
-      handleErrorInput(inputSent, newCurrencyFrom)
+        prev === 'Polygon' ? Currency.WETH : 'Polygon' as any
+      handleErrorInput(inputSent, newCurrencyFrom as any)
       return newCurrencyFrom
     })
-    setCurrencyTo(prev =>
-      prev === Currency.ETH ? Currency.WETH : Currency.ETH
+    setCurrencyTo((prev: any) =>
+      prev === 'Polygon' ? Currency.WETH : 'Polygon' as any
     )
   }
 
