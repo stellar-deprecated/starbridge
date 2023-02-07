@@ -34,11 +34,11 @@ const Header = ({ className }: IHeaderProps): JSX.Element => {
         <Router>
           <a href="https://bankofmemories.org" className={styles.logoContainer}>
             <img className={classNames(styles.gbmLogo, className)} src={GbmLogo} alt="Bank of Memories Logo" />
-            <Heading
-              level={TypographyHeadingLevel.h3}
-              text="Starbridge"
-              className={styles.title}
-            />
+            {/*<Heading*/}
+            {/*  level={TypographyHeadingLevel.h3}*/}
+            {/*  text="Starbridge"*/}
+            {/*  className={styles.title}*/}
+            {/*/>*/}
           </a>
         </Router>
       </nav>
