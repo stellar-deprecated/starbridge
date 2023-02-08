@@ -10,7 +10,7 @@ import {
 } from 'components/atoms'
 
 import Matic from 'app/core/resources/matic.svg'
-import Weth from 'app/core/resources/weth.svg'
+import Weth from 'app/core/resources/gbm.svg'
 import GbmLogo from 'app/core/resources/gbm_logo.svg'
 
 import styles from './style.module.scss'
