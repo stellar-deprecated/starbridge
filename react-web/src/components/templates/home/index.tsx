@@ -1,19 +1,13 @@
-import { useEffect, useState, useCallback } from 'react'
+import {useCallback, useEffect, useState} from 'react'
 
-import { useAuthContext } from 'context'
+import {useAuthContext} from 'context'
 
-import {
-  Button,
-  ButtonVariant,
-  ButtonSize,
-  Typography,
-  TypographyVariant,
-} from 'components/atoms'
-import { TransactionStep } from 'components/enums'
-import { ICurrencyProps, InputLabel } from 'components/molecules'
-import { SignTransactionModal } from 'components/organisms'
-import { WalletInput } from 'components/organisms/wallet-input'
-import { Currency, CurrencyLabel } from 'components/types/currency'
+import {Button, ButtonSize, ButtonVariant, Typography, TypographyVariant,} from 'components/atoms'
+import {TransactionStep} from 'components/enums'
+import {ICurrencyProps, InputLabel} from 'components/molecules'
+import {SignTransactionModal} from 'components/organisms'
+import {WalletInput} from 'components/organisms/wallet-input'
+import {Currency, CurrencyLabel} from 'components/types/currency'
 
 import SwitchIcon from 'app/core/resources/switch.svg'
 
@@ -25,8 +19,9 @@ export interface IHomeTemplateProps {
   transactionStep?: TransactionStep
   balanceStellarAccount?: string
   balanceEthereumAccount?: string
+  balanceConcordiumAccount?: string
   transactionDetails?: string
-  onSubmit: (value: string, currencyFlow: Currency) => void
+  onSubmit: (value: string, currencyFlow: Currency, chain: Currency) => void
   onSendingButtonClick?: (currencyFrom: Currency) => void
   onReceivingButtonClick?: (currencyTo: Currency) => void
   onDepositSignTransaction?: () => void
@@ -40,6 +35,7 @@ const HomeTemplate = ({
   transactionStep = TransactionStep.deposit,
   balanceStellarAccount = '',
   balanceEthereumAccount = '',
+  balanceConcordiumAccount = '',
   transactionDetails,
   onSubmit,
   onSendingButtonClick,
@@ -48,11 +44,12 @@ const HomeTemplate = ({
   onWithdrawSignTransaction,
   onCancelClick,
 }: IHomeTemplateProps): JSX.Element => {
-  const { stellarAccount, ethereumAccount } = useAuthContext()
+  const { stellarAccount, ethereumAccount, concordiumAccount } = useAuthContext()
 
   const [isButtonEnabled, setIsButtonEnabled] = useState(false)
   const [inputSent, setInputSent] = useState('')
   const [receiveValue, setReceiveValue] = useState('')
+  const [chain, setChain] = useState(Currency.ETH)
   const [currencyFrom, setCurrencyFrom] = useState(Currency.WETH)
   const [currencyTo, setCurrencyTo] = useState(Currency.ETH)
   const [isOpenModal, setIsOpenModal] = useState(false)
@@ -78,6 +75,10 @@ const HomeTemplate = ({
     [Currency.ETH]: {
       initials: CurrencyLabel.eth,
       label: Currency.ETH,
+    },
+    [Currency.WCCD]: {
+      initials: CurrencyLabel.ccd,
+      label: Currency.WCCD,
     },
   }
 
@@ -120,14 +121,36 @@ const HomeTemplate = ({
 
   const changeCurrency = (): void => {
     setCurrencyFrom(prev => {
-      const newCurrencyFrom =
-          prev === Currency.ETH ? Currency.WETH : Currency.ETH
+      let newCurrencyFrom
+      if (chain === Currency.ETH) {
+        newCurrencyFrom =
+            prev === Currency.ETH ? Currency.WETH : Currency.ETH
+      } else {
+        newCurrencyFrom =
+            prev === Currency.WCCD ? Currency.WETH : Currency.WCCD
+      }
       handleErrorInput(inputSent, newCurrencyFrom)
       return newCurrencyFrom
     })
-    setCurrencyTo(prev =>
-        prev === Currency.ETH ? Currency.WETH : Currency.ETH
-    )
+    if (chain === Currency.ETH) {
+      setCurrencyTo(prev =>
+          prev === Currency.ETH ? Currency.WETH : Currency.ETH
+      )
+    } else {
+      setCurrencyTo(prev =>
+          prev === Currency.WCCD ? Currency.WETH : Currency.WCCD
+      )
+    }
+  }
+
+  const changeChain = (): void => {
+    setChain(prev => {
+      const newChain =
+          prev === Currency.ETH ? Currency.WCCD : Currency.ETH
+      setCurrencyFrom(Currency.WETH)
+      setCurrencyTo(newChain)
+      return newChain
+    })
   }
 
   const handleSendingButtonClick = (): void => {
@@ -139,7 +162,7 @@ const HomeTemplate = ({
   }
 
   const handleSubmit = (): void => {
-    onSubmit(receiveValue, currencyFrom)
+    onSubmit(receiveValue, currencyFrom, chain)
   }
 
   const handleCancelModal = (): void => {
@@ -166,6 +189,15 @@ const HomeTemplate = ({
           >
             Switch
           </Button>
+          <Button
+            className={styles.button}
+            variant={ButtonVariant.primary}
+            size={ButtonSize.small}
+            iconLeft={<img src={SwitchIcon} alt="Switch Icon" />}
+            onClick={changeChain}
+          >
+            Change Chain
+          </Button>
         </div>
         <div className={styles.form}>
           <div className={styles.formRow}>
@@ -175,12 +207,16 @@ const HomeTemplate = ({
               accountConnected={
                 currencyFrom === Currency.WETH
                   ? stellarAccount
-                  : ethereumAccount
+                  : currencyFrom === Currency.WCCD
+                        ? concordiumAccount
+                        : ethereumAccount
               }
               balanceAccount={
                 currencyFrom === Currency.WETH
                   ? balanceStellarAccount
-                  : balanceEthereumAccount
+                  : currencyFrom === Currency.WCCD
+                        ? balanceConcordiumAccount
+                        : balanceEthereumAccount
               }
               onChange={onInputSentChange}
               name={InputLabel.sending}
@@ -193,7 +229,11 @@ const HomeTemplate = ({
             <WalletInput
               currency={currencyPropsConverter[currencyTo]}
               accountConnected={
-                currencyTo === Currency.WETH ? stellarAccount : ethereumAccount
+                currencyTo === Currency.WETH
+                    ? stellarAccount
+                    : currencyTo === Currency.WCCD
+                        ? concordiumAccount
+                        : ethereumAccount
               }
               name={InputLabel.receive}
               disabled

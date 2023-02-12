@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@babel/preset-typescript": "^7.18.6",
+    "@concordium/browser-wallet-api-helpers": "^2.2.0",
+    "@concordium/common-sdk": "^6.2.0",
+    "@concordium/react-components": "^0.2.0",
     "@ethersproject/bignumber": "^5.7.0",
     "@ethersproject/bytes": "^5.7.0",
     "@hookform/resolvers": "~2.9.6",

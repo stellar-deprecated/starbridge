@@ -21,9 +21,12 @@ export type AuthProviderProps = {
   setStellarAccount: Dispatch<string>
   ethereumAccount: string
   setEthereumAccount: Dispatch<string>
+  concordiumAccount: string
+  setConcordiumAccount: Dispatch<string>
   ethereumProvider?: string
   logoutStellar: () => void
   logoutEthereum: () => void
+  logoutConcordium: () => void
 }
 
 export const AuthContext = createContext<AuthProviderProps>({
@@ -35,9 +38,14 @@ export const AuthContext = createContext<AuthProviderProps>({
   setEthereumAccount: () => {
     return ''
   },
+  concordiumAccount: '',
+  setConcordiumAccount: () => {
+    return ''
+  },
   ethereumProvider: undefined,
   logoutStellar: () => undefined,
   logoutEthereum: () => undefined,
+  logoutConcordium: () => undefined,
 })
 
 type AuthContextProviderProps = {
@@ -52,6 +60,8 @@ export const AuthContextProvider = ({
   const [stellarAccount, setStellarAccount] = useLocalStorage('stellarAccount')
   const [ethereumAccount, setEthereumAccount] =
     useLocalStorage('ethereumAccount')
+  const [concordiumAccount, setConcordiumAccount] =
+    useLocalStorage('concordiumAccount')
 
   const logoutStellar = (): void => {
     setStellarAccount(undefined)
@@ -62,16 +72,23 @@ export const AuthContextProvider = ({
     window.localStorage.setItem('walletconnect', '')
   }
 
+  const logoutConcordium = (): void => {
+    setConcordiumAccount(undefined)
+  }
+
   return (
     <AuthContext.Provider
       value={{
         stellarAccount: stellarAccount,
         setStellarAccount: setStellarAccount,
         ethereumAccount: ethereumAccount,
+        concordiumAccount: concordiumAccount,
         ethereumProvider: ethereumProvider,
         setEthereumAccount: setEthereumAccount,
+        setConcordiumAccount: setConcordiumAccount,
         logoutStellar: logoutStellar,
         logoutEthereum: logoutEthereum,
+        logoutConcordium: logoutConcordium,
       }}
     >
       {children}

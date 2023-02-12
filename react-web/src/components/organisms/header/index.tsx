@@ -11,6 +11,7 @@ import {
 
 import Matic from 'app/core/resources/matic.svg'
 import Weth from 'app/core/resources/weth.svg'
+import CcdLogo from 'app/core/resources/ccd_logo.svg'
 import GbmLogo from 'app/core/resources/gbm_logo.svg'
 
 import styles from './style.module.scss'
@@ -21,7 +22,7 @@ interface IHeaderProps {
 }
 
 const Header = ({ className }: IHeaderProps): JSX.Element => {
-  const { stellarAccount, ethereumAccount, logoutStellar, logoutEthereum } =
+  const { stellarAccount, ethereumAccount, concordiumAccount, logoutStellar, logoutEthereum, logoutConcordium } =
     useAuthContext()
 
   const handleButtonText = (account: string | undefined): string => {
@@ -66,6 +67,20 @@ const Header = ({ className }: IHeaderProps): JSX.Element => {
           <Typography
             variant={TypographyVariant.label}
             text={handleButtonText(ethereumAccount)}
+            className={styles.labelButton}
+          />
+        </Button>
+
+        <Button
+          iconLeft={<img src={CcdLogo} alt="Ccd" />}
+          className={styles.loginButton}
+          variant={ButtonVariant.tertiary}
+          disabled={!concordiumAccount}
+          onClick={logoutConcordium}
+        >
+          <Typography
+            variant={TypographyVariant.label}
+            text={handleButtonText(concordiumAccount)}
             className={styles.labelButton}
           />
         </Button>

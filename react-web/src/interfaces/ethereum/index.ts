@@ -9,6 +9,10 @@ import Web3Modal from 'web3modal'
 
 import BridgeContractBuild from 'interfaces/ethereum/Bridge.json'
 import { validatorUrls, WithdrawResult } from 'interfaces/http'
+import {detectConcordiumProvider, SchemaType} from "@concordium/browser-wallet-api-helpers";
+import {AccountTransactionType} from "@concordium/common-sdk/lib/types"
+import {CcdAmount} from "@concordium/common-sdk/lib/types/ccdAmount"
+import {Buffer} from "buffer";
 
 type EthereumDepositContractResult = {
   transactionHash: string

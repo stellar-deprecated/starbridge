@@ -1,6 +1,7 @@
 import axios from 'axios'
 
-import { Currency } from 'components/types/currency'
+import {Currency} from 'components/types/currency'
+import {chain} from "lodash";
 
 export const validatorUrls = [
   process.env.REACT_APP_STARBRIDGE_VALIDATOR_URL_1,
@@ -45,14 +46,22 @@ const deposit = async (
 
 const withdraw = async (
   currency: Currency,
+  chain: Currency,
   transactionHash: string,
   transactionIndex = ''
 ): Promise<WithdrawResult[]> => {
+  console.log(currency)
+  console.log(chain)
   const isFromStellar = currency === Currency.WETH
+  const isEthereumChain = chain === Currency.ETH
+  const isConcordiumChain = chain === Currency.WCCD
+  console.log(isFromStellar)
+  console.log(isEthereumChain)
+  console.log(isConcordiumChain)
   const form = new FormData()
   form.append('transaction_hash', transactionHash)
 
-  if (!isFromStellar) {
+  if (!isFromStellar && isEthereumChain) {
     form.append('log_index', transactionIndex)
   }
 
@@ -60,12 +69,22 @@ const withdraw = async (
     return new Promise<WithdrawResult>((resolve, reject) => {
       const postWithdraw = async (): Promise<void> => {
         try {
+          let fullUrl = ""
+          if (isFromStellar) {
+            if (isEthereumChain) {
+              fullUrl = `${url}/stellar/withdraw/ethereum`
+            } else if (isConcordiumChain) {
+              fullUrl = `${url}/stellar/withdraw/concordium`
+            }
+          } else {
+            if (isEthereumChain) {
+              fullUrl = `${url}/ethereum/withdraw/stellar`
+            } else if (isConcordiumChain) {
+              fullUrl = `${url}/concordium/withdraw/stellar`
+            }
+          }
           const response = await axios.post(
-            `${url}/${
-              isFromStellar
-                ? 'stellar/withdraw'
-                : 'ethereum/withdraw'
-            }`,
+              fullUrl,
             form
           )
 

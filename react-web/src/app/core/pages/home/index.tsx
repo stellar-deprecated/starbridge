@@ -1,28 +1,22 @@
-import { useState, useEffect } from 'react'
-import { toast } from 'react-toastify'
+import {useEffect, useState} from 'react'
+import {toast} from 'react-toastify'
 
-import { useAuthContext } from 'context'
-import Web3 from 'web3'
-import Web3utils from 'web3-utils'
+import {useAuthContext} from 'context'
 
-import { TransactionStep } from 'components/enums'
-import { HomeTemplate } from 'components/templates/home'
-import { Currency } from 'components/types/currency'
+import {TransactionStep} from 'components/enums'
+import {HomeTemplate} from 'components/templates/home'
+import {Currency} from 'components/types/currency'
 
-import {
-  connectEthereumWallet,
-  depositEthereumTransaction,
-  withdrawEthereumTransaction,
-} from 'interfaces/ethereum'
-import { deposit, withdraw, WithdrawResult } from 'interfaces/http'
+import {connectEthereumWallet, depositEthereumTransaction, withdrawEthereumTransaction,} from 'interfaces/ethereum'
+import {connectConcordiumWallet, depositConcordiumTransaction,} from 'interfaces/concordium'
+import {deposit, withdraw, WithdrawResult} from 'interfaces/http'
 import {
   connectStellarWallet,
   createPaymentTransaction,
-  signStellarTransaction,
-  signMultipleStellarTransactions,
   getBalanceAccount,
+  signMultipleStellarTransactions,
+  signStellarTransaction,
 } from 'interfaces/stellar'
-import StellarAssetContractBuild from "../../../../interfaces/stellar/StellarAsset.json";
 
 const Home = (): JSX.Element => {
   const [isLoading, setIsLoading] = useState(false)
@@ -39,12 +33,13 @@ const Home = (): JSX.Element => {
   const [transactionHash, setTransactionHash] = useState('')
   const [transactionLogIndex, setTransactionLogIndex] = useState('')
   const [currentTransactionDetails, setCurrentTransactionDetails] = useState('')
-
   const {
     stellarAccount,
     setStellarAccount,
     ethereumAccount,
+    concordiumAccount,
     setEthereumAccount,
+    setConcordiumAccount,
   } = useAuthContext()
 
   useEffect(() => {
@@ -79,8 +74,8 @@ const Home = (): JSX.Element => {
       return
     }
 
-    await window.ethereum.request({ method: 'eth_requestAccounts' })
-    const web3 = new Web3(window.ethereum)
+    // await window.ethereum.request({ method: 'eth_requestAccounts' })
+    // const web3 = new Web3(window.ethereum)
 
     // We can use this for proposal user add our token WGBM in his wallet
     // const assetAdded = await window.ethereum.request({
@@ -95,22 +90,26 @@ const Home = (): JSX.Element => {
     //         },
     //       },
     //     })
-    const stellarAssetContract = new web3.eth.Contract(
-        StellarAssetContractBuild.abi as Web3utils.AbiItem[],
-        process.env.REACT_APP_ETHEREUM_TOKEN_ACCOUNT
-    )
+    // const stellarAssetContract = new web3.eth.Contract(
+    //     StellarAssetContractBuild.abi as Web3utils.AbiItem[],
+    //     process.env.REACT_APP_ETHEREUM_TOKEN_ACCOUNT
+    // )
 
-    await stellarAssetContract.methods.balanceOf(publicKey).call().then(balance => {
-      setBalanceEthereumAccount(
-          parseFloat(Web3utils.fromWei((Number(balance)*10**11).toString())).toFixed(7)
-      )
-    });
+    // await stellarAssetContract.methods.balanceOf(publicKey).call().then(balance => {
+    //   setBalanceEthereumAccount(
+    //       parseFloat(Web3utils.fromWei((Number(balance)*10**11).toString())).toFixed(7)
+    //   )
+    // });
   }
 
   const connectWallet = async (currentCurrency: Currency): Promise<void> => {
-    currentCurrency === Currency.WETH
-      ? connectStellarWallet(setStellarAccount)
-      : connectEthereumWallet(setEthereumAccount)
+    if (currentCurrency === Currency.WETH){
+      connectStellarWallet(setStellarAccount)
+    } else if (currentCurrency == Currency.ETH) {
+      connectEthereumWallet(setEthereumAccount)
+    } else if (currentCurrency == Currency.WCCD) {
+      connectConcordiumWallet(setConcordiumAccount)
+    }
   }
 
   const handleSendingButtonClick = async (
@@ -138,8 +137,8 @@ const Home = (): JSX.Element => {
       .finally(() => setIsLoading(false))
   }
 
-  const createStellarWithdrawTransaction = async (): Promise<void> => {
-    withdraw(Currency.WETH, transactionHash)
+  const createStellarWithdrawTransaction = async (chain: Currency): Promise<void> => {
+    withdraw(Currency.WETH, chain, transactionHash)
       .then(results => {
         withdrawEthereumTransaction(results, ethereumAccount)
           .then(() => {
@@ -159,8 +158,22 @@ const Home = (): JSX.Element => {
       })
   }
 
-  const createEthereumWithdrawTransaction = (): void => {
-    withdraw(Currency.ETH, transactionHash, transactionLogIndex)
+  const createEthereumWithdrawTransaction = (chain: Currency): void => {
+    withdraw(Currency.ETH, chain, transactionHash, transactionLogIndex)
+      .then(results => {
+        setCurrentTransactionDetails(results[0].xdr)
+        setXdrWithdrawTransaction(results)
+        setTransactionStep(TransactionStep.signWithdraw)
+      })
+      .catch(error => {
+        toast.error(error?.response?.data.detail)
+      })
+      .finally(() => setIsLoading(false))
+  }
+
+  const createConcordiumWithdrawTransaction = (chain: Currency): void => {
+    console.log('createConcordiumWithdrawTransaction')
+    withdraw(Currency.WETH, chain, transactionHash)
       .then(results => {
         setCurrentTransactionDetails(results[0].xdr)
         setXdrWithdrawTransaction(results)
@@ -174,9 +187,12 @@ const Home = (): JSX.Element => {
 
   const handleSubmit = async (
     value: string,
-    currencyFlow: Currency
+    currencyFlow: Currency,
+    chainFlow: Currency,
   ): Promise<void> => {
     setIsLoading(true)
+    console.log(value)
+    console.log(currencyFlow)
 
     // eslint-disable-next-line no-console
     console.log("transactionStep before deposit", transactionStep)
@@ -185,6 +201,8 @@ const Home = (): JSX.Element => {
       setIsLoading(true)
       if (currencyFlow === Currency.WETH) {
         createStellarPaymentTrasaction(value)
+      } if (currencyFlow === Currency.WCCD) {
+        depositConcordiumTransaction(stellarAccount, concordiumAccount, value)
       } else {
         depositEthereumTransaction(stellarAccount, ethereumAccount, value)
           .then(result => {
@@ -204,11 +222,21 @@ const Home = (): JSX.Element => {
 
     // eslint-disable-next-line no-console
     console.log("transactionStep after deposit", transactionStep)
+    console.log("currencyFlow", currencyFlow)
+    console.log("chainFlow", chainFlow)
 
     if (transactionStep === TransactionStep.withdraw) {
-      currencyFlow === Currency.WETH
-        ? createStellarWithdrawTransaction()
-        : createEthereumWithdrawTransaction()
+      if (currencyFlow === Currency.WETH){
+        if (chainFlow === Currency.ETH) {
+          createStellarWithdrawTransaction(chainFlow)
+        } else if (chainFlow === Currency.WCCD) {
+          createConcordiumWithdrawTransaction(chainFlow)
+        }
+      } else {
+        if (chainFlow === Currency.ETH) {
+          createEthereumWithdrawTransaction(chainFlow)
+        }
+      }
     }
   }
 

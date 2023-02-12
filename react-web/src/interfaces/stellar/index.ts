@@ -48,9 +48,12 @@ const createPaymentTransaction = async (
 ): Promise<string> => {
   try {
     const account = await server.loadAccount(publicKey)
+    console.log(account)
     const fee = await server.fetchBaseFee()
 
     const keyArray = zeroPad(arrayify(ethereumKey), 32)
+    console.log(publicKeyDestination)
+    console.log(publicKey)
 
     const transaction = new StellarSdk.TransactionBuilder(account, {
       fee,
