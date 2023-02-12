@@ -1,2 +1,4 @@
 .idea
 starbridge.cfg
+*.DS_Store
+.DS_Store
