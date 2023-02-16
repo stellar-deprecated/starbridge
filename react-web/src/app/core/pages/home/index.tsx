@@ -219,7 +219,7 @@ const Home = (): JSX.Element => {
         depositConcordiumTransaction(stellarAccount, concordiumAccount, value)
             .then(txHash => {
                 axios.post(
-                    'http://localhost:8130/invokeContract/getDepositParams',
+                    'https://concordium-service.bridge.bankofmemories.org/invokeContract/getDepositParams',
                     {hash: txHash},
                     {headers: {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"}}
                 ).then(()=>{
