@@ -6,6 +6,6 @@ export enum CurrencyLabel {
 
 export enum Currency {
   ETH = 'Polygon',
-  WETH = 'Stellar',
+  WETH = 'GBM',
   WCCD = 'Concordium',
 }
