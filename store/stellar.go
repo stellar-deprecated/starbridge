@@ -56,6 +56,17 @@ func (m *DB) GetStellarDeposit(ctx context.Context, id string) (StellarDeposit, 
 	return result, nil
 }
 
+func (m *DB) UpdateStellarDepositDestination(ctx context.Context, id string, destination string) error {
+	query := sq.Update("stellar_deposits").
+		Set("destination", destination).
+		Where(
+			sq.Eq{"id": strings.ToLower(id)},
+		)
+
+	_, err := m.Session.Exec(ctx, query)
+	return err
+}
+
 func (m *DB) InsertStellarDeposit(ctx context.Context, deposit StellarDeposit) error {
 	query := sq.Insert("stellar_deposits").
 		SetMap(map[string]interface{}{

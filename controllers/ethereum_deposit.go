@@ -50,7 +50,7 @@ var (
 	validTxHash = regexp.MustCompile("^(0x)?([A-Fa-f0-9]{64})$")
 )
 
-type EthereumDeposit struct {
+type EthereumDepositHandler struct {
 	Observer                   ethereum.Observer
 	Store                      *store.DB
 	StellarWithdrawalValidator backend.StellarWithdrawalValidator
@@ -58,7 +58,7 @@ type EthereumDeposit struct {
 	Token                      string
 }
 
-func (c *EthereumDeposit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (c *EthereumDepositHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	txHash := r.PostFormValue("hash")
 	stellarAddress := r.PostFormValue("stellar_address")
 	parsed, err := strconv.ParseInt(r.PostFormValue("log_index"), 10, 32)

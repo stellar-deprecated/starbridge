@@ -13,8 +13,9 @@ type (
 )
 
 const (
-	Stellar  Blockchain = "stellar"
-	Ethereum Blockchain = "ethereum"
+	Stellar    Blockchain = "stellar"
+	Ethereum   Blockchain = "ethereum"
+	Concordium Blockchain = "concordium"
 )
 
 const (
@@ -23,13 +24,15 @@ const (
 )
 
 type SignatureRequest struct {
-	DepositChain Blockchain `db:"deposit_chain"`
-	Action       Action     `db:"requested_action"`
-	DepositID    string     `db:"deposit_id"`
+	WithdrawChain Blockchain `db:"withdraw_chain"`
+	DepositChain  Blockchain `db:"deposit_chain"`
+	Action        Action     `db:"requested_action"`
+	DepositID     string     `db:"deposit_id"`
 }
 
 func (m *DB) InsertSignatureRequest(ctx context.Context, request SignatureRequest) error {
 	sql := sq.Insert("signature_requests").SetMap(map[string]interface{}{
+		"withdraw_chain":   request.WithdrawChain,
 		"deposit_chain":    request.DepositChain,
 		"requested_action": request.Action,
 		"deposit_id":       strings.ToLower(request.DepositID),
@@ -56,6 +59,7 @@ func (m *DB) GetSignatureRequests(ctx context.Context) ([]SignatureRequest, erro
 
 func (m *DB) DeleteSignatureRequest(ctx context.Context, request SignatureRequest) error {
 	del := sq.Delete("signature_requests").Where(map[string]interface{}{
+		"withdraw_chain":   request.WithdrawChain,
 		"deposit_chain":    request.DepositChain,
 		"deposit_id":       strings.ToLower(request.DepositID),
 		"requested_action": request.Action,

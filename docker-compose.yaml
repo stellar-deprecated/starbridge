@@ -18,3 +18,13 @@ services:
       - '3001:3000'
     environment:
       - NODE_ENV=development
+  ccd-node-service:
+    container_name: starbridge-ccd-node-service
+    build:
+      context: ./concordium-node-service
+      dockerfile: Dockerfile
+    volumes:
+      - './concordium-node-service:/app'
+      - '/app/node_modules'
+    ports:
+      - '8130:8130'

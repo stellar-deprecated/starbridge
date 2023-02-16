@@ -2,25 +2,36 @@ package controllers
 
 import (
 	"database/sql"
+	"github.com/stellar/go/strkey"
+	"github.com/stellar/go/support/render/problem"
+	"github.com/stellar/starbridge/concordium"
+	"math/big"
 	"net/http"
 
 	"github.com/stellar/go/clients/horizonclient"
-	"github.com/stellar/go/support/render/problem"
 	"github.com/stellar/starbridge/backend"
-	"github.com/stellar/starbridge/ethereum"
 	"github.com/stellar/starbridge/store"
 )
 
-type StellarWithdrawalHandler struct {
-	StellarClient              *horizonclient.Client
-	Observer                   ethereum.Observer
-	Store                      *store.DB
-	StellarWithdrawalValidator backend.StellarWithdrawalValidator
-	EthereumFinalityBuffer     uint64
+type ConcordiumStellarWithdrawalHandler struct {
+	StellarClient                          *horizonclient.Client
+	Observer                               concordium.Observer
+	Store                                  *store.DB
+	ConcordiumToStellarWithdrawalValidator backend.StellarWithdrawalValidator
 }
 
-func (c *StellarWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	deposit, err := getEthereumDeposit(c.Observer, c.Store, c.EthereumFinalityBuffer, r)
+func (c *ConcordiumStellarWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	txHash := r.PostFormValue("transaction_hash")
+	stellarAddress := r.PostFormValue("destination")
+	decoded, err := strkey.Decode(strkey.VersionByteAccountID, stellarAddress)
+	if err != nil {
+		problem.Render(r.Context(), w, err)
+		return
+	}
+
+	var intEncoded big.Int
+	intEncoded.SetBytes(decoded)
+	deposit, err := getConcordiumDeposit(txHash, c.Store)
 	if err != nil {
 		problem.Render(r.Context(), w, err)
 		return
@@ -47,7 +58,7 @@ func (c *StellarWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	_, err = c.StellarWithdrawalValidator.CanWithdraw(r.Context(), deposit)
+	_, err = c.ConcordiumToStellarWithdrawalValidator.CanWithdrawConcordium(r.Context(), deposit)
 	if err != nil {
 		problem.Render(r.Context(), w, err)
 		return
@@ -56,9 +67,10 @@ func (c *StellarWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Requ
 	// Outgoing Stellar transaction does not exist so create signature request.
 	// Duplicate requests for the same signatures are not allowed but the error is ignored.
 	err = c.Store.InsertSignatureRequest(r.Context(), store.SignatureRequest{
-		DepositChain: store.Ethereum,
-		Action:       store.Withdraw,
-		DepositID:    deposit.ID,
+		WithdrawChain: store.Stellar,
+		DepositChain:  store.Concordium,
+		Action:        store.Withdraw,
+		DepositID:     deposit.ID,
 	})
 	if err != nil {
 		problem.Render(r.Context(), w, err)

@@ -1,0 +1,445 @@
+syntax = "proto3";
+
+option go_package = "github.com/stellar/starbridge/concordium;proto";
+
+import "google/protobuf/wrappers.proto";
+
+package concordium;
+
+// An empty message.
+message Empty {}
+
+// A numeric response.
+message NumberResponse {
+  uint64 value = 1 [jstype = JS_STRING];
+}
+
+// A response consisting of a boolean.
+message BoolResponse {
+  bool value = 1;
+}
+
+// A response in string format.
+message StringResponse {
+  string value = 1;
+}
+
+// A response that is encoded in JSON.
+// JSON schemas are available at https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+message JsonResponse {
+  string value = 1;
+}
+
+// A response in binary format.
+// The encoding of the data is dependent on the endpoint.
+message BytesResponse {
+  bytes value = 1;
+}
+
+// A request that suggests the node to connect to the specified peer.
+message PeerConnectRequest {
+  // The IP of the peer.
+  google.protobuf.StringValue ip = 1;
+
+  // The port of the peer.
+  google.protobuf.Int32Value port = 2;
+}
+
+// A peer node.
+message PeerElement {
+  // The id of the node.
+  google.protobuf.StringValue node_id = 1;
+
+  // The port of the node.
+  google.protobuf.UInt32Value port = 2;
+
+  // The IP of the node.
+  google.protobuf.StringValue ip = 3;
+
+  enum CatchupStatus {
+    // The peer does not have any data unknown to us. If we receive a message from the
+    // peer that refers to unknown data (e.g., an unknown block) the peer is marked as pending.
+    UPTODATE = 0;
+    // The peer might have some data unknown to us. A peer can be in this state either because
+    // it sent a message that refers to data unknown to us, or before we have established a baseline with it.
+    // The latter happens during node startup, as well as upon protocol updates until the initial catchup handshake
+    // completes.
+    PENDING = 1;
+    // The node is currently catching up by requesting blocks from this peer.
+    // There will be at most one peer with this status at a time.
+    // Once the peer has responded to the request, its status will be changed to:
+    // - 'UPTODATE' if the peer has no more data that is not known to us
+    // - 'PENDING' if the node has more data that is unknown to us.
+    CATCHINGUP = 2;
+  }
+
+  // The current status of the peer.
+  CatchupStatus catchup_status = 4;
+}
+
+// A response containing a list of peers.
+message PeerListResponse {
+  // The type of the queried node.
+  // Possible values: "Node" or "Bootstrapper".
+  string peer_type = 1;
+
+  // A list of peers.
+  repeated PeerElement peers = 2;
+}
+
+// A response containing information about a peer.
+message PeerStatsResponse {
+  message PeerStats {
+    // The node id.
+    string node_id = 1;
+
+    // The number of messages sent to the peer.
+    uint64 packets_sent = 2 [jstype = JS_STRING];
+
+    // The number of messages received from the peer.
+    uint64 packets_received = 3 [jstype = JS_STRING];
+
+    // The connection latency (i.e., ping time) in milliseconds.
+    uint64 latency = 4 [jstype = JS_STRING];
+  }
+
+  // A list of stats for the peers.
+  repeated PeerStats peerstats = 1;
+
+  // Average outbound throughput in bytes per second.
+  uint64 avg_bps_in = 2 [jstype = JS_STRING];
+
+  // Average inbound throughput in bytes per second.
+  uint64 avg_bps_out = 3 [jstype = JS_STRING];
+}
+
+// A request to change the network.
+message NetworkChangeRequest {
+  // The identifier for the network.
+  google.protobuf.Int32Value network_id = 1;
+}
+
+// A response containing information about the node.
+message NodeInfoResponse {
+  // The unique node identifier.
+  google.protobuf.StringValue node_id = 1;
+
+  // The local time of the node represented as a unix timestamp in seconds.
+  uint64 current_localtime = 2 [jstype = JS_STRING];
+
+  // The node type. Either "Node" or "Bootstrapper".
+  string peer_type = 3;
+
+  // Whether the node is a baker.
+  bool consensus_baker_running = 4;
+
+  // Whether consensus is running.
+  // This is only false if the protocol was updated to a version which the node software does not support.
+  bool consensus_running = 5;
+
+  // Whether the node is "Active" or "Passive".
+  // - "Active": the node has baker credentials and can thus potentially participate in baking and finalization.
+  // - "Passive": the node has no baker credentials is thus only an observer of the consensus protocol.
+  string consensus_type = 6;
+
+  enum IsInBakingCommittee {
+    // The node is not the baking committee.
+    NOT_IN_COMMITTEE = 0;
+    // The node has baker keys, but the account is not currently a baker (and possibly never will be).
+    ADDED_BUT_NOT_ACTIVE_IN_COMMITTEE = 1;
+    // The node has baker keys, but they don't match the current keys on the baker account.
+    ADDED_BUT_WRONG_KEYS = 2;
+    // The node has valid baker keys and is active in the baker committee.
+    ACTIVE_IN_COMMITTEE = 3;
+  }
+
+  // The baking status of the node.
+  IsInBakingCommittee consensus_baker_committee = 7;
+
+  // Whether the node is part of the finalization committee.
+  bool consensus_finalizer_committee = 8;
+
+  // The baker id. This will be `null` if the node is not a baker.
+  google.protobuf.UInt64Value consensus_baker_id = 9;
+
+  // Deprecated.
+  google.protobuf.StringValue staging_net_username = 50 [deprecated = true];
+}
+
+// Hash of a block (encoded in hex). Is always 64 characters long.
+// Example: "987d6c06256fbf874d6ba14f19baee4390a31c6ee58edd9cc4efef62e89d22d7"
+message BlockHash {
+  string block_hash = 1;
+}
+
+// An account address. Uses a base58-check encoding with a version byte set to 1. Is always 50 characters long.
+// Example: "3DJoe7aUwMwVmdFdRU2QsnJfsBbCmQu1QHvEg7YtWFZWmsoBXe"
+message AccountAddress {
+  string account_address = 1;
+}
+
+// Hash of a transaction (encoded in hex). Is always 64 characters long.
+// Example: "987d6c06256fbf874d6ba14f19baee4390a31c6ee58edd9cc4efef62e89d22d7"
+message TransactionHash {
+  string transaction_hash = 1;
+}
+
+// Request for getting the ancestors of a block.
+message BlockHashAndAmount {
+  // The block to get ancestors of.
+  string block_hash = 1;
+
+  // The maximum amount of ancestors that will be returned.
+  uint64 amount = 2 [jstype = JS_STRING];
+}
+
+// Submit a transaction to the node. The transaction is subject to basic validation
+// and is then relayed to all the peers.
+message SendTransactionRequest {
+  // The network id (currently not used in this request).
+  uint32 network_id = 1;
+
+  // The transaction payload in binary encoding.
+  // The encoding of certain transaction types, along with the general payload structure,
+  // is described at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  bytes payload = 2;
+}
+
+// Request for getting information about an account address.
+message GetAddressInfoRequest {
+  // Hash of the block (encoded in hex) at which the information should be gathered.
+  string block_hash = 1;
+
+  // The account address to request information about.
+  string address = 2;
+}
+
+// Request for invoking a contract without a transaction.
+message InvokeContractRequest {
+  // Hash of the block (encoded in hex) at which to invoke the contract.
+  string block_hash = 1;
+
+  // A JSON object that specifies which contract to invoke, and how.
+  // A JSON schema for the context is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  string context = 2;
+}
+
+// Request for getting the source of a smart contract module.
+message GetModuleSourceRequest {
+  // The block to be used for the query.
+  string block_hash = 1;
+
+  // The reference (hash) of the module.
+  string module_ref = 2;
+}
+
+// Request to enable dumping of network packages.
+message DumpRequest {
+  // Which file to dump the packages into.
+  string file = 1;
+
+  // Whether the node should dump raw packages.
+  bool raw = 2;
+}
+
+// Request for getting (information about) the peers.
+message PeersRequest {
+  // Whether bootstrapper nodes should be included in the result.
+  bool include_bootstrappers = 1;
+}
+
+// Request for getting the status of a transaction in a given block.
+message GetTransactionStatusInBlockRequest {
+  // The transaction hash.
+  string transaction_hash = 1;
+
+  // The block hash.
+  string block_hash = 2;
+}
+
+// Request for getting the status of a pool.
+message GetPoolStatusRequest {
+  // The block from which the query should be processed.
+  string block_hash = 1;
+
+  // Whether the request is for passive delegation or a specific baker.
+  bool passive_delegation = 2;
+
+  // The baker id to get the status of. This will be ignored if 'passive_delegation' is 'true'.
+  uint64 baker_id = 3 [jstype = JS_STRING];
+}
+
+// Request for gettings the blocks at a specific height.
+message BlockHeight {
+  // The block height.
+  uint64 block_height = 1 [jstype = JS_STRING];
+
+  // The block height is relative to the genesis block at this index.
+  uint32 from_genesis_index = 2;
+
+  // If true, only return results from the specified genesis index.
+  bool restrict_to_genesis_index = 3;
+}
+
+service P2P {
+  // Suggest to a peer to connect to the submitted peer details.
+  // This, if successful, adds the peer to the list of given addresses.
+  rpc PeerConnect (PeerConnectRequest) returns (BoolResponse) {}
+
+  // Disconnect from the peer and remove them from the given addresses list
+  // if they are on it. Return if the request was processed successfully.
+  rpc PeerDisconnect (PeerConnectRequest) returns (BoolResponse) {}
+
+  // Uptime of the *node* in milliseconds.
+  rpc PeerUptime(Empty) returns (NumberResponse) {}
+
+  // Total number of sent packets by the node.
+  rpc PeerTotalSent(Empty) returns (NumberResponse) {}
+
+  // Total number of received packets by the node.
+  rpc PeerTotalReceived(Empty) returns(NumberResponse) {}
+
+  // Node software version.
+  rpc PeerVersion(Empty) returns (StringResponse) {}
+
+  // Stats for connected peers.
+  rpc PeerStats(PeersRequest) returns (PeerStatsResponse) {}
+
+  // List of connected peers.
+  rpc PeerList(PeersRequest) returns (PeerListResponse) {}
+
+  // Ban a the given peer.
+  rpc BanNode(PeerElement) returns (BoolResponse) {}
+
+  // Unban the given peer.
+  rpc UnbanNode(PeerElement) returns (BoolResponse) {}
+
+  // Join the provided network.
+  rpc JoinNetwork(NetworkChangeRequest) returns (BoolResponse) {}
+
+  // Leave the provided network.
+  rpc LeaveNetwork(NetworkChangeRequest) returns (BoolResponse) {}
+
+  // Get information about the running node.
+  rpc NodeInfo(Empty) returns (NodeInfoResponse) {}
+
+  // Get information about the consensus.
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc GetConsensusStatus(Empty) returns (JsonResponse) {}
+
+  // Get information about the block.
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc GetBlockInfo(BlockHash) returns (JsonResponse) {}
+
+  // Get ancestors for the provided block.
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc GetAncestors(BlockHashAndAmount) returns (JsonResponse) {}
+
+  // Get the current branches.
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc GetBranches(Empty) returns (JsonResponse) {}
+
+  // Get the blocks at the given height.
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc GetBlocksAtHeight(BlockHeight) returns (JsonResponse) {}
+
+  // Submit a transaction.
+  rpc SendTransaction(SendTransactionRequest) returns (BoolResponse) {}
+
+  // Start the baker in the consensus module.
+  rpc StartBaker(Empty) returns (BoolResponse) {}
+
+  // Stop the baker in the consensus module.
+  rpc StopBaker(Empty) returns (BoolResponse) {}
+
+  // Get a list of accounts that exist in the state after the given block.
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc GetAccountList(BlockHash) returns (JsonResponse) {}
+
+  // Get all smart contract instances that exist in the state after the given block.
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc GetInstances(BlockHash) returns (JsonResponse) {}
+
+  // Get information about an account.
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc GetAccountInfo(GetAddressInfoRequest) returns (JsonResponse) {}
+
+  // Get information about a smart contract instance.
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc GetInstanceInfo(GetAddressInfoRequest) returns (JsonResponse) {}
+
+  // Invoke a smart contract instance and view the result *as if* it had been updated at the end of the provided block.
+  // This is *not* a transaction.
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc InvokeContract(InvokeContractRequest) returns (JsonResponse) {}
+
+  // Get an overview of the balance of special accounts in the given block.
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc GetRewardStatus(BlockHash) returns (JsonResponse) {}
+
+  // Get an overview of the parameters used for baking.
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc GetBirkParameters(BlockHash) returns (JsonResponse) {}
+
+  // Get a list of smart contract modules that exist in the state after the given block.
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc GetModuleList(BlockHash) returns (JsonResponse) {}
+
+  // Get the source of a smart contract module.
+  rpc GetModuleSource(GetModuleSourceRequest) returns (BytesResponse) {}
+
+  // Get a list of all identity providers that exist in the state after the given block.
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc GetIdentityProviders(BlockHash) returns (JsonResponse) {}
+
+  // Get a list of all anonymity revokers that exist in the state after the given block.
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc GetAnonymityRevokers(BlockHash) returns (JsonResponse) {}
+
+  // Get the cryptographic parameters used in the given block.
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc GetCryptographicParameters(BlockHash) returns (JsonResponse) {}
+
+  // Get a list of all baker IDs registered at that block in ascending order. Or null, if the block is invalid.
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc GetBakerList(BlockHash) returns (JsonResponse) {}
+
+  // Get the status of a pool. If passiveDelegation == true, this returns the status for the passive delegators.
+  // Otherwise, it returns the status for the baker with the specified ID (if it exists).
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc GetPoolStatus(GetPoolStatusRequest) returns (JsonResponse) {}
+
+  // Get a list of banned peers.
+  rpc GetBannedPeers(Empty) returns (PeerListResponse) {}
+
+  // Shut down the node.
+  rpc Shutdown(Empty) returns (BoolResponse) {}
+
+  // Start dumping packages into the specified file.
+  // Only enabled if the node was built with the `network_dump` feature.
+  rpc DumpStart(DumpRequest) returns (BoolResponse) {}
+
+  // Stop dumping packages.
+  // Only enabled if the node was built with the `network_dump` feature.
+  rpc DumpStop(Empty) returns (BoolResponse) {}
+
+  // Query for the status of a transaction by its hash.
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc GetTransactionStatus(TransactionHash) returns (JsonResponse) {}
+
+  // Query for transactions in a block by its hash.
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc GetTransactionStatusInBlock(GetTransactionStatusInBlockRequest) returns (JsonResponse) {}
+
+  // Query for non-finalized transactions present on an account by the account address.
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc GetAccountNonFinalizedTransactions(AccountAddress) returns (JsonResponse) {}
+
+  // Request a summary for a block by its hash.
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc GetBlockSummary(BlockHash) returns (JsonResponse) {}
+
+  // Request next nonce information for an account.
+  // A JSON schema for the return type is provided at: https://developer.concordium.software/en/mainnet/net/references/grpc.html.
+  rpc GetNextAccountNonce(AccountAddress) returns (JsonResponse) {}
+}

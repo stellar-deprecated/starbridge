@@ -8,7 +8,11 @@ import {HomeTemplate} from 'components/templates/home'
 import {Currency} from 'components/types/currency'
 
 import {connectEthereumWallet, depositEthereumTransaction, withdrawEthereumTransaction,} from 'interfaces/ethereum'
-import {connectConcordiumWallet, depositConcordiumTransaction,} from 'interfaces/concordium'
+import {
+  connectConcordiumWallet,
+  depositConcordiumTransaction,
+  withdrawConcordiumTransaction
+} from 'interfaces/concordium'
 import {deposit, withdraw, WithdrawResult} from 'interfaces/http'
 import {
   connectStellarWallet,
@@ -17,6 +21,7 @@ import {
   signMultipleStellarTransactions,
   signStellarTransaction,
 } from 'interfaces/stellar'
+import axios from "axios";
 
 const Home = (): JSX.Element => {
   const [isLoading, setIsLoading] = useState(false)
@@ -122,12 +127,13 @@ const Home = (): JSX.Element => {
     connectWallet(currencyTo)
   }
 
-  const createStellarPaymentTrasaction = (value: string): void => {
+  const createStellarPaymentTrasaction = (value: string, chain: Currency): void => {
+    const destinationAccount = chain === Currency.ETH ? ethereumAccount : concordiumAccount
     createPaymentTransaction(
       stellarAccount,
       process.env.REACT_APP_STELLAR_BRIDGE_ACCOUNT || '',
       value,
-      ethereumAccount
+        destinationAccount
     )
       .then(xdr => {
         setXdrPaymentTransaction(xdr)
@@ -138,19 +144,33 @@ const Home = (): JSX.Element => {
   }
 
   const createStellarWithdrawTransaction = async (chain: Currency): Promise<void> => {
-    withdraw(Currency.WETH, chain, transactionHash)
+    withdraw(Currency.WETH, chain, transactionHash, concordiumAccount)
       .then(results => {
-        withdrawEthereumTransaction(results, ethereumAccount)
-          .then(() => {
-            resetPage()
-            toast.success(
-              'The transfer to your Polygon Wallet was successful!'
-            )
-          })
-          .catch(error => {
-            toast.error(error.message)
-          })
-          .finally(() => setIsLoading(false))
+        if (chain === Currency.ETH){
+          withdrawEthereumTransaction(results, ethereumAccount)
+              .then(() => {
+                resetPage()
+                toast.success(
+                    'The transfer to your Polygon Wallet was successful!'
+                )
+              })
+              .catch(error => {
+                toast.error(error.message)
+              })
+              .finally(() => setIsLoading(false))
+        } else if (chain === Currency.WCCD) {
+          withdrawConcordiumTransaction(results, concordiumAccount)
+              .then(() => {
+                resetPage()
+                toast.success(
+                    'The transfer to your Concordium Wallet was successful!'
+                )
+              })
+              .catch(error => {
+                toast.error(error.message)
+              })
+              .finally(() => setIsLoading(false))
+        }
       })
       .catch(error => {
         toast.error(error.message)
@@ -159,7 +179,7 @@ const Home = (): JSX.Element => {
   }
 
   const createEthereumWithdrawTransaction = (chain: Currency): void => {
-    withdraw(Currency.ETH, chain, transactionHash, transactionLogIndex)
+    withdraw(Currency.ETH, chain, transactionHash, ethereumAccount, transactionLogIndex)
       .then(results => {
         setCurrentTransactionDetails(results[0].xdr)
         setXdrWithdrawTransaction(results)
@@ -172,12 +192,11 @@ const Home = (): JSX.Element => {
   }
 
   const createConcordiumWithdrawTransaction = (chain: Currency): void => {
-    console.log('createConcordiumWithdrawTransaction')
-    withdraw(Currency.WETH, chain, transactionHash)
+    withdraw(Currency.WCCD, chain, transactionHash, stellarAccount)
       .then(results => {
-        setCurrentTransactionDetails(results[0].xdr)
-        setXdrWithdrawTransaction(results)
-        setTransactionStep(TransactionStep.signWithdraw)
+          setCurrentTransactionDetails(results[0].xdr)
+          setXdrWithdrawTransaction(results)
+          setTransactionStep(TransactionStep.signWithdraw)
       })
       .catch(error => {
         toast.error(error?.response?.data.detail)
@@ -191,25 +210,32 @@ const Home = (): JSX.Element => {
     chainFlow: Currency,
   ): Promise<void> => {
     setIsLoading(true)
-    console.log(value)
-    console.log(currencyFlow)
-
-    // eslint-disable-next-line no-console
-    console.log("transactionStep before deposit", transactionStep)
 
     if (transactionStep === TransactionStep.deposit) {
       setIsLoading(true)
       if (currencyFlow === Currency.WETH) {
-        createStellarPaymentTrasaction(value)
-      } if (currencyFlow === Currency.WCCD) {
+        createStellarPaymentTrasaction(value, chainFlow)
+      } else if (currencyFlow === Currency.WCCD) {
         depositConcordiumTransaction(stellarAccount, concordiumAccount, value)
+            .then(txHash => {
+                axios.post(
+                    'http://localhost:8130/invokeContract/getDepositParams',
+                    {hash: txHash},
+                    {headers: {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"}}
+                ).then(()=>{
+                    setTransactionHash(txHash)
+                    deposit(chainFlow, stellarAccount, txHash)
+                        .then(() => setTransactionStep(TransactionStep.withdraw))
+                        .finally(()=>setIsLoading(false))
+                })
+            })
       } else {
         depositEthereumTransaction(stellarAccount, ethereumAccount, value)
           .then(result => {
             setTransactionHash(result.transactionHash)
             setTransactionLogIndex(result.events.Deposit.logIndex)
 
-            deposit(stellarAccount, result.transactionHash, result.events.Deposit.logIndex)
+            deposit(chainFlow, stellarAccount, result.transactionHash, result.events.Deposit.logIndex)
               .then(() => setTransactionStep(TransactionStep.withdraw))
               .finally(() => setIsLoading(false))
           })
@@ -219,22 +245,20 @@ const Home = (): JSX.Element => {
           })
       }
     }
-
-    // eslint-disable-next-line no-console
-    console.log("transactionStep after deposit", transactionStep)
-    console.log("currencyFlow", currencyFlow)
-    console.log("chainFlow", chainFlow)
-
     if (transactionStep === TransactionStep.withdraw) {
       if (currencyFlow === Currency.WETH){
         if (chainFlow === Currency.ETH) {
           createStellarWithdrawTransaction(chainFlow)
         } else if (chainFlow === Currency.WCCD) {
-          createConcordiumWithdrawTransaction(chainFlow)
+          createStellarWithdrawTransaction(chainFlow)
         }
-      } else {
+      } else if (currencyFlow === Currency.ETH){
         if (chainFlow === Currency.ETH) {
           createEthereumWithdrawTransaction(chainFlow)
+        }
+      } else if (currencyFlow === Currency.WCCD){
+        if (chainFlow === Currency.WCCD) {
+          createConcordiumWithdrawTransaction(chainFlow)
         }
       }
     }

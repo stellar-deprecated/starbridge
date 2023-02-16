@@ -6,6 +6,7 @@ import { signTransaction, getPublicKey } from '@stellar/freighter-api'
 import StellarSdk from 'stellar-sdk'
 
 import { validatorUrls, WithdrawResult } from 'interfaces/http'
+import {Buffer} from "buffer";
 
 const server = new StellarSdk.Server(process.env.REACT_APP_STELLAR_SERVER_URL)
 
@@ -39,7 +40,6 @@ const getBalanceAccount = async (publicKey: string): Promise<string> => {
       return Promise.reject('Unable to get Stellar Wallet balance!')
     })
 }
-
 const createPaymentTransaction = async (
   publicKey: string,
   publicKeyDestination: string,
@@ -48,27 +48,40 @@ const createPaymentTransaction = async (
 ): Promise<string> => {
   try {
     const account = await server.loadAccount(publicKey)
-    console.log(account)
     const fee = await server.fetchBaseFee()
 
-    const keyArray = zeroPad(arrayify(ethereumKey), 32)
-    console.log(publicKeyDestination)
-    console.log(publicKey)
-
-    const transaction = new StellarSdk.TransactionBuilder(account, {
-      fee,
-      networkPassphrase: StellarSdk.Networks.TESTNET,
-    })
-      .addOperation(
-        StellarSdk.Operation.payment({
-          destination: publicKeyDestination,
-          asset: StellarSdk.Asset.native(),
-          amount: amount,
-        })
-      )
-      .addMemo(new StellarSdk.Memo.hash(Buffer.from(keyArray)))
-      .setTimeout(0)
-      .build()
+    let transaction
+    try {
+      const keyArray = zeroPad(arrayify(ethereumKey), 32)
+      transaction = new StellarSdk.TransactionBuilder(account, {
+        fee,
+        networkPassphrase: StellarSdk.Networks.TESTNET,
+      })
+          .addOperation(
+              StellarSdk.Operation.payment({
+                destination: publicKeyDestination,
+                asset: StellarSdk.Asset.native(),
+                amount: amount,
+              })
+          )
+          .addMemo(new StellarSdk.Memo.hash(Buffer.from(keyArray)))
+          .setTimeout(0)
+          .build()
+    } catch {
+      transaction = new StellarSdk.TransactionBuilder(account, {
+        fee,
+        networkPassphrase: StellarSdk.Networks.TESTNET,
+      })
+          .addOperation(
+              StellarSdk.Operation.payment({
+                destination: publicKeyDestination,
+                asset: StellarSdk.Asset.native(),
+                amount: amount,
+              })
+          )
+          .setTimeout(0)
+          .build()
+    }
 
     const xdr = transaction.toEnvelope().toXDR('base64')
     return Promise.resolve(xdr)

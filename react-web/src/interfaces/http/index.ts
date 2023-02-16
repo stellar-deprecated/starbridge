@@ -1,7 +1,6 @@
 import axios from 'axios'
 
 import {Currency} from 'components/types/currency'
-import {chain} from "lodash";
 
 export const validatorUrls = [
   process.env.REACT_APP_STARBRIDGE_VALIDATOR_URL_1,
@@ -20,19 +19,30 @@ export type WithdrawResult = {
 }
 
 const deposit = async (
+  chain: Currency,
   account: string,
   transactionHash: string,
-  transactionLogIndex: string
+  transactionLogIndex = ""
 ): Promise<string> => {
   return new Promise<string>((resolve, reject) => {
     const form = new FormData()
     form.append('hash', transactionHash)
     form.append('stellar_address', account)
-    form.append('log_index', transactionLogIndex)
+    if (transactionLogIndex !== "") {
+      form.append('log_index', transactionLogIndex)
+    }
 
-    const promises = validatorUrls.map(url =>
-      axios.post(`${url}/ethereum/deposit`, form)
-    )
+    let promises
+    if (chain === Currency.ETH){
+      promises = validatorUrls.map(url =>
+        axios.post(`${url}/ethereum/deposit`, form)
+      )
+    } else {
+      // if (chain === Currency.WCCD)
+      promises = validatorUrls.map(url =>
+          axios.post(`${url}/concordium/deposit`, form)
+      )
+    }
 
     Promise.all(promises)
       .then(result => {
@@ -48,21 +58,20 @@ const withdraw = async (
   currency: Currency,
   chain: Currency,
   transactionHash: string,
-  transactionIndex = ''
+  destinationAddress: string,
+  transactionIndex = '',
 ): Promise<WithdrawResult[]> => {
-  console.log(currency)
-  console.log(chain)
   const isFromStellar = currency === Currency.WETH
   const isEthereumChain = chain === Currency.ETH
   const isConcordiumChain = chain === Currency.WCCD
-  console.log(isFromStellar)
-  console.log(isEthereumChain)
-  console.log(isConcordiumChain)
   const form = new FormData()
   form.append('transaction_hash', transactionHash)
 
   if (!isFromStellar && isEthereumChain) {
     form.append('log_index', transactionIndex)
+  }
+  if (chain === Currency.WCCD){
+    form.append('destination', destinationAddress)
   }
 
   const promises = validatorUrls.map(url => {

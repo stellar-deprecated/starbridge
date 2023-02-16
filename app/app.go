@@ -2,12 +2,16 @@ package app
 
 import (
 	"context"
+	"github.com/stellar/starbridge/concordium"
+	"google.golang.org/grpc"
 	"net/http"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
+
+	concordiumproto "github.com/Concordium/concordium-go-sdk/grpc-api"
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/prometheus/client_golang/prometheus"
@@ -26,6 +30,18 @@ import (
 	"github.com/stellar/starbridge/stellar/txobserver"
 	"github.com/stellar/starbridge/store"
 )
+
+type perRPCCredentials string
+
+func (c perRPCCredentials) GetRequestMetadata(_ context.Context, _ ...string) (map[string]string, error) {
+	return map[string]string{
+		"authentication": string(c),
+	}, nil
+}
+
+func (c perRPCCredentials) RequireTransportSecurity() bool {
+	return false
+}
 
 type App struct {
 	appCtx    context.Context
@@ -54,6 +70,13 @@ type Config struct {
 	EthereumBridgeAddress       string `toml:"ethereum_bridge_address" valid:"-"`
 	EthereumBridgeConfigVersion uint32 `toml:"ethereum_bridge_config_version" valid:"-"`
 	EthereumPrivateKey          string `toml:"ethereum_private_key" valid:"-"`
+
+	ConcordiumNodeService         string `toml:"concordium_node_service" valid:"-"`
+	ConcordiumGRPCURL             string `toml:"concordium_grpc_url" valid:"-"`
+	ConcordiumAuthToken           string `toml:"concordium_auth_token" valid:"-"`
+	ConcordiumBridgeAddress       string `toml:"concordium_bridge_address" valid:"-"`
+	ConcordiumPrivateKey          string `toml:"concordium_private_key" valid:"-"`
+	ConcordiumBridgeConfigVersion uint32 `toml:"concordium_bridge_config_version" valid:"-"`
 
 	AssetMapping []backend.AssetMappingConfigEntry `toml:"asset_mapping" valid:"-"`
 
@@ -87,8 +110,23 @@ func NewApp(config Config) *App {
 	if err != nil {
 		log.WithField("err", err).Fatal("could not create ethereum observer")
 	}
-	app.initHTTP(config, client, ethObserver)
-	app.initWorker(config, client, ethObserver)
+	ccdGRPCClientInterface, err := grpc.Dial(config.ConcordiumGRPCURL, []grpc.DialOption{
+		grpc.WithInsecure(),
+		grpc.WithPerRPCCredentials(perRPCCredentials(config.ConcordiumAuthToken)),
+	}...)
+	if err != nil {
+		log.WithField("err", err).Fatal("could not dial concordium node")
+	}
+	ccdGRPCClient := concordiumproto.NewP2PClient(ccdGRPCClientInterface)
+	ccdObserver, err := concordium.NewObserver(ccdGRPCClient, config.ConcordiumBridgeAddress, config.ConcordiumNodeService)
+	if err != nil {
+		log.WithField("err", err).Fatal("could not create concordium observer")
+	}
+	if err != nil {
+		log.WithField("err", err).Fatal("could not create concordium observer")
+	}
+	app.initHTTP(config, client, ethObserver, ccdObserver)
+	app.initWorker(config, client, ethObserver, ccdObserver)
 	app.initLogger()
 	app.initPrometheus()
 
@@ -133,7 +171,7 @@ func (a *App) initDB(config Config) {
 	}
 }
 
-func (a *App) initWorker(config Config, client *horizonclient.Client, ethObserver ethereum.Observer) {
+func (a *App) initWorker(config Config, client *horizonclient.Client, ethObserver ethereum.Observer, ccdObserver concordium.Observer) {
 	var (
 		signerKey *keypair.Full
 		err       error
@@ -155,6 +193,11 @@ func (a *App) initWorker(config Config, client *horizonclient.Client, ethObserve
 		log.Fatalf("cannot create ethereum signer: %v", err)
 	}
 
+	ccdSigner, err := concordium.NewSigner(config.ConcordiumPrivateKey, config.ConcordiumBridgeConfigVersion, ccdObserver)
+	if err != nil {
+		log.Fatalf("cannot create concordium signer: %v", err)
+	}
+
 	a.worker = &backend.Worker{
 		Store:         a.NewStore(),
 		StellarClient: client,
@@ -165,9 +208,17 @@ func (a *App) initWorker(config Config, client *horizonclient.Client, ethObserve
 			NetworkPassphrase: config.NetworkPassphrase,
 			Signer:            signerKey,
 		},
-		StellarObserver: a.stellarObserver,
-		EthereumSigner:  ethSigner,
+		StellarObserver:  a.stellarObserver,
+		EthereumSigner:   ethSigner,
+		ConcordiumSigner: ccdSigner,
 		StellarWithdrawalValidator: backend.StellarWithdrawalValidator{
+			Session:          a.session.Clone(),
+			WithdrawalWindow: config.WithdrawalWindow,
+			Converter:        converter,
+			CcdToken:         config.AssetMapping[0].ConcordiumToken,
+		},
+		ConcordiumWithdrawalValidator: backend.ConcordiumWithdrawalValidator{
+			Observer:         ccdObserver,
 			Session:          a.session.Clone(),
 			WithdrawalWindow: config.WithdrawalWindow,
 			Converter:        converter,
@@ -191,7 +242,7 @@ func (a *App) initWorker(config Config, client *horizonclient.Client, ethObserve
 	}
 }
 
-func (a *App) initHTTP(config Config, client *horizonclient.Client, ethObserver ethereum.Observer) {
+func (a *App) initHTTP(config Config, client *horizonclient.Client, ethObserver ethereum.Observer, ccdObserver concordium.Observer) {
 	converter, err := backend.NewAssetConverter(config.AssetMapping)
 	if err != nil {
 		log.Fatal("unable to create asset converter", err)
@@ -202,7 +253,7 @@ func (a *App) initHTTP(config Config, client *horizonclient.Client, ethObserver 
 		Port:               config.Port,
 		AdminPort:          config.AdminPort,
 		PrometheusRegistry: a.prometheusRegistry,
-		StellarWithdrawalHandler: &controllers.StellarWithdrawalHandler{
+		EthereumStellarWithdrawalHandler: &controllers.EthereumStellarWithdrawalHandler{
 			StellarClient: client,
 			Observer:      ethObserver,
 			Store:         a.NewStore(),
@@ -213,7 +264,7 @@ func (a *App) initHTTP(config Config, client *horizonclient.Client, ethObserver 
 			},
 			EthereumFinalityBuffer: config.EthereumFinalityBuffer,
 		},
-		EthereumWithdrawalHandler: &controllers.EthereumWithdrawalHandler{
+		StellarEthereumWithdrawalHandler: &controllers.StellarEthereumWithdrawalHandler{
 			Store: a.NewStore(),
 			EthereumWithdrawalValidator: backend.EthereumWithdrawalValidator{
 				Observer:               ethObserver,
@@ -241,7 +292,7 @@ func (a *App) initHTTP(config Config, client *horizonclient.Client, ethObserver 
 				EthereumFinalityBuffer: config.EthereumFinalityBuffer,
 			},
 		},
-		EthereumDepositHandler: &controllers.EthereumDeposit{
+		EthereumDepositHandler: &controllers.EthereumDepositHandler{
 			Observer: ethObserver,
 			Store:    a.NewStore(),
 			StellarWithdrawalValidator: backend.StellarWithdrawalValidator{
@@ -252,11 +303,28 @@ func (a *App) initHTTP(config Config, client *horizonclient.Client, ethObserver 
 			EthereumFinalityBuffer: config.EthereumFinalityBuffer,
 			Token:                  config.AssetMapping[0].EthereumToken,
 		},
-		TestDepositHandler: &controllers.TestDeposit{
+		ConcordiumDepositHandler: &controllers.ConcordiumDepositHandler{
+			Observer: ccdObserver,
+			Store:    a.NewStore(),
+		},
+		ConcordiumStellarWithdrawalHandler: &controllers.ConcordiumStellarWithdrawalHandler{
+			StellarClient: client,
+			Observer:      ccdObserver,
+			Store:         a.NewStore(),
+			ConcordiumToStellarWithdrawalValidator: backend.StellarWithdrawalValidator{
+				Session:          a.session.Clone(),
+				WithdrawalWindow: config.WithdrawalWindow,
+				Converter:        converter,
+				CcdToken:         config.AssetMapping[0].ConcordiumToken,
+			},
+		},
+		StellarConcordiumWithdrawalHandler: &controllers.StellarConcordiumWithdrawalHandler{
 			Store: a.NewStore(),
-			// This will crash if no asset mappings - probably fine for a demo
-			// because it requires at least one mapping.
-			Token: config.AssetMapping[0].EthereumToken,
+			ConcordiumWithdrawalValidator: backend.ConcordiumWithdrawalValidator{
+				Observer:         ccdObserver,
+				WithdrawalWindow: config.WithdrawalWindow,
+				Converter:        converter,
+			},
 		},
 	})
 	if err != nil {

@@ -3,20 +3,27 @@ package controllers
 import (
 	"database/sql"
 	"encoding/json"
-	"net/http"
-
-	"github.com/stellar/starbridge/backend"
-
 	"github.com/stellar/go/support/render/problem"
+	"github.com/stellar/starbridge/backend"
 	"github.com/stellar/starbridge/store"
+	"net/http"
 )
 
-type EthereumWithdrawalHandler struct {
-	Store                       *store.DB
-	EthereumWithdrawalValidator backend.EthereumWithdrawalValidator
+type StellarConcordiumWithdrawalHandler struct {
+	Store                         *store.DB
+	ConcordiumWithdrawalValidator backend.ConcordiumWithdrawalValidator
 }
 
-func (c *EthereumWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+type ConcordiumSignatureResponse struct {
+	Address    []byte `json:"address"`
+	Signature  string `json:"signature"`
+	DepositID  string `json:"deposit_id"`
+	Expiration int64  `json:"expiration,string"`
+	Token      string `json:"token"`
+	Amount     string `json:"amount"`
+}
+
+func (c *StellarConcordiumWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	deposit, err := getStellarDeposit(c.Store, r)
 	if err != nil {
 		problem.Render(r.Context(), w, err)
@@ -24,7 +31,7 @@ func (c *EthereumWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	}
 
 	// Check if outgoing transaction exists
-	row, err := c.Store.GetEthereumSignature(r.Context(), store.Withdraw, deposit.ID)
+	row, err := c.Store.GetConcordiumSignature(r.Context(), store.Withdraw, deposit.ID)
 	if err != nil && err != sql.ErrNoRows {
 		problem.Render(r.Context(), w, err)
 		return
@@ -46,16 +53,17 @@ func (c *EthereumWithdrawalHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	_, err = c.EthereumWithdrawalValidator.CanWithdraw(r.Context(), deposit)
+	_, err = c.ConcordiumWithdrawalValidator.CanWithdraw(r.Context(), deposit)
 	if err != nil {
 		problem.Render(r.Context(), w, err)
 		return
 	}
 
 	err = c.Store.InsertSignatureRequest(r.Context(), store.SignatureRequest{
-		DepositChain: store.Stellar,
-		Action:       store.Withdraw,
-		DepositID:    deposit.ID,
+		WithdrawChain: store.Concordium,
+		DepositChain:  store.Stellar,
+		Action:        store.Withdraw,
+		DepositID:     deposit.ID,
 	})
 	if err != nil {
 		problem.Render(r.Context(), w, err)

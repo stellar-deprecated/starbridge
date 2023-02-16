@@ -33,13 +33,16 @@ type ServerConfig struct {
 	TLSConfig          *TLSConfig
 	PrometheusRegistry *prometheus.Registry
 
-	StellarWithdrawalHandler  *controllers.StellarWithdrawalHandler
-	StellarRefundHandler      *controllers.StellarRefundHandler
-	EthereumWithdrawalHandler *controllers.EthereumWithdrawalHandler
-	EthereumRefundHandler     *controllers.EthereumRefundHandler
+	EthereumStellarWithdrawalHandler   *controllers.EthereumStellarWithdrawalHandler
+	StellarEthereumWithdrawalHandler   *controllers.StellarEthereumWithdrawalHandler
+	ConcordiumStellarWithdrawalHandler *controllers.ConcordiumStellarWithdrawalHandler
+	StellarConcordiumWithdrawalHandler *controllers.StellarConcordiumWithdrawalHandler
 
-	EthereumDepositHandler *controllers.EthereumDeposit
-	TestDepositHandler     *controllers.TestDeposit
+	StellarRefundHandler  *controllers.StellarRefundHandler
+	EthereumRefundHandler *controllers.EthereumRefundHandler
+
+	EthereumDepositHandler   *controllers.EthereumDepositHandler
+	ConcordiumDepositHandler *controllers.ConcordiumDepositHandler
 }
 
 type Server struct {
@@ -108,15 +111,15 @@ func (s *Server) initMux(serverConfig ServerConfig) {
 
 	// Public routes
 	mux.Method(http.MethodPost, "/ethereum/deposit", serverConfig.EthereumDepositHandler)
+	mux.Method(http.MethodPost, "/concordium/deposit", serverConfig.ConcordiumDepositHandler)
 
-	mux.Method(http.MethodPost, "/ethereum/withdraw", serverConfig.StellarWithdrawalHandler)
-	mux.Method(http.MethodPost, "/stellar/withdraw", serverConfig.EthereumWithdrawalHandler)
+	mux.Method(http.MethodPost, "/ethereum/withdraw/stellar", serverConfig.EthereumStellarWithdrawalHandler)
+	mux.Method(http.MethodPost, "/stellar/withdraw/ethereum", serverConfig.StellarEthereumWithdrawalHandler)
+	mux.Method(http.MethodPost, "/concordium/withdraw/stellar", serverConfig.ConcordiumStellarWithdrawalHandler)
+	mux.Method(http.MethodPost, "/stellar/withdraw/concordium", serverConfig.StellarConcordiumWithdrawalHandler)
 
 	mux.Method(http.MethodPost, "/ethereum/refund", serverConfig.EthereumRefundHandler)
 	mux.Method(http.MethodPost, "/stellar/refund", serverConfig.StellarRefundHandler)
-
-	// Demo routes
-	mux.Method(http.MethodPost, "/deposit", serverConfig.TestDepositHandler)
 
 	staticServer := http.FileServer(http.FS(html.Files))
 	mux.Handle("/*", staticServer)
