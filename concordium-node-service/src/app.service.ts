@@ -7,8 +7,10 @@ import {
 } from '@concordium/common-sdk';
 import { Buffer } from 'buffer/';
 import { RequestDto, TransactionDto } from './serialize-params.dto';
-import { BRIDGE_CONTRACT_RAW_SCHEMA } from './consts';
-
+import {
+  BRIDGE_CONTRACT_RAW_SCHEMA,
+  TOKEN_CONTRACT_RAW_SCHEMA,
+} from './consts';
 
 @Injectable()
 export class AppService {
@@ -162,5 +164,42 @@ export class AppService {
       blockHash,
       from,
     };
+  }
+
+  async getBalanceOf(request: RequestDto): Promise<string> {
+    const param = serializeUpdateContractParameters(
+      'wGBM',
+      'balanceOf',
+      request.parameters,
+      Buffer.from(TOKEN_CONTRACT_RAW_SCHEMA, 'base64') as any,
+    );
+    const gRPCProvider = new HttpProvider(
+      'https://concordium-json-rpc.bridge.bankofmemories.org',
+    );
+    const rpcClient = new JsonRpcClient(gRPCProvider);
+    const res = await rpcClient.invokeContract({
+      method: 'wGBM.balanceOf',
+      contract: {
+        index: 2928n,
+        subindex: 0n,
+      },
+      parameter: param,
+    });
+    if (!res || res.tag === 'failure' || !res.returnValue) {
+      throw new Error(
+        `RPC call 'invokeContract' on method gbm_Bridge.balanceOf of contract 2945 failed`,
+      );
+    }
+    const returnValues = deserializeReceiveReturnValue(
+      Buffer.from(res.returnValue, 'hex') as any,
+      Buffer.from(TOKEN_CONTRACT_RAW_SCHEMA, 'base64') as any,
+      'wGBM',
+      'balanceOf',
+      0,
+    );
+    // eslint-disable-next-line no-console
+    console.log(returnValues);
+
+    return returnValues;
   }
 }

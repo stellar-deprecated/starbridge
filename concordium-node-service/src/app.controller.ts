@@ -25,4 +25,9 @@ export class AppController {
   async getDepositParams(@Body() request: TransactionDto): Promise<object> {
     return await this.appService.getDepositParams(request);
   }
+
+  @Post('/getBalanceOf')
+  async getBalanceOf(@Body() request: RequestDto): Promise<string> {
+    return await this.appService.getBalanceOf(request);
+  }
 }
