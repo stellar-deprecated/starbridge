@@ -140,12 +140,10 @@ export class AppService {
       });
     }
     let res;
+    let i = 0;
     do {
-      res = await getTransactionStatus();
-      if (!res) {
-        throw new Error(`RPC call 'getTransactionStatus' failed`);
-      }
-    } while ((await res).status !== 'finalized');
+      res = await getTransactionStatus().then(() => (i = i + 1));
+    } while ((await res).status !== 'finalized' || i > 15);
     const blockHash = Object.keys(res.outcomes)[0];
     const event = res.outcomes[blockHash].result['events'].find(
       (result) => result.receiveName === 'gbm_Bridge.deposit',
