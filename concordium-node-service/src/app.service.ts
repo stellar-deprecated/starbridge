@@ -165,24 +165,31 @@ export class AppService {
       };
     }
     console.log(res);
-    const blockHash = Object.keys(res.outcomes)[0];
-    const event = res.outcomes[blockHash].result['events'].find(
-      (result) => result.receiveName === 'gbm_Bridge.deposit',
-    );
-    const message = event.message;
-    const from = event.instigator.address;
-    const serializedTransaction = Buffer.from(message, 'hex');
-    const serializedDestination = serializedTransaction.slice(200, 256);
-    const serializedAmount = serializedTransaction.slice(
-      256,
-      serializedTransaction.length,
-    );
-    return {
-      amount: serializedAmount.readBigUInt64LE(0).toString(),
-      destination: Buffer.from(serializedDestination).toString(),
-      blockHash,
-      from,
-    };
+    try {
+      const blockHash = Object.keys(res.outcomes)[0];
+      const event = res.outcomes[blockHash].result['events'].find(
+        (result) => result.receiveName === 'gbm_Bridge.deposit',
+      );
+      const message = event.message;
+      const from = event.instigator.address;
+      const serializedTransaction = Buffer.from(message, 'hex');
+      const serializedDestination = serializedTransaction.slice(200, 256);
+      const serializedAmount = serializedTransaction.slice(
+        256,
+        serializedTransaction.length,
+      );
+      return {
+        amount: serializedAmount.readBigUInt64LE(0).toString(),
+        destination: Buffer.from(serializedDestination).toString(),
+        blockHash,
+        from,
+      };
+    } catch (e) {
+      console.log(e);
+      return {
+        err: 'Try later',
+      };
+    }
   }
 
   async getBalanceOf(request: RequestDto): Promise<string> {
