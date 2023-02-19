@@ -142,8 +142,12 @@ export class AppService {
     let res;
     let i = 0;
     do {
-      res = await getTransactionStatus().then(() => (i = i + 1));
-    } while ((await res).status !== 'finalized' || i > 15);
+      try {
+        res = await getTransactionStatus().then(() => (i = i + 1));
+      } catch (err) {
+        console.log(err);
+      }
+    } while ((await res).status !== 'finalized' || i < 30);
     const blockHash = Object.keys(res.outcomes)[0];
     const event = res.outcomes[blockHash].result['events'].find(
       (result) => result.receiveName === 'gbm_Bridge.deposit',
