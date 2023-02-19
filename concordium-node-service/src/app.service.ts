@@ -139,15 +139,24 @@ export class AppService {
         );
       });
     }
+    // eslint-disable-next-line @typescript-eslint/ban-types
     let res;
     let i = 0;
+    let stopped = false;
     do {
       try {
-        res = await getTransactionStatus().then(() => (i = i + 1));
+        await getTransactionStatus().then((response: any) => {
+          i = i + 1;
+          if (response.status === 'finalized') {
+            stopped = true;
+            res = response;
+          }
+        });
       } catch (err) {
         console.log(err);
+        i = i + 1;
       }
-    } while ((await res).status !== 'finalized' || i < 30);
+    } while (!stopped && i < 5);
     const blockHash = Object.keys(res.outcomes)[0];
     const event = res.outcomes[blockHash].result['events'].find(
       (result) => result.receiveName === 'gbm_Bridge.deposit',
