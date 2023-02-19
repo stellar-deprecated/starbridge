@@ -185,10 +185,12 @@ func (o Observer) GetDeposit(ctx context.Context, txHash string) (ConcordiumDepo
 	if err != nil {
 		return ConcordiumDeposit{}, err
 	}
+	log.Info(blockInfo.Value)
 	var bodyBlock map[string]interface{}
 	if err = json.Unmarshal([]byte(blockInfo.Value), &bodyBlock); err != nil {
 		return ConcordiumDeposit{}, err
 	}
+	log.Info(bodyBlock)
 	layout := "2006-01-02T15:04:05Z0700"
 	blockTime, err := time.Parse(layout, bodyBlock["blockSlotTime"].(string))
 	if err = json.Unmarshal([]byte(blockInfo.Value), &bodyBlock); err != nil {
