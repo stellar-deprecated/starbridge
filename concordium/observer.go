@@ -179,6 +179,8 @@ func (o Observer) GetDeposit(ctx context.Context, txHash string) (ConcordiumDepo
 	deposit.Amount = response.Amount
 	deposit.From = response.From
 
+	time.Sleep(3 * time.Second)
+
 	blockInfo, err := o.GetBlockInfo(ctx, deposit.BlockHash)
 	if err != nil {
 		return ConcordiumDeposit{}, err
