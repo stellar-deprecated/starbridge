@@ -149,9 +149,7 @@ export class AppService {
           i = i + 1;
           if (response.status === 'finalized') {
             stopped = true;
-            setTimeout(() => {
-              res = rpcClient.getTransactionStatus(request.hash);
-            }, 3000);
+            res = response;
           }
         });
       } catch (err) {
