@@ -159,12 +159,14 @@ export class AppService {
         i = i + 1;
       }
     } while (!stopped && i < 20);
+    console.log('stopped - ', stopped);
+    console.log('i - ', i);
+    console.log('res - ', res);
     if (!stopped) {
       return {
         err: 'Try later',
       };
     }
-    console.log(res);
     try {
       const blockHash = Object.keys(res.outcomes)[0];
       const event = res.outcomes[blockHash].result['events'].find(
