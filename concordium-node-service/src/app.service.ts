@@ -135,7 +135,7 @@ export class AppService {
       return await new Promise(function (resolve) {
         setTimeout(
           () => resolve(rpcClient.getTransactionStatus(request.hash)),
-          2000,
+          3000,
         );
       });
     }
@@ -156,12 +156,13 @@ export class AppService {
         console.log(err);
         i = i + 1;
       }
-    } while (!stopped && i < 30);
+    } while (!stopped && i < 20);
     if (!stopped) {
       return {
         err: 'Try later',
       };
     }
+    console.log(res);
     const blockHash = Object.keys(res.outcomes)[0];
     const event = res.outcomes[blockHash].result['events'].find(
       (result) => result.receiveName === 'gbm_Bridge.deposit',
