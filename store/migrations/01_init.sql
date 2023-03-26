@@ -34,6 +34,17 @@ CREATE TABLE ethereum_signatures (
 );
 CREATE UNIQUE INDEX ethereum_signatures_for_action ON ethereum_signatures USING BTREE(requested_action, deposit_id);
 
+CREATE TABLE okx_signatures (
+   address TEXT NOT NULL,
+   token TEXT NOT NULL,
+   amount TEXT NOT NULL,
+   signature TEXT NOT NULL,
+   expiration BIGINT NOT NULL ,
+   requested_action character varying(40) NOT NULL,
+   deposit_id TEXT NOT NULL
+);
+CREATE UNIQUE INDEX okx_signatures_for_action ON okx_signatures USING BTREE(requested_action, deposit_id);
+
 CREATE TABLE concordium_signatures (
    address TEXT NOT NULL,
    token TEXT NOT NULL,
@@ -46,6 +57,18 @@ CREATE TABLE concordium_signatures (
 CREATE UNIQUE INDEX concordium_signatures_for_action ON concordium_signatures USING BTREE(requested_action, deposit_id);
 
 CREATE TABLE ethereum_deposits (
+    id TEXT NOT NULL PRIMARY KEY,
+    hash TEXT NOT NULL,
+    log_index INTEGER NOT NULL,
+    block_number BIGINT NOT NULL,
+    block_time BIGINT NOT NULL,
+    amount TEXT NOT NULL,
+    destination TEXT NOT NULL,
+    sender TEXT NOT NULL,
+    token TEXT NOT NULL
+);
+
+CREATE TABLE okx_deposits (
     id TEXT NOT NULL PRIMARY KEY,
     hash TEXT NOT NULL,
     log_index INTEGER NOT NULL,
@@ -86,6 +109,8 @@ drop table key_value_store cascade;
 drop table stellar_deposits cascade;
 drop table ethereum_deposits cascade;
 drop table ethereum_signatures cascade;
+drop table okx_deposits cascade;
+drop table okx_signatures cascade;
 drop table concordium_deposits cascade;
 drop table outgoing_stellar_transactions cascade;
 drop table history_stellar_transactions cascade;

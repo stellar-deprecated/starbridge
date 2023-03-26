@@ -40,6 +40,9 @@ type Worker struct {
 	EthereumWithdrawalValidator EthereumWithdrawalValidator
 	EthereumSigner              ethereum.Signer
 
+	OkxWithdrawalValidator OkxWithdrawalValidator
+	OkxSigner              ethereum.Signer
+
 	ConcordiumWithdrawalValidator ConcordiumWithdrawalValidator
 	ConcordiumSigner              concordium.Signer
 
@@ -78,12 +81,16 @@ func (w *Worker) Run(ctx context.Context) {
 					err = w.processStellarWithdrawalRequest(ctx, sr)
 				case store.Concordium:
 					err = w.processConcordiumToStellarWithdrawalRequest(ctx, sr)
+				case store.Okx:
+					err = w.processOkxToStellarWithdrawalRequest(ctx, sr)
 				case store.Stellar:
 					switch sr.WithdrawChain {
 					case store.Ethereum:
 						err = w.processEthereumWithdrawalRequest(ctx, sr)
 					case store.Concordium:
 						err = w.processStellarToConcordiumWithdrawalRequest(ctx, sr)
+					case store.Okx:
+						err = w.processStellarToOkxWithdrawalRequest(ctx, sr)
 					default:
 						err = fmt.Errorf("withdrawals for deposit chain %v and withdrawal chain %v is not supported", sr.DepositChain, sr.WithdrawChain)
 					}
@@ -136,6 +143,84 @@ func (w *Worker) processStellarWithdrawalRequest(ctx context.Context, sr store.S
 	}
 
 	details, err := w.StellarWithdrawalValidator.CanWithdraw(ctx, deposit)
+	if err != nil {
+		return errors.Wrap(err, "error validating withdraw conditions")
+	}
+
+	// Load source account sequence
+	sourceAccount, err := w.StellarClient.AccountDetail(horizonclient.AccountRequest{
+		AccountID: details.Recipient,
+	})
+	if err != nil {
+		return errors.Wrap(err, "error getting account details")
+	}
+	if sourceAccount.SequenceLedger > 0 {
+		if details.LedgerSequence < sourceAccount.SequenceLedger {
+			return errors.New("skipping, account sequence ledger is higher than last ledger ingested")
+		}
+	} else {
+		if details.LedgerSequence < sourceAccount.LastModifiedLedger {
+			return errors.New("skipping, account sequence possibly bumped after last ledger ingested")
+		}
+	}
+
+	depositIDBytes, err := hex.DecodeString(deposit.ID)
+	if err != nil {
+		return errors.Wrap(err, "error decoding deposit id")
+	}
+	tx, err := w.StellarBuilder.BuildTransaction(
+		details.Asset,
+		details.Recipient,
+		details.Recipient,
+		amount.StringFromInt64(details.Amount),
+		sourceAccount.Sequence+1,
+		// TODO: ensure using WithdrawExpiration without any time buffer is safe
+		details.Deadline.Unix(),
+		depositIDBytes,
+	)
+	if err != nil {
+		return errors.Wrap(err, "error building outgoing stellar transaction")
+	}
+
+	signature, err := w.StellarSigner.Sign(tx)
+	if err != nil {
+		return errors.Wrap(err, "error signing outgoing stellar transaction")
+	}
+
+	// TODO, we need xdr.TransactionEnvelope.AppendSignature.
+	sigs := tx.Signatures()
+	tx.V1.Signatures = append(sigs, signature)
+
+	txBase64, err := xdr.MarshalBase64(tx)
+	if err != nil {
+		return errors.Wrap(err, "error marshaling outgoing stellar transaction")
+	}
+
+	outgoingTx := store.OutgoingStellarTransaction{
+		Envelope:      txBase64,
+		Action:        sr.Action,
+		DepositID:     sr.DepositID,
+		SourceAccount: details.Recipient,
+		Sequence:      tx.SeqNum(),
+	}
+	err = w.Store.UpsertOutgoingStellarTransaction(ctx, outgoingTx)
+	if err != nil {
+		return errors.Wrap(err, "error upserting outgoing stellar transaction")
+	}
+
+	return nil
+}
+
+func (w *Worker) processOkxToStellarWithdrawalRequest(ctx context.Context, sr store.SignatureRequest) error {
+	if sr.DepositChain != store.Okx {
+		return fmt.Errorf("deposits from %v are not supported", sr.DepositChain)
+	}
+	deposit, err := w.Store.GetOkxDeposit(ctx, sr.DepositID)
+	if err != nil {
+		return errors.Wrap(err, "error getting okx deposit")
+	}
+
+	details, err := w.StellarWithdrawalValidator.CanWithdrawOkx(ctx, deposit)
 	if err != nil {
 		return errors.Wrap(err, "error validating withdraw conditions")
 	}
@@ -443,6 +528,48 @@ func (w *Worker) processEthereumWithdrawalRequest(ctx context.Context, sr store.
 	})
 	if err != nil {
 		return errors.Wrap(err, "error upserting etherum signature")
+	}
+
+	return nil
+}
+
+func (w *Worker) processStellarToOkxWithdrawalRequest(ctx context.Context, sr store.SignatureRequest) error {
+	if sr.DepositChain != store.Stellar {
+		return fmt.Errorf("deposits from %v are not supported", sr.DepositChain)
+	}
+	deposit, err := w.Store.GetStellarDeposit(ctx, sr.DepositID)
+	if err != nil {
+		return errors.Wrap(err, "error getting stellar deposit")
+	}
+
+	details, err := w.OkxWithdrawalValidator.CanWithdraw(ctx, deposit)
+	log.Info(details)
+	if err != nil {
+		return errors.Wrap(err, "error validating withdrawal conditions")
+	}
+
+	sig, err := w.OkxSigner.SignWithdrawal(
+		common.HexToHash(deposit.ID),
+		details.Deadline.Unix(),
+		details.Recipient,
+		details.Token,
+		details.Amount,
+	)
+	if err != nil {
+		return errors.Wrap(err, "error signing withdrawal")
+	}
+
+	err = w.Store.UpsertOkxSignature(ctx, store.OkxSignature{
+		Address:    w.OkxSigner.Address().String(),
+		Signature:  hex.EncodeToString(sig),
+		Action:     sr.Action,
+		DepositID:  sr.DepositID,
+		Expiration: details.Deadline.Unix(),
+		Token:      details.Token.String(),
+		Amount:     details.Amount.String(),
+	})
+	if err != nil {
+		return errors.Wrap(err, "error upserting okx signature")
 	}
 
 	return nil

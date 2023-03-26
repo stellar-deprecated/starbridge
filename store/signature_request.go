@@ -15,6 +15,7 @@ type (
 const (
 	Stellar    Blockchain = "stellar"
 	Ethereum   Blockchain = "ethereum"
+	Okx        Blockchain = "okx"
 	Concordium Blockchain = "concordium"
 )
 

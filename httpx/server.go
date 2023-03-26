@@ -35,6 +35,8 @@ type ServerConfig struct {
 
 	EthereumStellarWithdrawalHandler   *controllers.EthereumStellarWithdrawalHandler
 	StellarEthereumWithdrawalHandler   *controllers.StellarEthereumWithdrawalHandler
+	OkxStellarWithdrawalHandler        *controllers.OkxStellarWithdrawalHandler
+	StellarOkxWithdrawalHandler        *controllers.StellarOkxWithdrawalHandler
 	ConcordiumStellarWithdrawalHandler *controllers.ConcordiumStellarWithdrawalHandler
 	StellarConcordiumWithdrawalHandler *controllers.StellarConcordiumWithdrawalHandler
 
@@ -112,11 +114,14 @@ func (s *Server) initMux(serverConfig ServerConfig) {
 	// Public routes
 	mux.Method(http.MethodPost, "/ethereum/deposit", serverConfig.EthereumDepositHandler)
 	mux.Method(http.MethodPost, "/concordium/deposit", serverConfig.ConcordiumDepositHandler)
+	//mux.Method(http.MethodPost, "/okx/deposit", serverConfig.EthereumDepositHandler)
 
 	mux.Method(http.MethodPost, "/ethereum/withdraw/stellar", serverConfig.EthereumStellarWithdrawalHandler)
 	mux.Method(http.MethodPost, "/stellar/withdraw/ethereum", serverConfig.StellarEthereumWithdrawalHandler)
 	mux.Method(http.MethodPost, "/concordium/withdraw/stellar", serverConfig.ConcordiumStellarWithdrawalHandler)
 	mux.Method(http.MethodPost, "/stellar/withdraw/concordium", serverConfig.StellarConcordiumWithdrawalHandler)
+	mux.Method(http.MethodPost, "/okx/withdraw/stellar", serverConfig.OkxStellarWithdrawalHandler)
+	mux.Method(http.MethodPost, "/stellar/withdraw/okx", serverConfig.StellarOkxWithdrawalHandler)
 
 	mux.Method(http.MethodPost, "/ethereum/refund", serverConfig.EthereumRefundHandler)
 	mux.Method(http.MethodPost, "/stellar/refund", serverConfig.StellarRefundHandler)

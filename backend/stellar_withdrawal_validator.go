@@ -65,7 +65,70 @@ type StellarWithdrawalDetails struct {
 }
 
 func (s StellarWithdrawalValidator) CanWithdraw(ctx context.Context, deposit store.EthereumDeposit) (StellarWithdrawalDetails, error) {
-	stellarAsset, stellarAmount, err := s.Converter.ToStellar(deposit.Token, deposit.Amount, true, false)
+	stellarAsset, stellarAmount, err := s.Converter.ToStellar(deposit.Token, deposit.Amount, true, false, false)
+	if err != nil {
+		return StellarWithdrawalDetails{}, err
+	}
+
+	destination, ok := new(big.Int).SetString(deposit.Destination, 10)
+	if !ok {
+		return StellarWithdrawalDetails{}, InvalidStellarRecipient
+	}
+	destinationAccountID, err := strkey.Encode(
+		strkey.VersionByteAccountID,
+		destination.Bytes(),
+	)
+	if err != nil {
+		return StellarWithdrawalDetails{}, InvalidStellarRecipient
+	}
+
+	dbStore := store.DB{Session: s.Session.Clone()}
+	err = dbStore.Session.BeginTx(&sql.TxOptions{
+		Isolation: sql.LevelRepeatableRead,
+		ReadOnly:  true,
+	})
+	if err != nil {
+		return StellarWithdrawalDetails{}, errors.Wrap(err, "error starting repeatable read transaction")
+	}
+	defer func() {
+		// explicitly ignore return value to make the linter happy
+		_ = dbStore.Session.Rollback()
+	}()
+
+	lastLedgerSequence, err := dbStore.GetLastLedgerSequence(ctx)
+	if err != nil {
+		return StellarWithdrawalDetails{}, errors.Wrap(err, "error getting last ledger sequence")
+	}
+
+	lastLedgerCloseTime, err := dbStore.GetLastLedgerCloseTime(ctx)
+	if err != nil {
+		return StellarWithdrawalDetails{}, errors.Wrap(err, "error getting last ledger close time")
+	}
+	withdrawalDeadline := time.Unix(deposit.BlockTime, 0).Add(s.WithdrawalWindow)
+	if lastLedgerCloseTime.After(withdrawalDeadline) {
+		return StellarWithdrawalDetails{}, WithdrawalWindowExpired
+	}
+
+	// Check if withdrawal tx was seen without signature request
+	exists, err := dbStore.HistoryStellarTransactionExists(ctx, deposit.ID)
+	if err != nil {
+		return StellarWithdrawalDetails{}, errors.Wrap(err, "error getting history stellar transaction by memo hash")
+	}
+	if exists {
+		return StellarWithdrawalDetails{}, WithdrawalAlreadyExecuted
+	}
+
+	return StellarWithdrawalDetails{
+		Deadline:       withdrawalDeadline,
+		Recipient:      destinationAccountID,
+		LedgerSequence: lastLedgerSequence,
+		Asset:          stellarAsset,
+		Amount:         stellarAmount,
+	}, nil
+}
+
+func (s StellarWithdrawalValidator) CanWithdrawOkx(ctx context.Context, deposit store.OkxDeposit) (StellarWithdrawalDetails, error) {
+	stellarAsset, stellarAmount, err := s.Converter.ToStellar(deposit.Token, deposit.Amount, false, false, true)
 	if err != nil {
 		return StellarWithdrawalDetails{}, err
 	}
@@ -128,7 +191,7 @@ func (s StellarWithdrawalValidator) CanWithdraw(ctx context.Context, deposit sto
 }
 
 func (s StellarWithdrawalValidator) CanWithdrawConcordium(ctx context.Context, deposit store.ConcordiumDeposit) (StellarWithdrawalDetails, error) {
-	stellarAsset, stellarAmount, err := s.Converter.ToStellar(s.CcdToken, deposit.Amount, false, true)
+	stellarAsset, stellarAmount, err := s.Converter.ToStellar(s.CcdToken, deposit.Amount, false, true, false)
 	if err != nil {
 		return StellarWithdrawalDetails{}, err
 	}

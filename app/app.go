@@ -71,6 +71,11 @@ type Config struct {
 	EthereumBridgeConfigVersion uint32 `toml:"ethereum_bridge_config_version" valid:"-"`
 	EthereumPrivateKey          string `toml:"ethereum_private_key" valid:"-"`
 
+	OkxRPCURL              string `toml:"okx_rpc_url" valid:"-"`
+	OkxBridgeAddress       string `toml:"okx_bridge_address" valid:"-"`
+	OkxBridgeConfigVersion uint32 `toml:"okx_bridge_config_version" valid:"-"`
+	OkxPrivateKey          string `toml:"okx_private_key" valid:"-"`
+
 	ConcordiumNodeService         string `toml:"concordium_node_service" valid:"-"`
 	ConcordiumGRPCURL             string `toml:"concordium_grpc_url" valid:"-"`
 	ConcordiumAuthToken           string `toml:"concordium_auth_token" valid:"-"`
@@ -81,6 +86,7 @@ type Config struct {
 	AssetMapping []backend.AssetMappingConfigEntry `toml:"asset_mapping" valid:"-"`
 
 	EthereumFinalityBuffer uint64        `toml:"ethereum_finality_buffer" valid:"-"`
+	OkxFinalityBuffer      uint64        `toml:"okx_finality_buffer" valid:"-"`
 	WithdrawalWindow       time.Duration `toml:"-" valid:"-"`
 }
 
@@ -110,6 +116,14 @@ func NewApp(config Config) *App {
 	if err != nil {
 		log.WithField("err", err).Fatal("could not create ethereum observer")
 	}
+	okxRPCClient, err := ethclient.Dial(config.OkxRPCURL)
+	if err != nil {
+		log.WithField("err", err).Fatal("could not dial ethereum node")
+	}
+	okxObserver, err := ethereum.NewObserver(okxRPCClient, config.OkxBridgeAddress)
+	if err != nil {
+		log.WithField("err", err).Fatal("could not create ethereum observer")
+	}
 	ccdGRPCClientInterface, err := grpc.Dial(config.ConcordiumGRPCURL, []grpc.DialOption{
 		grpc.WithInsecure(),
 		grpc.WithPerRPCCredentials(perRPCCredentials(config.ConcordiumAuthToken)),
@@ -125,8 +139,8 @@ func NewApp(config Config) *App {
 	if err != nil {
 		log.WithField("err", err).Fatal("could not create concordium observer")
 	}
-	app.initHTTP(config, client, ethObserver, ccdObserver)
-	app.initWorker(config, client, ethObserver, ccdObserver)
+	app.initHTTP(config, client, ethObserver, ccdObserver, okxObserver)
+	app.initWorker(config, client, ethObserver, ccdObserver, okxObserver)
 	app.initLogger()
 	app.initPrometheus()
 
@@ -171,7 +185,7 @@ func (a *App) initDB(config Config) {
 	}
 }
 
-func (a *App) initWorker(config Config, client *horizonclient.Client, ethObserver ethereum.Observer, ccdObserver concordium.Observer) {
+func (a *App) initWorker(config Config, client *horizonclient.Client, ethObserver ethereum.Observer, ccdObserver concordium.Observer, okxObserver ethereum.Observer) {
 	var (
 		signerKey *keypair.Full
 		err       error
@@ -193,6 +207,11 @@ func (a *App) initWorker(config Config, client *horizonclient.Client, ethObserve
 		log.Fatalf("cannot create ethereum signer: %v", err)
 	}
 
+	okxSigner, err := ethereum.NewSigner(config.OkxPrivateKey, config.OkxBridgeConfigVersion)
+	if err != nil {
+		log.Fatalf("cannot create okx signer: %v", err)
+	}
+
 	ccdSigner, err := concordium.NewSigner(config.ConcordiumPrivateKey, config.ConcordiumBridgeConfigVersion, ccdObserver)
 	if err != nil {
 		log.Fatalf("cannot create concordium signer: %v", err)
@@ -210,6 +229,7 @@ func (a *App) initWorker(config Config, client *horizonclient.Client, ethObserve
 		},
 		StellarObserver:  a.stellarObserver,
 		EthereumSigner:   ethSigner,
+		OkxSigner:        okxSigner,
 		ConcordiumSigner: ccdSigner,
 		StellarWithdrawalValidator: backend.StellarWithdrawalValidator{
 			Session:          a.session.Clone(),
@@ -239,10 +259,16 @@ func (a *App) initWorker(config Config, client *horizonclient.Client, ethObserve
 			Session:          a.session.Clone(),
 			WithdrawalWindow: config.WithdrawalWindow,
 		},
+		OkxWithdrawalValidator: backend.OkxWithdrawalValidator{
+			Observer:          okxObserver,
+			OkxFinalityBuffer: config.OkxFinalityBuffer,
+			WithdrawalWindow:  config.WithdrawalWindow,
+			Converter:         converter,
+		},
 	}
 }
 
-func (a *App) initHTTP(config Config, client *horizonclient.Client, ethObserver ethereum.Observer, ccdObserver concordium.Observer) {
+func (a *App) initHTTP(config Config, client *horizonclient.Client, ethObserver ethereum.Observer, ccdObserver concordium.Observer, okxObserver ethereum.Observer) {
 	converter, err := backend.NewAssetConverter(config.AssetMapping)
 	if err != nil {
 		log.Fatal("unable to create asset converter", err)
@@ -324,6 +350,26 @@ func (a *App) initHTTP(config Config, client *horizonclient.Client, ethObserver 
 				Observer:         ccdObserver,
 				WithdrawalWindow: config.WithdrawalWindow,
 				Converter:        converter,
+			},
+		},
+		OkxStellarWithdrawalHandler: &controllers.OkxStellarWithdrawalHandler{
+			StellarClient: client,
+			Observer:      okxObserver,
+			Store:         a.NewStore(),
+			StellarWithdrawalValidator: backend.StellarWithdrawalValidator{
+				Session:          a.session.Clone(),
+				WithdrawalWindow: config.WithdrawalWindow,
+				Converter:        converter,
+			},
+			OkxFinalityBuffer: config.OkxFinalityBuffer,
+		},
+		StellarOkxWithdrawalHandler: &controllers.StellarOkxWithdrawalHandler{
+			Store: a.NewStore(),
+			OkxWithdrawalValidator: backend.EthereumWithdrawalValidator{
+				Observer:               okxObserver,
+				EthereumFinalityBuffer: config.OkxFinalityBuffer,
+				WithdrawalWindow:       config.WithdrawalWindow,
+				Converter:              converter,
 			},
 		},
 	})

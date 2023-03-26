@@ -38,7 +38,9 @@ type AssetMappingConfigEntry struct {
 	StellarAsset        string `toml:"stellar_asset" valid:"-"`
 	EthereumToken       string `toml:"ethereum_token" valid:"-"`
 	ConcordiumToken     string `toml:"concordium_token" valid:"-"`
+	OkxToken            string `toml:"okx_token" valid:"-"`
 	StellarToEthereum   string `toml:"stellar_to_ethereum" valid:"-"`
+	StellarToOkx        string `toml:"stellar_to_okx" valid:"-"`
 	StellarToConcordium string `toml:"stellar_to_concordium" valid:"-"`
 }
 
@@ -48,6 +50,11 @@ type stellarRate struct {
 }
 
 type ethereumRate struct {
+	token common.Address
+	rate  *big.Rat
+}
+
+type okxRate struct {
 	token common.Address
 	rate  *big.Rat
 }
@@ -62,6 +69,8 @@ type concordiumRate struct {
 type AssetConverter struct {
 	ethereumToStellar   map[common.Address]stellarRate
 	stellarToEthereum   map[string]ethereumRate
+	okxToStellar        map[common.Address]stellarRate
+	stellarToOkx        map[string]okxRate
 	concordiumToStellar map[string]stellarRate
 	stellarToConcordium map[string]concordiumRate
 }
@@ -101,6 +110,8 @@ func NewAssetConverter(configEntries []AssetMappingConfigEntry) (AssetConverter,
 	converter := AssetConverter{
 		ethereumToStellar:   map[common.Address]stellarRate{},
 		stellarToEthereum:   map[string]ethereumRate{},
+		okxToStellar:        map[common.Address]stellarRate{},
+		stellarToOkx:        map[string]okxRate{},
 		concordiumToStellar: map[string]stellarRate{},
 		stellarToConcordium: map[string]concordiumRate{},
 	}
@@ -120,11 +131,19 @@ func NewAssetConverter(configEntries []AssetMappingConfigEntry) (AssetConverter,
 		if !ok {
 			return converter, fmt.Errorf("%s is not a valid multiplier", entry.StellarToEthereum)
 		}
+		if !common.IsHexAddress(entry.OkxToken) {
+			return converter, fmt.Errorf("%s is not a valid okx address", entry.OkxToken)
+		}
+		multiplierOkx, ok := new(big.Int).SetString(entry.StellarToOkx, 10)
+		if !ok {
+			return converter, fmt.Errorf("%s is not a valid multiplier", entry.StellarToOkx)
+		}
 		multiplierCcd, ok := new(big.Int).SetString(entry.StellarToConcordium, 10)
 		if !ok {
 			return converter, fmt.Errorf("%s is not a valid multiplier", entry.StellarToConcordium)
 		}
 		token := common.HexToAddress(entry.EthereumToken)
+		okxToken := common.HexToAddress(entry.OkxToken)
 		_, exists := converter.stellarToEthereum[entry.StellarAsset]
 		if exists {
 			return converter, fmt.Errorf("asset %v is repeated in the asset mapping ", entry.StellarAsset)
@@ -132,6 +151,14 @@ func NewAssetConverter(configEntries []AssetMappingConfigEntry) (AssetConverter,
 		_, exists = converter.ethereumToStellar[token]
 		if exists {
 			return converter, fmt.Errorf("token %v is repeated in the asset mapping ", entry.EthereumToken)
+		}
+		_, exists = converter.stellarToOkx[entry.StellarAsset]
+		if exists {
+			return converter, fmt.Errorf("asset %v is repeated in the asset mapping ", entry.StellarAsset)
+		}
+		_, exists = converter.okxToStellar[okxToken]
+		if exists {
+			return converter, fmt.Errorf("token %v is repeated in the asset mapping ", entry.OkxToken)
 		}
 		_, exists = converter.stellarToConcordium[entry.StellarAsset]
 		if exists {
@@ -149,6 +176,14 @@ func NewAssetConverter(configEntries []AssetMappingConfigEntry) (AssetConverter,
 			asset: entry.StellarAsset,
 			rate:  new(big.Rat).SetFrac(big.NewInt(1), multiplierEth),
 		}
+		converter.stellarToOkx[entry.StellarAsset] = okxRate{
+			token: okxToken,
+			rate:  new(big.Rat).SetFrac(multiplierOkx, big.NewInt(1)),
+		}
+		converter.okxToStellar[okxToken] = stellarRate{
+			asset: entry.StellarAsset,
+			rate:  new(big.Rat).SetFrac(big.NewInt(1), multiplierOkx),
+		}
 		converter.stellarToConcordium[entry.StellarAsset] = concordiumRate{
 			token: entry.ConcordiumToken,
 			rate:  new(big.Rat).SetFrac(multiplierCcd, big.NewInt(1)),
@@ -163,7 +198,7 @@ func NewAssetConverter(configEntries []AssetMappingConfigEntry) (AssetConverter,
 }
 
 // ToStellar returns the Stellar asset and amount for the given Ethereum token
-func (c AssetConverter) ToStellar(token string, tokenAmount string, fromEth bool, fromCcd bool) (string, int64, error) {
+func (c AssetConverter) ToStellar(token string, tokenAmount string, fromEth bool, fromCcd bool, fromOkx bool) (string, int64, error) {
 	//if !common.IsHexAddress(token) {
 	//	return "", 0, WithdrawalAssetInvalid
 	//}
@@ -175,15 +210,18 @@ func (c AssetConverter) ToStellar(token string, tokenAmount string, fromEth bool
 	}
 
 	entryEth, okEth := c.ethereumToStellar[common.HexToAddress(token)]
+	entryOkx, okOkx := c.okxToStellar[common.HexToAddress(token)]
 	entryCcd, okCcd := c.concordiumToStellar[token]
 	entry := stellarRate{}
-	if !okEth && !okCcd {
+	if !okEth && !okCcd && !okOkx {
 		return "", 0, WithdrawalAssetInvalid
 	}
 	if fromEth {
 		entry = entryEth
 	} else if fromCcd {
 		entry = entryCcd
+	} else if fromOkx {
+		entry = entryOkx
 	} else {
 		return "", 0, WithdrawalAssetInvalid
 	}
@@ -202,6 +240,30 @@ func (c AssetConverter) ToStellar(token string, tokenAmount string, fromEth bool
 // ToEthereum returns the Ethereum token and amount for the given Stellar asset
 func (c AssetConverter) ToEthereum(asset string, assetAmount string) (common.Address, *big.Int, error) {
 	entry, ok := c.stellarToEthereum[asset]
+	if !ok {
+		return common.Address{}, nil, WithdrawalAssetInvalid
+	}
+
+	parsedAmount, err := amount.ParseInt64(assetAmount)
+	if err != nil {
+		return common.Address{}, nil, WithdrawalAssetInvalid
+	}
+
+	product := new(big.Rat).Mul(new(big.Rat).SetFrac(big.NewInt(parsedAmount), big.NewInt(1)), entry.rate)
+	if product.IsInt() {
+		val := product.Num()
+		if val.Cmp(big.NewInt(0)) <= 0 || val.Cmp(math.MaxBig256) > 0 {
+			return entry.token, nil, WithdrawalAmountInvalid
+		}
+		return entry.token, val, nil
+	}
+
+	return entry.token, nil, WithdrawalAmountInvalid
+}
+
+// ToOkx returns the Okx token and amount for the given Stellar asset
+func (c AssetConverter) ToOkx(asset string, assetAmount string) (common.Address, *big.Int, error) {
+	entry, ok := c.stellarToOkx[asset]
 	if !ok {
 		return common.Address{}, nil, WithdrawalAssetInvalid
 	}
