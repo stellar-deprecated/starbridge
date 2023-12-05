@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
 @import 'config/theme/css-variables.css';
+@import '@stellar/design-system/build/styles.min.css';
 
 body {
   margin: 0;
@@ -8,12 +9,18 @@ body {
   -moz-osx-font-smoothing: grayscale;
   font-size: 16px;
   background: #eeedef;
+  line-height: auto;
+}
+
+p:not(:last-child) {
+  margin-bottom: 0;
 }
 
 input,
 textarea,
 button {
   font-family: inherit;
+  line-height: 20px;
 }
 
 code {
@@ -43,4 +50,14 @@ input[type='number'] {
 
 input:focus::placeholder {
   color: transparent;
+}
+
+.ButtonIcon--left {
+  margin-right: 0;
+}
+
+.ButtonIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
