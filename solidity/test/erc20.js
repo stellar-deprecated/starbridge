@@ -4,11 +4,11 @@ const { PAUSE_DEPOSITS, PAUSE_NOTHING, PAUSE_WITHDRAWALS_AND_DEPOSITS, setPaused
 const { updateSigners } = require("./updateSigners");
 const { validTimestamp, expiredTimestamp } = require("./util");
 
-async function withdrawERC20(bridge, token, signers, id, configVersion, expiration, recipient, amount) {
+async function withdrawERC20(bridge, token, signers, id, domainSeparator, expiration, recipient, amount) {
     const request = [id, expiration, recipient, token.address, amount];
     const hash = ethers.utils.arrayify(ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(
-        ["uint256", "bytes32", "tuple(bytes32, uint256, address, address, uint256)"], 
-        [configVersion, ethers.utils.id("withdrawERC20"), request]
+        ["bytes32", "bytes32", "tuple(bytes32, uint256, address, address, uint256)"], 
+        [domainSeparator, ethers.utils.id("withdrawERC20"), request]
     )));
     const signatures = await Promise.all(signers.map(s => s.signMessage(hash)));
     return bridge.withdrawERC20(request, signatures, [...Array(20).keys()]);
@@ -18,19 +18,23 @@ describe("Deposit & Withdraw ERC20", function() {
     let signers;
     let bridge;
     let token;
+    let domainSeparator;
+    let ERC20;
+    let sender;
 
     this.beforeAll(async function() {
         signers = (await ethers.getSigners()).slice(0, 20);
-        const recipient = signers[0];
+        sender = signers[0];
         signers.sort((a, b) => a.address.toLowerCase().localeCompare(b.address.toLowerCase()));
         const addresses = signers.map(a => a.address);
 
         const Bridge = await ethers.getContractFactory("Bridge");
         bridge = await Bridge.deploy(addresses, 20);
+        domainSeparator = await bridge.domainSeparator();
 
-        const ERC20 = await ethers.getContractFactory("StellarAsset");
+        ERC20 = await ethers.getContractFactory("StellarAsset");
         token = await ERC20.deploy("Test Token", "TEST", 18);
-        await token.mint(recipient.address, ethers.utils.parseEther("100.0"));
+        await token.mint(sender.address, ethers.utils.parseEther("100.0"));
         await token.approve(bridge.address, ethers.utils.parseEther("300.0"));
     });
 
@@ -39,13 +43,24 @@ describe("Deposit & Withdraw ERC20", function() {
     });
 
     it("deposits are rejected when bridge is paused", async function() {
-        await setPaused(bridge, signers, 0, PAUSE_DEPOSITS, nextPauseNonce(), validTimestamp());
+        await setPaused(bridge, signers, domainSeparator, PAUSE_DEPOSITS, nextPauseNonce(), validTimestamp());
         
         await expect(bridge.depositERC20(
             token.address, 1, ethers.utils.parseEther("1.0")
         )).to.be.revertedWith("deposits are paused");
 
-        await setPaused(bridge, signers, 0, PAUSE_NOTHING, nextPauseNonce(), validTimestamp());
+        await setPaused(bridge, signers, domainSeparator, PAUSE_NOTHING, nextPauseNonce(), validTimestamp());
+    });
+
+    it("block deposits for tokens which transfer less than expected amount", async function() {
+        const FeeToken = await ethers.getContractFactory("FeeToken");
+        const feeToken = await FeeToken.deploy("Fee Token", "FEE", 18);
+        await feeToken.mint(sender.address, ethers.utils.parseEther("100.0"));
+        await feeToken.approve(bridge.address, ethers.utils.parseEther("300.0"));
+
+        await expect(bridge.depositERC20(
+            feeToken.address, 1, ethers.utils.parseEther("1.0")
+        )).to.be.revertedWith("received amount not equal to expected amount");
     });
 
     it("cannot deposit more tokens than current balance", async function() {
@@ -64,7 +79,7 @@ describe("Deposit & Withdraw ERC20", function() {
     });
 
     it("deposits succeed when withdrawals are paused", async function() {
-        await setPaused(bridge, signers, 0, PAUSE_WITHDRAWALS, nextPauseNonce(), validTimestamp());
+        await setPaused(bridge, signers, domainSeparator, PAUSE_WITHDRAWALS, nextPauseNonce(), validTimestamp());
 
         const before = await token.balanceOf(bridge.address);
         await bridge.depositERC20(
@@ -73,11 +88,11 @@ describe("Deposit & Withdraw ERC20", function() {
         const after = await token.balanceOf(bridge.address);
         expect(after.sub(before)).to.equal(ethers.utils.parseEther("1.0"));
 
-        await setPaused(bridge, signers, 0, PAUSE_NOTHING, nextPauseNonce(), validTimestamp());
+        await setPaused(bridge, signers, domainSeparator, PAUSE_NOTHING, nextPauseNonce(), validTimestamp());
     });
 
     it("withdrawals are rejected when bridge is paused", async function() {
-        await setPaused(bridge, signers, 0, PAUSE_WITHDRAWALS, nextPauseNonce(), validTimestamp());
+        await setPaused(bridge, signers, domainSeparator, PAUSE_WITHDRAWALS, nextPauseNonce(), validTimestamp());
 
         const recipient = signers[1].address;
         await expect(withdrawERC20(
@@ -85,17 +100,17 @@ describe("Deposit & Withdraw ERC20", function() {
             token,
             signers,
             ethers.utils.formatBytes32String("0"), 
-            0, 
+            domainSeparator, 
             validTimestamp(), 
             recipient, 
             ethers.utils.parseEther("1.0")
         )).to.be.revertedWith("withdrawals are paused");
 
-        await setPaused(bridge, signers, 0, PAUSE_NOTHING, nextPauseNonce(), validTimestamp());
+        await setPaused(bridge, signers, domainSeparator, PAUSE_NOTHING, nextPauseNonce(), validTimestamp());
     });
 
     it("withdrawals and deposits are rejected when bridge is paused", async function() {
-        await setPaused(bridge, signers, 0, PAUSE_WITHDRAWALS_AND_DEPOSITS, nextPauseNonce(), validTimestamp());
+        await setPaused(bridge, signers, domainSeparator, PAUSE_WITHDRAWALS_AND_DEPOSITS, nextPauseNonce(), validTimestamp());
 
         await expect(
             bridge.depositERC20(token.address, 1, ethers.utils.parseEther("1.0"))
@@ -107,13 +122,13 @@ describe("Deposit & Withdraw ERC20", function() {
             token,
             signers,
             ethers.utils.formatBytes32String("0"), 
-            0, 
+            domainSeparator, 
             validTimestamp(), 
             recipient, 
             ethers.utils.parseEther("1.0")
         )).to.be.revertedWith("withdrawals are paused");
 
-        await setPaused(bridge, signers, 0, PAUSE_NOTHING, nextPauseNonce(), validTimestamp());
+        await setPaused(bridge, signers, domainSeparator, PAUSE_NOTHING, nextPauseNonce(), validTimestamp());
     });
 
     it("expired withdrawals are rejected", async function() {
@@ -123,7 +138,7 @@ describe("Deposit & Withdraw ERC20", function() {
             token,
             signers,
             ethers.utils.formatBytes32String("0"), 
-            0, 
+            domainSeparator, 
             expiredTimestamp(), 
             recipient, 
             ethers.utils.parseEther("1.0")
@@ -140,8 +155,8 @@ describe("Deposit & Withdraw ERC20", function() {
             ethers.utils.parseEther("1.0")
         ];
         const hash = ethers.utils.arrayify(ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(
-            ["uint256", "bytes32", "tuple(bytes32, uint256, address, address, uint256)"], 
-            [0, ethers.utils.id("withdrawERC201"), request]
+            ["bytes32", "bytes32", "tuple(bytes32, uint256, address, address, uint256)"], 
+            [domainSeparator, ethers.utils.id("withdrawERC201"), request]
         )));
         const signatures = await Promise.all(signers.map(s => s.signMessage(hash)));
         await expect(
@@ -149,7 +164,7 @@ describe("Deposit & Withdraw ERC20", function() {
         ).to.be.revertedWith("signature does not match");
     });
 
-    it("withdrawals with invalid config version are rejected", async function() {
+    it("withdrawals with invalid domain separator are rejected", async function() {
         const recipient = signers[1].address;
         const request = [
             ethers.utils.formatBytes32String("0"), 
@@ -158,9 +173,13 @@ describe("Deposit & Withdraw ERC20", function() {
             token.address,
             ethers.utils.parseEther("1.0")
         ];
+        const invalidDomainSeparator = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(
+            ["uint256", "uint256", "address"],
+            [(await bridge.version()) + 1, 31337, bridge.address] 
+        ));
         const hash = ethers.utils.arrayify(ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(
-            ["uint256", "bytes32", "tuple(bytes32, uint256, address, address, uint256)"], 
-            [1, ethers.utils.id("withdrawERC20"), request]
+            ["bytes32", "bytes32", "tuple(bytes32, uint256, address, address, uint256)"], 
+            [invalidDomainSeparator, ethers.utils.id("withdrawERC20"), request]
         )));
         const signatures = await Promise.all(signers.map(s => s.signMessage(hash)));
         await expect(
@@ -178,8 +197,8 @@ describe("Deposit & Withdraw ERC20", function() {
             ethers.utils.parseEther("1.0")
         ];
         const hash = ethers.utils.arrayify(ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(
-            ["uint256", "bytes32", "tuple(bytes32, uint256, address, address, uint256)"], 
-            [0, ethers.utils.id("withdrawERC20"), request]
+            ["bytes32", "bytes32", "tuple(bytes32, uint256, address, address, uint256)"], 
+            [domainSeparator, ethers.utils.id("withdrawERC20"), request]
         )));
         const signatures = await Promise.all(signers.slice(0,20).map(s => s.signMessage(hash)));
         signatures[0] = signatures[1];
@@ -198,8 +217,8 @@ describe("Deposit & Withdraw ERC20", function() {
             ethers.utils.parseEther("1.0")
         ];
         const hash = ethers.utils.arrayify(ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(
-            ["uint256", "bytes32", "tuple(bytes32, uint256, address, address, uint256)"], 
-            [0, ethers.utils.id("withdrawERC20"), request]
+            ["bytes32", "bytes32", "tuple(bytes32, uint256, address, address, uint256)"], 
+            [domainSeparator, ethers.utils.id("withdrawERC20"), request]
         )));
         const signatures = await Promise.all(signers.slice(0,20).map(s => s.signMessage(hash)));
         const tmp = signatures[1];
@@ -223,8 +242,8 @@ describe("Deposit & Withdraw ERC20", function() {
             ethers.utils.parseEther("1.0")
         ];
         const hash = ethers.utils.arrayify(ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(
-            ["uint256", "bytes32", "tuple(bytes32, uint256, address, address, uint256)"], 
-            [0, ethers.utils.id("withdrawERC20"), request]
+            ["bytes32", "bytes32", "tuple(bytes32, uint256, address, address, uint256)"], 
+            [domainSeparator, ethers.utils.id("withdrawERC20"), request]
         )));
         const signatures = await Promise.all(signers.slice(0,20).map(s => s.signMessage(hash)));
         await expect(
@@ -239,7 +258,7 @@ describe("Deposit & Withdraw ERC20", function() {
                 token,
                 signers,    
                 ethers.utils.formatBytes32String("0"),
-                0,
+                domainSeparator,
                 validTimestamp(),
                 signers[2].address,
                 ethers.utils.parseEther("200")
@@ -262,7 +281,7 @@ describe("Deposit & Withdraw ERC20", function() {
             token,
             signers,
             ethers.utils.formatBytes32String("0"),
-            0,
+            domainSeparator,
             validTimestamp(),
             recipient,
             ethers.utils.parseEther("1.0")
@@ -277,7 +296,7 @@ describe("Deposit & Withdraw ERC20", function() {
                 token,
                 signers,    
                 ethers.utils.formatBytes32String("0"),
-                0,
+                domainSeparator,
                 validTimestamp(),
                 signers[2].address,
                 ethers.utils.parseEther("2.0")
@@ -286,14 +305,14 @@ describe("Deposit & Withdraw ERC20", function() {
     });
 
     it("updateSigners invalidates withdrawal transactions", async function() {
-        await updateSigners(bridge, signers, 0, signers.map(s => s.address), signers.length);
+        await updateSigners(bridge, signers, domainSeparator, signers.map(s => s.address), signers.length);
         await expect(
             withdrawERC20(
                 bridge,
                 token,
                 signers,    
                 ethers.utils.formatBytes32String("1"),
-                0,
+                domainSeparator,
                 validTimestamp(),
                 signers[2].address,
                 ethers.utils.parseEther("1.0")

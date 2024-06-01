@@ -3,8 +3,10 @@
 pragma solidity ^0.8.0;
 import "./Auth.sol";
 import "./StellarAsset.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 // Every bridge transfer has a globally unique id.
 //
@@ -46,7 +48,7 @@ struct SetPausedRequest {
 }
 
 // RegisterStellarAssetRequest is the payload for the registerStellarAsset() transaction.
-// The three fields define a new ERC20 token which represents the ethereum version of
+// The three fields define a new ERC20 token which represents the ethereum equivalent of
 // a Stellar asset.
 struct RegisterStellarAssetRequest {
     uint8 decimals;
@@ -70,7 +72,7 @@ bytes32 constant WITHDRAW_ETH_ID = keccak256("withdrawETH");
 // WITHDRAW_ERC20_ID is used to distinguish withdrawERC20() signatures from signatures for other bridge functions.
 bytes32 constant WITHDRAW_ERC20_ID = keccak256("withdrawERC20");
 
-contract Bridge is Auth {
+contract Bridge is Auth, ReentrancyGuard {
     // paused is a bitmask which determines whether deposits / withdrawals are enabled on the bridge
     uint8 public paused;
     // SetPaused is emitted whenever the paused state of the bridge changes
@@ -114,20 +116,25 @@ contract Bridge is Auth {
         address token,
         uint256 destination,
         uint256 amount
-    ) external {
+    ) external nonReentrant {
         require((paused & PAUSE_DEPOSITS) == 0, "deposits are paused");
         require(amount > 0, "deposit amount is zero");
+
         emit Deposit(token, msg.sender, destination, amount);
 
         if (isStellarAsset[token]) {
             StellarAsset(token).burn(msg.sender, amount);
         } else {
+            IERC20 tokenContract = IERC20(token);
+            uint256 before = tokenContract.balanceOf(address(this));
             SafeERC20.safeTransferFrom(
-                IERC20(token),
+                tokenContract,
                 msg.sender,
                 address(this),
                 amount
             );
+            uint256 received = SafeMath.sub(tokenContract.balanceOf(address(this)), before);
+            require(amount == received, "received amount not equal to expected amount");
         }
     }
 
@@ -152,7 +159,7 @@ contract Bridge is Auth {
     ) external {
         require((paused & PAUSE_WITHDRAWALS) == 0, "withdrawals are paused");
         verifyRequest(
-            keccak256(abi.encode(version, WITHDRAW_ERC20_ID, request)),
+            keccak256(abi.encode(domainSeparator, WITHDRAW_ERC20_ID, request)),
             request.id,
             request.expiration,
             signatures,
@@ -189,7 +196,7 @@ contract Bridge is Auth {
     ) external {
         require((paused & PAUSE_WITHDRAWALS) == 0, "withdrawals are paused");
         verifyRequest(
-            keccak256(abi.encode(version, WITHDRAW_ETH_ID, request)),
+            keccak256(abi.encode(domainSeparator, WITHDRAW_ETH_ID, request)),
             request.id, 
             request.expiration, 
             signatures,
@@ -210,7 +217,7 @@ contract Bridge is Auth {
         uint8[] calldata indexes
     ) external {
         require(request.value <= PAUSE_DEPOSITS_AND_WITHDRAWALS, "invalid paused value");
-        bytes32 requestHash = keccak256(abi.encode(version, SET_PAUSED_ID, request));
+        bytes32 requestHash = keccak256(abi.encode(domainSeparator, SET_PAUSED_ID, request));
         // ensure the same setPaused() transaction cannot be used more than once
         verifyRequest(requestHash, requestHash, request.expiration, signatures, indexes);
         emit SetPaused(request.value);
@@ -227,7 +234,7 @@ contract Bridge is Auth {
         uint8[] calldata indexes
     ) external {
         bytes32 requestHash = keccak256(abi.encode(
-            version,
+            domainSeparator,
             REGISTER_STELLAR_ASSET_ID,
             request.decimals,
             keccak256(bytes(request.name)),

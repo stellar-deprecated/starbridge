@@ -14,24 +14,29 @@ contract Auth {
     // minThreshold - the minimum amount of signers who need to approve a bridge transaction
     // for it to be valid.
     // version - a sequence number associated with the validator set. Whenver the validator
-    // set configuration is updated the version will increment. The current version is part of the
-    // payload for each bridge transaction. So, whenever the version is bumped that will invalidate
-    // any previously signed bridge transactions.
+    // set configuration is updated the version will increment. 
     address[] public signers;
     uint8 public minThreshold;
     uint256 public version;
+    // domainSeparator is a value which is unique to the current bridge contract, chain id, and version.
+    // It is part of the payload for each bridge transaction. The purpose of the domain separator
+    // is to prevent replay attacks in case there are multiple bridge contracts deployed on the same
+    // chain or different chains using the same validator set.
+    // Also, since the version is included in the domain separator, whenever the validator set
+    // is updated that will invalidate any previously signed bridge transactions.
+    bytes32 public domainSeparator;
     // RegisterSigners is emitted whenever the validator set configuration is modified.
-    event RegisterSigners(uint256 version, address[] signers, uint8 minThreshold);
+    event RegisterSigners(uint256 version, bytes32 domainSeparator, address[] signers, uint8 minThreshold);
     // fulfilledrequests is a set of all bridge requests which have been completed. This
     // set is used to prevent an attacker from replaying bridge transactions.
     mapping(bytes32 => bool) private fulfilledrequests;
 
 
     constructor(address[] memory _signers, uint8 _minThreshold) {
-        _updateSigners(0, _signers, _minThreshold);
+        _updateSigners(0, _updateDomainSeparator(0), _signers, _minThreshold);
     }
 
-    function _updateSigners(uint256 newVersion, address[] memory _signers, uint8 _minThreshold) internal {
+    function _updateSigners(uint256 newVersion, bytes32 newDomainSeparator, address[] memory _signers, uint8 _minThreshold) internal {
         require(_signers.length > 0, "too few signers");
         require(_signers.length < 256, "too many signers");
         require(_minThreshold > _signers.length / 2, "min threshold is too low");
@@ -44,7 +49,13 @@ contract Auth {
         
         signers = _signers;
         minThreshold = _minThreshold;
-        emit RegisterSigners(newVersion, _signers, _minThreshold);
+        emit RegisterSigners(newVersion, newDomainSeparator, _signers, _minThreshold);
+    }
+
+    function _updateDomainSeparator(uint256 _version) internal returns (bytes32) {
+        bytes32 h = keccak256(abi.encode(_version, block.chainid, this));
+        domainSeparator = h;
+        return h;
     }
 
     // updateSigners() is called to update the validator set configuration for the bridge.
@@ -59,10 +70,10 @@ contract Auth {
         bytes[] calldata signatures, 
         uint8[] calldata indexes
     ) external {
-        uint256 newVersion = ++version;
-        bytes32 h = keccak256(abi.encode(newVersion-1, UPDATE_SIGNERS_ID, _signers, _minThreshold));
+        bytes32 h = keccak256(abi.encode(domainSeparator, UPDATE_SIGNERS_ID, _signers, _minThreshold));
         verifySignatures(h, signatures, indexes);
-        _updateSigners(newVersion, _signers, _minThreshold);
+        uint256 newVersion = ++version;
+        _updateSigners(newVersion, _updateDomainSeparator(newVersion), _signers, _minThreshold);
     }
 
     // verifySignatures() ensure that provided list of signatures map to the validator set

@@ -12,12 +12,12 @@ describe("registerStellarAsset", function() {
     let wrappedXLM;
     let recipient;
 
-    async function registerStellarAsset(configVersion, name, symbol, decimals) {
+    async function registerStellarAsset(domainSeparator, name, symbol, decimals) {
         const request = [decimals, name, symbol];
         const hash = ethers.utils.arrayify(ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(
-            ["uint256", "bytes32", "uint8", "bytes32", "bytes32"], 
+            ["bytes32", "bytes32", "uint8", "bytes32", "bytes32"], 
             [
-                configVersion, 
+                domainSeparator, 
                 ethers.utils.id("registerStellarAsset"), 
                 decimals, 
                 ethers.utils.id(name),
@@ -44,7 +44,7 @@ describe("registerStellarAsset", function() {
         const Bridge = await ethers.getContractFactory("Bridge");
         bridge = await Bridge.deploy(addresses, 20);
 
-        wrappedXLM = await getToken(await registerStellarAsset(0, "Stellar Lumens", "XLM", 7));
+        wrappedXLM = await getToken(await registerStellarAsset(await bridge.domainSeparator(), "Stellar Lumens", "XLM", 7));
         expect(await wrappedXLM.decimals()).to.be.eql(7);
         expect(await wrappedXLM.name()).to.be.eql("Stellar Lumens");
         expect(await wrappedXLM.symbol()).to.be.eql("XLM");
@@ -52,19 +52,19 @@ describe("registerStellarAsset", function() {
     });
 
     it("rejects duplicate transactions", async function() {
-        let version = await bridge.version();
-        await expect(registerStellarAsset(version, "Stellar Lumens", "XLM", 7)).to.be.reverted;
-        await updateSigners(bridge, signers, version, signers.map(s => s.address), signers.length);
-        version = await bridge.version();
-        await expect(registerStellarAsset(1, "Stellar Lumens", "XLM", 7)).to.be.reverted;
+        let domainSeparator = await bridge.domainSeparator();
+        await expect(registerStellarAsset(domainSeparator, "Stellar Lumens", "XLM", 7)).to.be.reverted;
+        await updateSigners(bridge, signers, domainSeparator, signers.map(s => s.address), signers.length);
+        domainSeparator = await bridge.domainSeparator();
+        await expect(registerStellarAsset(domainSeparator, "Stellar Lumens", "XLM", 7)).to.be.reverted;
     });
 
     it("updateSigners invalidates transactions", async function() {
-        let version = await bridge.version();
-        await updateSigners(bridge, signers, version, signers.map(s => s.address), signers.length);
-        await expect(registerStellarAsset(version, "wrapped yXLM", "yXLM", 7)).to.be.reverted;
-        version = await bridge.version();
-        await expect(registerStellarAsset(version, "wrapped yXLM", "yXLM", 7)).to.not.be.reverted;
+        let domainSeparator = await bridge.domainSeparator();
+        await updateSigners(bridge, signers, domainSeparator, signers.map(s => s.address), signers.length);
+        await expect(registerStellarAsset(domainSeparator, "wrapped yXLM", "yXLM", 7)).to.be.reverted;
+        domainSeparator = await bridge.domainSeparator();
+        await expect(registerStellarAsset(domainSeparator, "wrapped yXLM", "yXLM", 7)).to.not.be.reverted;
     });
 
     it("StellarAssets.mint() cannot be called", async function() {
@@ -81,7 +81,7 @@ describe("registerStellarAsset", function() {
             wrappedXLM,
             signers,
             ethers.utils.formatBytes32String("0"),
-            await bridge.version(),
+            await bridge.domainSeparator(),
             validTimestamp(),
             recipient.address,
             ethers.utils.parseEther("3.0"),
@@ -121,10 +121,35 @@ describe("registerStellarAsset", function() {
         const symbol = "USDC";
         const request = [decimals, name, symbol];
         const hash = ethers.utils.arrayify(ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(
-            ["uint256", "bytes32", "uint8", "bytes32", "bytes32"], 
+            ["bytes32", "bytes32", "uint8", "bytes32", "bytes32"], 
             [
-                await bridge.version(), 
+                await bridge.domainSeparator(), 
                 ethers.utils.id("registerStellarAsset1"), 
+                decimals, 
+                ethers.utils.id(name),
+                ethers.utils.id(symbol),
+            ]
+        )));
+        const signatures = await Promise.all(signers.map(s => s.signMessage(hash)));
+        await expect(
+            bridge.registerStellarAsset(request, signatures, [...Array(20).keys()])
+        ).revertedWith("signature does not match");
+    });
+
+    it("transactions with invalid domain separator are rejected", async function() {
+        const decimals = 7;
+        const name = "Wrapped USDC";
+        const symbol = "USDC";
+        const request = [decimals, name, symbol];
+        const invalidDomainSeparator = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(
+            ["uint256", "uint256", "address"],
+            [(await bridge.version()) + 1, 31337, bridge.address] 
+        ));
+        const hash = ethers.utils.arrayify(ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(
+            ["bytes32", "bytes32", "uint8", "bytes32", "bytes32"], 
+            [
+                invalidDomainSeparator, 
+                ethers.utils.id("registerStellarAsset"), 
                 decimals, 
                 ethers.utils.id(name),
                 ethers.utils.id(symbol),
@@ -142,9 +167,9 @@ describe("registerStellarAsset", function() {
         const symbol = "USDC";
         const request = [decimals, name, symbol];
         const hash = ethers.utils.arrayify(ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(
-            ["uint256", "bytes32", "uint8", "bytes32", "bytes32"], 
+            ["bytes32", "bytes32", "uint8", "bytes32", "bytes32"], 
             [
-                await bridge.version(), 
+                await bridge.domainSeparator(), 
                 ethers.utils.id("registerStellarAsset"), 
                 decimals, 
                 ethers.utils.id(name),
@@ -164,9 +189,9 @@ describe("registerStellarAsset", function() {
         const symbol = "USDC";
         const request = [decimals, name, symbol];
         const hash = ethers.utils.arrayify(ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(
-            ["uint256", "bytes32", "uint8", "bytes32", "bytes32"], 
+            ["bytes32", "bytes32", "uint8", "bytes32", "bytes32"], 
             [
-                await bridge.version(), 
+                await bridge.domainSeparator(), 
                 ethers.utils.id("registerStellarAsset"), 
                 decimals, 
                 ethers.utils.id(name),
@@ -191,9 +216,9 @@ describe("registerStellarAsset", function() {
         const symbol = "USDC";
         const request = [decimals, name, symbol];
         const hash = ethers.utils.arrayify(ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(
-            ["uint256", "bytes32", "uint8", "bytes32", "bytes32"], 
+            ["bytes32", "bytes32", "uint8", "bytes32", "bytes32"], 
             [
-                await bridge.version(), 
+                await bridge.domainSeparator(), 
                 ethers.utils.id("registerStellarAsset"), 
                 decimals, 
                 ethers.utils.id(name),

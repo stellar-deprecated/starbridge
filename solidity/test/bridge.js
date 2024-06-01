@@ -26,10 +26,13 @@ describe("Deploy Bridge", function() {
         await expect(Bridge.deploy(addresses, i)).to.be.revertedWith("min threshold is too low");
       }
 
+      let domainSeparator = '';
       for (let i = 11; i <= 20; i++) {
         const bridge = await Bridge.deploy(addresses, i);
         expect(await bridge.minThreshold()).to.equal(i);
         expect(await bridge.version()).to.equal(0);
+        expect(await bridge.domainSeparator()).to.not.equal(domainSeparator);
+        domainSeparator = await bridge.domainSeparator()
       }
 
       await expect(Bridge.deploy(addresses, 21)).to.be.revertedWith("min threshold is too high");

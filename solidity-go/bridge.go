@@ -61,7 +61,7 @@ type WithdrawETHRequest struct {
 
 // BridgeMetaData contains all meta data concerning the Bridge contract.
 var BridgeMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_signers\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"_minThreshold\",\"type\":\"uint8\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"destination\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Deposit\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"version\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"minThreshold\",\"type\":\"uint8\"}],\"name\":\"RegisterSigners\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"}],\"name\":\"RegisterStellarAsset\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"value\",\"type\":\"uint8\"}],\"name\":\"SetPaused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Withdraw\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"destination\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"depositERC20\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"destination\",\"type\":\"uint256\"}],\"name\":\"depositETH\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"isStellarAsset\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"minThreshold\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"paused\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint8\",\"name\":\"decimals\",\"type\":\"uint8\"},{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"}],\"internalType\":\"structRegisterStellarAssetRequest\",\"name\":\"request\",\"type\":\"tuple\"},{\"internalType\":\"bytes[]\",\"name\":\"signatures\",\"type\":\"bytes[]\"},{\"internalType\":\"uint8[]\",\"name\":\"indexes\",\"type\":\"uint8[]\"}],\"name\":\"registerStellarAsset\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestID\",\"type\":\"bytes32\"}],\"name\":\"requestStatus\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint8\",\"name\":\"value\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"nonce\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"expiration\",\"type\":\"uint256\"}],\"internalType\":\"structSetPausedRequest\",\"name\":\"request\",\"type\":\"tuple\"},{\"internalType\":\"bytes[]\",\"name\":\"signatures\",\"type\":\"bytes[]\"},{\"internalType\":\"uint8[]\",\"name\":\"indexes\",\"type\":\"uint8[]\"}],\"name\":\"setPaused\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"signers\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_signers\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"_minThreshold\",\"type\":\"uint8\"},{\"internalType\":\"bytes[]\",\"name\":\"signatures\",\"type\":\"bytes[]\"},{\"internalType\":\"uint8[]\",\"name\":\"indexes\",\"type\":\"uint8[]\"}],\"name\":\"updateSigners\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"version\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"expiration\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"internalType\":\"structWithdrawERC20Request\",\"name\":\"request\",\"type\":\"tuple\"},{\"internalType\":\"bytes[]\",\"name\":\"signatures\",\"type\":\"bytes[]\"},{\"internalType\":\"uint8[]\",\"name\":\"indexes\",\"type\":\"uint8[]\"}],\"name\":\"withdrawERC20\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"expiration\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"internalType\":\"structWithdrawETHRequest\",\"name\":\"request\",\"type\":\"tuple\"},{\"internalType\":\"bytes[]\",\"name\":\"signatures\",\"type\":\"bytes[]\"},{\"internalType\":\"uint8[]\",\"name\":\"indexes\",\"type\":\"uint8[]\"}],\"name\":\"withdrawETH\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_signers\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"_minThreshold\",\"type\":\"uint8\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"destination\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Deposit\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"version\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"domainSeparator\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address[]\",\"name\":\"signers\",\"type\":\"address[]\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"minThreshold\",\"type\":\"uint8\"}],\"name\":\"RegisterSigners\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"}],\"name\":\"RegisterStellarAsset\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"value\",\"type\":\"uint8\"}],\"name\":\"SetPaused\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Withdraw\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"destination\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"depositERC20\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"destination\",\"type\":\"uint256\"}],\"name\":\"depositETH\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"domainSeparator\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"isStellarAsset\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"minThreshold\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"paused\",\"outputs\":[{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint8\",\"name\":\"decimals\",\"type\":\"uint8\"},{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"}],\"internalType\":\"structRegisterStellarAssetRequest\",\"name\":\"request\",\"type\":\"tuple\"},{\"internalType\":\"bytes[]\",\"name\":\"signatures\",\"type\":\"bytes[]\"},{\"internalType\":\"uint8[]\",\"name\":\"indexes\",\"type\":\"uint8[]\"}],\"name\":\"registerStellarAsset\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestID\",\"type\":\"bytes32\"}],\"name\":\"requestStatus\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"uint8\",\"name\":\"value\",\"type\":\"uint8\"},{\"internalType\":\"uint256\",\"name\":\"nonce\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"expiration\",\"type\":\"uint256\"}],\"internalType\":\"structSetPausedRequest\",\"name\":\"request\",\"type\":\"tuple\"},{\"internalType\":\"bytes[]\",\"name\":\"signatures\",\"type\":\"bytes[]\"},{\"internalType\":\"uint8[]\",\"name\":\"indexes\",\"type\":\"uint8[]\"}],\"name\":\"setPaused\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"signers\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"_signers\",\"type\":\"address[]\"},{\"internalType\":\"uint8\",\"name\":\"_minThreshold\",\"type\":\"uint8\"},{\"internalType\":\"bytes[]\",\"name\":\"signatures\",\"type\":\"bytes[]\"},{\"internalType\":\"uint8[]\",\"name\":\"indexes\",\"type\":\"uint8[]\"}],\"name\":\"updateSigners\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"version\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"expiration\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"internalType\":\"structWithdrawERC20Request\",\"name\":\"request\",\"type\":\"tuple\"},{\"internalType\":\"bytes[]\",\"name\":\"signatures\",\"type\":\"bytes[]\"},{\"internalType\":\"uint8[]\",\"name\":\"indexes\",\"type\":\"uint8[]\"}],\"name\":\"withdrawERC20\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"expiration\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"internalType\":\"structWithdrawETHRequest\",\"name\":\"request\",\"type\":\"tuple\"},{\"internalType\":\"bytes[]\",\"name\":\"signatures\",\"type\":\"bytes[]\"},{\"internalType\":\"uint8[]\",\"name\":\"indexes\",\"type\":\"uint8[]\"}],\"name\":\"withdrawETH\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
 // BridgeABI is the input ABI used to generate the binding from.
@@ -208,6 +208,37 @@ func (_Bridge *BridgeTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Tr
 // Transact invokes the (paid) contract method with params as input values.
 func (_Bridge *BridgeTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
 	return _Bridge.Contract.contract.Transact(opts, method, params...)
+}
+
+// DomainSeparator is a free data retrieval call binding the contract method 0xf698da25.
+//
+// Solidity: function domainSeparator() view returns(bytes32)
+func (_Bridge *BridgeCaller) DomainSeparator(opts *bind.CallOpts) ([32]byte, error) {
+	var out []interface{}
+	err := _Bridge.contract.Call(opts, &out, "domainSeparator")
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// DomainSeparator is a free data retrieval call binding the contract method 0xf698da25.
+//
+// Solidity: function domainSeparator() view returns(bytes32)
+func (_Bridge *BridgeSession) DomainSeparator() ([32]byte, error) {
+	return _Bridge.Contract.DomainSeparator(&_Bridge.CallOpts)
+}
+
+// DomainSeparator is a free data retrieval call binding the contract method 0xf698da25.
+//
+// Solidity: function domainSeparator() view returns(bytes32)
+func (_Bridge *BridgeCallerSession) DomainSeparator() ([32]byte, error) {
+	return _Bridge.Contract.DomainSeparator(&_Bridge.CallOpts)
 }
 
 // IsStellarAsset is a free data retrieval call binding the contract method 0x453c6d97.
@@ -750,15 +781,16 @@ func (it *BridgeRegisterSignersIterator) Close() error {
 
 // BridgeRegisterSigners represents a RegisterSigners event raised by the Bridge contract.
 type BridgeRegisterSigners struct {
-	Version      *big.Int
-	Signers      []common.Address
-	MinThreshold uint8
-	Raw          types.Log // Blockchain specific contextual infos
+	Version         *big.Int
+	DomainSeparator [32]byte
+	Signers         []common.Address
+	MinThreshold    uint8
+	Raw             types.Log // Blockchain specific contextual infos
 }
 
-// FilterRegisterSigners is a free log retrieval operation binding the contract event 0x5d291071bb8cb02c25b56ac7a404864bbf1b404850664208dc12952b59017a8a.
+// FilterRegisterSigners is a free log retrieval operation binding the contract event 0x8efb61e94bf9ccfbdcc92531bc3c176ce376859434de722bec5b6e0813df9f2c.
 //
-// Solidity: event RegisterSigners(uint256 version, address[] signers, uint8 minThreshold)
+// Solidity: event RegisterSigners(uint256 version, bytes32 domainSeparator, address[] signers, uint8 minThreshold)
 func (_Bridge *BridgeFilterer) FilterRegisterSigners(opts *bind.FilterOpts) (*BridgeRegisterSignersIterator, error) {
 
 	logs, sub, err := _Bridge.contract.FilterLogs(opts, "RegisterSigners")
@@ -768,9 +800,9 @@ func (_Bridge *BridgeFilterer) FilterRegisterSigners(opts *bind.FilterOpts) (*Br
 	return &BridgeRegisterSignersIterator{contract: _Bridge.contract, event: "RegisterSigners", logs: logs, sub: sub}, nil
 }
 
-// WatchRegisterSigners is a free log subscription operation binding the contract event 0x5d291071bb8cb02c25b56ac7a404864bbf1b404850664208dc12952b59017a8a.
+// WatchRegisterSigners is a free log subscription operation binding the contract event 0x8efb61e94bf9ccfbdcc92531bc3c176ce376859434de722bec5b6e0813df9f2c.
 //
-// Solidity: event RegisterSigners(uint256 version, address[] signers, uint8 minThreshold)
+// Solidity: event RegisterSigners(uint256 version, bytes32 domainSeparator, address[] signers, uint8 minThreshold)
 func (_Bridge *BridgeFilterer) WatchRegisterSigners(opts *bind.WatchOpts, sink chan<- *BridgeRegisterSigners) (event.Subscription, error) {
 
 	logs, sub, err := _Bridge.contract.WatchLogs(opts, "RegisterSigners")
@@ -805,9 +837,9 @@ func (_Bridge *BridgeFilterer) WatchRegisterSigners(opts *bind.WatchOpts, sink c
 	}), nil
 }
 
-// ParseRegisterSigners is a log parse operation binding the contract event 0x5d291071bb8cb02c25b56ac7a404864bbf1b404850664208dc12952b59017a8a.
+// ParseRegisterSigners is a log parse operation binding the contract event 0x8efb61e94bf9ccfbdcc92531bc3c176ce376859434de722bec5b6e0813df9f2c.
 //
-// Solidity: event RegisterSigners(uint256 version, address[] signers, uint8 minThreshold)
+// Solidity: event RegisterSigners(uint256 version, bytes32 domainSeparator, address[] signers, uint8 minThreshold)
 func (_Bridge *BridgeFilterer) ParseRegisterSigners(log types.Log) (*BridgeRegisterSigners, error) {
 	event := new(BridgeRegisterSigners)
 	if err := _Bridge.contract.UnpackLog(event, "RegisterSigners", log); err != nil {

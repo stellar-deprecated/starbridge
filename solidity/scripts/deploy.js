@@ -1,11 +1,11 @@
 const { ethers } = require("hardhat");
 
-async function registerStellarAsset(bridge, signers, configVersion, name, symbol, decimals) {
+async function registerStellarAsset(bridge, signers, domainSeparator, name, symbol, decimals) {
   const request = [decimals, name, symbol];
   const hash = ethers.utils.arrayify(ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(
-      ["uint256", "bytes32", "uint8", "bytes32", "bytes32"], 
+      ["bytes32", "bytes32", "uint8", "bytes32", "bytes32"], 
       [
-          configVersion, 
+          domainSeparator, 
           ethers.utils.id("registerStellarAsset"), 
           decimals, 
           ethers.utils.id(name),
@@ -34,7 +34,10 @@ async function main() {
     const bridge = await Bridge.deploy(addresses, 2);
     console.log("Bridge address:", bridge.address);
 
-    const wrappedXLM = await getToken(bridge, await registerStellarAsset(bridge, signers, 0, "Stellar Lumens", "XLM", 7));
+    const domainSeparator = await bridge.domainSeparator();
+    console.log("domain separator: ", domainSeparator);
+
+    const wrappedXLM = await getToken(bridge, await registerStellarAsset(bridge, signers, domainSeparator, "Stellar Lumens", "XLM", 7));
     console.log("Wrapped XLM address:", wrappedXLM.address);
   }
   

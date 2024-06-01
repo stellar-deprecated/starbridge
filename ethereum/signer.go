@@ -14,7 +14,6 @@ import (
 )
 
 var (
-	uint256           = mustType("uint256")
 	bytes32           = mustType("bytes32")
 	withdrawERC20Type = mustTupleType([]abi.ArgumentMarshaling{
 		{Name: "id", Type: "bytes32"},
@@ -50,21 +49,21 @@ func mustTupleType(components []abi.ArgumentMarshaling) abi.Type {
 // Signer represents an ethereum validator account which is
 // authorized to approve withdrawals from the bridge smart contract.
 type Signer struct {
-	privateKey *ecdsa.PrivateKey
-	version    *big.Int
-	address    common.Address
+	privateKey      *ecdsa.PrivateKey
+	domainSeparator [32]byte
+	address         common.Address
 }
 
 // NewSigner constructs a new Signer instance
-func NewSigner(privateKey string, bridgeConfigVersion uint32) (Signer, error) {
+func NewSigner(privateKey string, domainSeparator [32]byte) (Signer, error) {
 	parsed, err := crypto.HexToECDSA(privateKey)
 	if err != nil {
 		return Signer{}, err
 	}
 	return Signer{
-		privateKey: parsed,
-		version:    big.NewInt(int64(bridgeConfigVersion)),
-		address:    crypto.PubkeyToAddress(parsed.PublicKey),
+		privateKey:      parsed,
+		domainSeparator: domainSeparator,
+		address:         crypto.PubkeyToAddress(parsed.PublicKey),
 	}, nil
 }
 
@@ -102,13 +101,13 @@ func (s Signer) SignWithdrawal(
 
 func (s Signer) signWithdrawERC20Request(request solidity.WithdrawERC20Request) ([]byte, error) {
 	arguments := abi.Arguments{
-		{Type: uint256},
+		{Type: bytes32},
 		{Type: bytes32},
 		{Type: withdrawERC20Type},
 	}
 
 	abiEncoded, err := arguments.Pack(
-		s.version,
+		s.domainSeparator,
 		crypto.Keccak256Hash([]byte("withdrawERC20")),
 		request,
 	)
@@ -120,13 +119,13 @@ func (s Signer) signWithdrawERC20Request(request solidity.WithdrawERC20Request) 
 
 func (s Signer) signWithdrawETHRequest(request solidity.WithdrawETHRequest) ([]byte, error) {
 	arguments := abi.Arguments{
-		{Type: uint256},
+		{Type: bytes32},
 		{Type: bytes32},
 		{Type: withdrawETHType},
 	}
 
 	abiEncoded, err := arguments.Pack(
-		s.version,
+		s.domainSeparator,
 		crypto.Keccak256Hash([]byte("withdrawETH")),
 		request,
 	)

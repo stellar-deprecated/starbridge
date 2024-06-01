@@ -212,3 +212,9 @@ func (o Observer) GetRequestStatus(ctx context.Context, requestID common.Hash) (
 		BlockNumber: blockNumber.Uint64(),
 	}, nil
 }
+
+// GetDomainSeparator calls the domainSeparator public attribute on the bridge contract
+// and returns its value
+func (o Observer) GetDomainSeparator(ctx context.Context) ([32]byte, error) {
+	return o.caller.DomainSeparator(&bind.CallOpts{Context: ctx})
+}
